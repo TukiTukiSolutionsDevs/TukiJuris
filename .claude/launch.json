@@ -1,0 +1,30 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "web-frontend",
+      "runtimeExecutable": "/bin/sh",
+      "runtimeArgs": ["-c", "cd /Users/soulkin/Documents/Agente-Derecho/apps/web && PATH=/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/bin:/bin:$PATH exec node node_modules/.bin/next dev"],
+      "port": 3000,
+      "autoPort": false
+    },
+    {
+      "name": "api-backend",
+      "runtimeExecutable": "uvicorn",
+      "runtimeArgs": ["app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload", "--app-dir", "apps/api"],
+      "port": 8000
+    },
+    {
+      "name": "database",
+      "runtimeExecutable": "docker",
+      "runtimeArgs": ["compose", "up", "db", "-d"],
+      "port": 5432
+    },
+    {
+      "name": "redis",
+      "runtimeExecutable": "docker",
+      "runtimeArgs": ["compose", "up", "redis", "-d"],
+      "port": 6379
+    }
+  ]
+}

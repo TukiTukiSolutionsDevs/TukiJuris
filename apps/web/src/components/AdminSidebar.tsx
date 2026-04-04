@@ -1,0 +1,267 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import {
+  Scale,
+  LayoutDashboard,
+  Users,
+  Building2,
+  CreditCard,
+  Activity,
+  BarChart3,
+  Bell,
+  ArrowLeft,
+  Menu,
+  X,
+  LogOut,
+  ShieldCheck,
+} from "lucide-react";
+import { getToken, logout } from "@/lib/auth";
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+
+interface NavItem {
+  label: string;
+  href: string;
+  icon: React.ElementType;
+}
+
+interface AdminSidebarProps {
+  currentPath: string;
+}
+
+interface UserInfo {
+  id: string;
+  email: string;
+  name?: string | null;
+  is_admin?: boolean;
+}
+
+// ---------------------------------------------------------------------------
+// Nav structure
+// ---------------------------------------------------------------------------
+
+const NAV_DASHBOARD: NavItem[] = [
+  { label: "Resumen", href: "/admin", icon: LayoutDashboard },
+  { label: "Usuarios", href: "/admin?section=users", icon: Users },
+  { label: "Organizaciones", href: "/admin?section=orgs", icon: Building2 },
+  { label: "Suscripciones", href: "/admin?section=subscriptions", icon: CreditCard },
+];
+
+const NAV_SISTEMA: NavItem[] = [
+  { label: "Estado", href: "/status", icon: Activity },
+  { label: "Analytics", href: "/analytics", icon: BarChart3 },
+  { label: "Notificaciones", href: "/configuracion", icon: Bell },
+];
+
+// ---------------------------------------------------------------------------
+// NavLink helper
+// ---------------------------------------------------------------------------
+
+function NavLink({
+  item,
+  currentPath,
+  onClick,
+}: {
+  item: NavItem;
+  currentPath: string;
+  onClick?: () => void;
+}) {
+  const Icon = item.icon;
+  // For admin section links that include query params, match only the base path
+  const isActive =
+    item.href === "/admin"
+      ? currentPath === "/admin"
+      : currentPath === item.href || currentPath.startsWith(item.href.split("?")[0]);
+
+  return (
+    <a
+      href={item.href}
+      onClick={onClick}
+      className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-violet-500/50 ${
+        isActive
+          ? "bg-white/10 text-white"
+          : "text-gray-400 hover:text-gray-200 hover:bg-white/5"
+      }`}
+    >
+      <Icon className="w-4 h-4 shrink-0" aria-hidden="true" />
+      <span>{item.label}</span>
+    </a>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Section header helper
+// ---------------------------------------------------------------------------
+
+function SectionHeader({ label }: { label: string }) {
+  return (
+    <p className="text-[10px] uppercase tracking-wider text-gray-600 mb-1 mt-3 px-1 first:mt-0">
+      {label}
+    </p>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// AdminSidebar
+// ---------------------------------------------------------------------------
+
+export function AdminSidebar({ currentPath }: AdminSidebarProps) {
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [user, setUser] = useState<UserInfo | null>(null);
+
+  // Fetch user info on mount
+  useEffect(() => {
+    const token = getToken();
+    if (!token) return;
+
+    fetch(`${API_URL}/api/auth/me`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (data) setUser(data);
+      })
+      .catch(() => null);
+  }, []);
+
+  // Close mobile sidebar on route change
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [currentPath]);
+
+  const closeMobile = () => setMobileOpen(false);
+
+  const sidebarContent = (
+    <aside
+      role="navigation"
+      aria-label="Menu de administración"
+      className="w-72 bg-[#0a0a0f] border-r border-violet-900/30 flex flex-col h-full"
+    >
+      {/* Logo + Admin badge */}
+      <div className="p-4 border-b border-violet-900/30">
+        <a href="/admin" className="flex items-center gap-2.5 mb-1">
+          <div className="w-9 h-9 bg-gradient-to-br from-violet-600 to-purple-700 rounded-xl flex items-center justify-center shrink-0">
+            <Scale className="w-5 h-5 text-white" />
+          </div>
+          <div>
+            <h1 className="font-bold text-base text-gray-100">TukiJuris</h1>
+            <p className="text-[10px] text-gray-500">Panel de Administración</p>
+          </div>
+          <span className="ml-auto text-[9px] font-bold tracking-widest uppercase px-1.5 py-0.5 rounded bg-violet-500/20 text-violet-400 border border-violet-500/30">
+            ADMIN
+          </span>
+        </a>
+
+        {/* Dashboard section */}
+        <SectionHeader label="Dashboard" />
+        {NAV_DASHBOARD.map((item) => (
+          <NavLink
+            key={item.href}
+            item={item}
+            currentPath={currentPath}
+            onClick={closeMobile}
+          />
+        ))}
+      </div>
+
+      {/* Scrollable content */}
+      <div className="flex-1 overflow-y-auto p-3 space-y-0.5">
+        {/* Sistema */}
+        <SectionHeader label="Sistema" />
+        {NAV_SISTEMA.map((item) => (
+          <NavLink
+            key={item.href}
+            item={item}
+            currentPath={currentPath}
+            onClick={closeMobile}
+          />
+        ))}
+
+        {/* Separator + Volver al App */}
+        <div className="border-t border-[#1E1E2A] my-2" />
+        <a
+          href="/"
+          onClick={closeMobile}
+          className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-gray-500 hover:text-gray-200 hover:bg-white/5 transition-colors"
+        >
+          <ArrowLeft className="w-4 h-4 shrink-0" aria-hidden="true" />
+          <span>Volver al App</span>
+        </a>
+      </div>
+
+      {/* Footer: user info + logout */}
+      <div className="p-3 border-t border-violet-900/30 space-y-1">
+        {user && (
+          <div className="flex items-center gap-2 px-3 py-2">
+            <div className="w-7 h-7 rounded-full bg-violet-500/20 border border-violet-500/30 flex items-center justify-center shrink-0">
+              <ShieldCheck className="w-3.5 h-3.5 text-violet-400" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-medium text-gray-200 truncate">
+                {user.name || user.email}
+              </p>
+              {user.name && (
+                <p className="text-[10px] text-gray-500 truncate">{user.email}</p>
+              )}
+            </div>
+            <button
+              onClick={logout}
+              title="Cerrar sesión"
+              className="p-1.5 rounded-lg text-gray-600 hover:text-red-400 hover:bg-red-400/10 transition-colors shrink-0"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
+      </div>
+    </aside>
+  );
+
+  return (
+    <>
+      {/* Hamburger button — mobile only */}
+      <button
+        onClick={() => setMobileOpen(true)}
+        aria-label="Abrir menu"
+        className="fixed top-3 left-3 z-50 p-2 rounded-lg bg-[#0a0a0f] border border-violet-900/30 text-gray-400 hover:text-white transition-colors lg:hidden"
+      >
+        <Menu className="w-5 h-5" />
+      </button>
+
+      {/* Mobile overlay */}
+      {mobileOpen && (
+        <div
+          className="fixed inset-0 bg-black/60 z-40 lg:hidden"
+          onClick={closeMobile}
+          aria-hidden="true"
+        />
+      )}
+
+      {/* Mobile sidebar */}
+      <div
+        className={`fixed inset-y-0 left-0 z-50 lg:hidden transition-transform duration-200 ${
+          mobileOpen ? "translate-x-0" : "-translate-x-full"
+        }`}
+      >
+        <div className="relative h-full">
+          {sidebarContent}
+          <button
+            onClick={closeMobile}
+            aria-label="Cerrar menu"
+            className="absolute top-3 right-3 p-1.5 rounded-lg text-gray-400 hover:text-white transition-colors"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+
+      {/* Desktop sidebar — always visible */}
+      <div className="hidden lg:flex h-full">{sidebarContent}</div>
+    </>
+  );
+}

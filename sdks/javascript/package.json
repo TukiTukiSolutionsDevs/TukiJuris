@@ -1,0 +1,43 @@
+{
+  "name": "tukijuris",
+  "version": "0.1.0",
+  "description": "JavaScript/TypeScript SDK for TukiJuris Legal AI API",
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "legal",
+    "ai",
+    "peru",
+    "law",
+    "sdk",
+    "tukijuris"
+  ],
+  "author": "TukiJuris",
+  "license": "MIT",
+  "homepage": "https://tukijuris.net.pe",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/tukijuris/javascript-sdk"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
