@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { getToken, authHeaders as getAuthHeaders } from "@/lib/auth";
@@ -184,7 +184,15 @@ function SkeletonCard() {
 // Main page
 // ---------------------------------------------------------------------------
 
-export default function BuscarPage() {
+export default function BuscarPageWrapper() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" /></div>}>
+      <BuscarPage />
+    </Suspense>
+  );
+}
+
+function BuscarPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
 

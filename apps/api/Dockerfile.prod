@@ -41,13 +41,10 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
     CMD curl -f http://localhost:8000/api/health || exit 1
 
-# Gunicorn with UvicornWorker for production
-# -w 4: 4 worker processes (adjust based on CPU cores: 2*CPU+1 is a common formula)
-# --timeout 120: generous timeout for LLM-heavy endpoints
-CMD ["gunicorn", "app.main:app", \
-     "-w", "4", \
-     "-k", "uvicorn.workers.UvicornWorker", \
-     "--bind", "0.0.0.0:8000", \
-     "--timeout", "120", \
-     "--access-logfile", "-", \
-     "--error-logfile", "-"]
+# Uvicorn production server (2 workers for 2 CPU cores)
+CMD ["uvicorn", "app.main:app", \
+     "--host", "0.0.0.0", \
+     "--port", "8000", \
+     "--workers", "2", \
+     "--timeout-keep-alive", "120", \
+     "--access-log"]

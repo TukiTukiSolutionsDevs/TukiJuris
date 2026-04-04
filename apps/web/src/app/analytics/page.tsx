@@ -183,10 +183,10 @@ function BarChart({
     return (
       <div className="flex items-end gap-1 h-36">
         {Array.from({ length: 20 }).map((_, i) => (
-          <Skeleton
+          <div
             key={i}
-            className="flex-1"
-            style={{ height: `${20 + Math.random() * 60}%` } as React.CSSProperties}
+            className="flex-1 animate-pulse rounded-md bg-muted"
+            style={{ height: `${20 + Math.random() * 60}%` }}
           />
         ))}
       </div>
