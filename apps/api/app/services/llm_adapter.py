@@ -24,14 +24,81 @@ litellm.set_verbose = settings.app_debug
 
 # Available models configuration
 AVAILABLE_MODELS = [
+    # --- Free / Ultra-cheap tier ---
+    {
+        "id": "gemini/gemini-2.0-flash",
+        "provider": "google",
+        "name": "Gemini 2.0 Flash",
+        "description": "Rápido y gratuito. Ideal para consultas rápidas.",
+        "tier": "free",
+        "cost_per_1k_tokens": 0.0,
+    },
+    {
+        "id": "deepseek/deepseek-chat",
+        "provider": "deepseek",
+        "name": "DeepSeek V3",
+        "description": "Ultra económico. Excelente razonamiento legal.",
+        "tier": "free",
+        "cost_per_1k_tokens": 0.00028,
+    },
+    {
+        "id": "groq/llama-3.1-8b-instant",
+        "provider": "groq",
+        "name": "Llama 3.1 8B — Groq",
+        "description": "Ultra rápido. Respuestas instantáneas.",
+        "tier": "free",
+        "cost_per_1k_tokens": 0.00005,
+    },
+    {
+        "id": "groq/llama-3.3-70b-versatile",
+        "provider": "groq",
+        "name": "Llama 3.3 70B — Groq",
+        "description": "Rápido y versátil. Buena calidad general.",
+        "tier": "free",
+        "cost_per_1k_tokens": 0.00059,
+    },
+    # --- Standard tier ---
     {
         "id": "gpt-4o-mini",
         "provider": "openai",
         "name": "GPT-4o Mini",
         "description": "Rápido y económico. Bueno para consultas simples.",
-        "tier": "free",
+        "tier": "standard",
         "cost_per_1k_tokens": 0.00015,
     },
+    {
+        "id": "claude-3-5-haiku-20241022",
+        "provider": "anthropic",
+        "name": "Claude 3.5 Haiku",
+        "description": "Rápido y preciso. Buena relación calidad-precio.",
+        "tier": "standard",
+        "cost_per_1k_tokens": 0.0008,
+    },
+    {
+        "id": "groq/qwen-qwq-32b",
+        "provider": "groq",
+        "name": "Qwen QwQ 32B — Groq",
+        "description": "Modelo chino potente. Buen razonamiento.",
+        "tier": "standard",
+        "cost_per_1k_tokens": 0.00029,
+    },
+    {
+        "id": "deepseek/deepseek-reasoner",
+        "provider": "deepseek",
+        "name": "DeepSeek Reasoner",
+        "description": "Razonamiento profundo. Ideal para análisis complejo.",
+        "tier": "standard",
+        "cost_per_1k_tokens": 0.00028,
+    },
+    {
+        "id": "moonshot/moonshot-v1-8k",
+        "provider": "moonshot",
+        "name": "Moonshot v1 8k (Kimi)",
+        "description": "Kimi AI. Bueno para textos en español y chino.",
+        "tier": "standard",
+        "cost_per_1k_tokens": 0.001,
+    },
+    # --- Pro tier ---
     {
         "id": "gpt-4o",
         "provider": "openai",
@@ -44,33 +111,41 @@ AVAILABLE_MODELS = [
         "id": "claude-sonnet-4-20250514",
         "provider": "anthropic",
         "name": "Claude Sonnet 4",
-        "description": "Excelente para análisis legal detallado y largo.",
+        "description": "Excelente para análisis legal detallado.",
         "tier": "pro",
         "cost_per_1k_tokens": 0.003,
     },
     {
-        "id": "claude-3-5-haiku-20241022",
-        "provider": "anthropic",
-        "name": "Claude 3.5 Haiku",
-        "description": "Rápido y preciso. Buena relación calidad-precio.",
-        "tier": "free",
-        "cost_per_1k_tokens": 0.0008,
-    },
-    {
-        "id": "gemini/gemini-2.0-flash",
+        "id": "gemini/gemini-2.5-pro",
         "provider": "google",
-        "name": "Gemini 2.0 Flash",
-        "description": "Rápido, potente y gratuito. Excelente para consultas legales.",
-        "tier": "free",
-        "cost_per_1k_tokens": 0.0,
-    },
-    {
-        "id": "gemini/gemini-1.5-pro",
-        "provider": "google",
-        "name": "Gemini 1.5 Pro",
+        "name": "Gemini 2.5 Pro",
         "description": "Gran contexto. Ideal para documentos largos.",
         "tier": "pro",
         "cost_per_1k_tokens": 0.00125,
+    },
+    {
+        "id": "groq/moonshotai/kimi-k2-instruct",
+        "provider": "groq",
+        "name": "Kimi K2 — Groq",
+        "description": "Kimi K2 en Groq. Rápido y potente.",
+        "tier": "pro",
+        "cost_per_1k_tokens": 0.001,
+    },
+    {
+        "id": "qwen/qwen-turbo",
+        "provider": "qwen",
+        "name": "Qwen Turbo",
+        "description": "Qwen Turbo. Rápido y económico.",
+        "tier": "pro",
+        "cost_per_1k_tokens": 0.0004,
+    },
+    {
+        "id": "zhipu/glm-4-plus",
+        "provider": "zhipu",
+        "name": "GLM-4 Plus",
+        "description": "GLM-4 Plus. Buen análisis jurídico.",
+        "tier": "pro",
+        "cost_per_1k_tokens": 0.0007,
     },
 ]
 
@@ -104,6 +179,10 @@ class LLMService:
             return settings.anthropic_api_key or None
         elif any(x in model_lower for x in ["gemini", "google", "palm"]):
             return settings.google_api_key or None
+        elif any(x in model_lower for x in ["deepseek"]):
+            return settings.deepseek_api_key or None
+        elif any(x in model_lower for x in ["groq", "llama", "qwen", "dashscope", "moonshot", "kimi", "zhipu", "glm", "minimax"]):
+            return settings.groq_api_key or None
         return None
 
     async def completion(

@@ -68,11 +68,21 @@ const LEGAL_AREAS = [
 ];
 
 const MODELS = [
-  { id: "gemini/gemini-2.5-flash", name: "Gemini 2.5 Flash (rapido)" },
-  { id: "gpt-4o-mini", name: "GPT-4o Mini (rapido)" },
-  { id: "gemini/gemini-3.1-pro-preview", name: "Gemini 3.1 Pro (avanzado)" },
-  { id: "gpt-4o", name: "GPT-4o (avanzado)" },
-  { id: "claude-sonnet-4-20250514", name: "Claude Sonnet 4 (avanzado)" },
+  // --- Gratis / Ultra económicos ---
+  { id: "gemini/gemini-2.0-flash", name: "⚡ Gemini 2.0 Flash (gratis)", group: "Gratis" },
+  { id: "deepseek/deepseek-chat", name: "⚡ DeepSeek V3 (ultra barato)", group: "Gratis" },
+  { id: "groq/llama-3.1-8b-instant", name: "⚡ Llama 3.1 8B — Groq (gratis)", group: "Gratis" },
+  { id: "groq/llama-3.3-70b-versatile", name: "⚡ Llama 3.3 70B — Groq (rápido)", group: "Gratis" },
+  // --- Estándar ---
+  { id: "gpt-4o-mini", name: "GPT-4o Mini (rápido)", group: "Estándar" },
+  { id: "claude-3-5-haiku-20241022", name: "Claude 3.5 Haiku (rápido)", group: "Estándar" },
+  { id: "deepseek/deepseek-reasoner", name: "DeepSeek Reasoner (análisis)", group: "Estándar" },
+  { id: "groq/qwen-qwq-32b", name: "Qwen QwQ 32B — Groq (potente)", group: "Estándar" },
+  // --- Avanzados ---
+  { id: "gpt-4o", name: "GPT-4o (avanzado)", group: "Avanzado" },
+  { id: "claude-sonnet-4-20250514", name: "Claude Sonnet 4 (avanzado)", group: "Avanzado" },
+  { id: "gemini/gemini-2.5-pro", name: "Gemini 2.5 Pro (contexto largo)", group: "Avanzado" },
+  { id: "groq/moonshotai/kimi-k2-instruct", name: "Kimi K2 — Groq (avanzado)", group: "Avanzado" },
 ];
 
 type ActiveTab = "perfil" | "organizacion" | "preferencias" | "apikeys" | "memoria";
@@ -137,6 +147,36 @@ interface LLMProvider {
 
 const LLM_PROVIDERS: LLMProvider[] = [
   {
+    id: "google",
+    name: "Google AI (Gemini)",
+    accent: "text-blue-400",
+    accentBg: "bg-blue-500/10",
+    accentBorder: "border-blue-500/30",
+    docsUrl: "https://aistudio.google.com/apikey",
+    docsLabel: "aistudio.google.com/apikey",
+    models: ["gemini-2.0-flash (gratis)", "gemini-2.5-pro"],
+  },
+  {
+    id: "groq",
+    name: "Groq (Ultra Rápido)",
+    accent: "text-orange-400",
+    accentBg: "bg-orange-500/10",
+    accentBorder: "border-orange-500/30",
+    docsUrl: "https://console.groq.com/keys",
+    docsLabel: "console.groq.com/keys",
+    models: ["Llama 3.1/3.3", "Qwen QwQ", "Kimi K2"],
+  },
+  {
+    id: "deepseek",
+    name: "DeepSeek",
+    accent: "text-cyan-400",
+    accentBg: "bg-cyan-500/10",
+    accentBorder: "border-cyan-500/30",
+    docsUrl: "https://platform.deepseek.com/api_keys",
+    docsLabel: "platform.deepseek.com",
+    models: ["deepseek-chat", "deepseek-reasoner"],
+  },
+  {
     id: "openai",
     name: "OpenAI",
     accent: "text-green-400",
@@ -144,37 +184,47 @@ const LLM_PROVIDERS: LLMProvider[] = [
     accentBorder: "border-green-500/30",
     docsUrl: "https://platform.openai.com/api-keys",
     docsLabel: "platform.openai.com/api-keys",
-    models: ["gpt-4o", "gpt-4o-mini"],
+    models: ["GPT-4o", "GPT-4o-mini"],
   },
   {
     id: "anthropic",
-    name: "Anthropic",
-    accent: "text-orange-400",
-    accentBg: "bg-orange-500/10",
-    accentBorder: "border-orange-500/30",
+    name: "Anthropic (Claude)",
+    accent: "text-amber-400",
+    accentBg: "bg-amber-500/10",
+    accentBorder: "border-amber-500/30",
     docsUrl: "https://console.anthropic.com/settings/keys",
-    docsLabel: "console.anthropic.com/settings",
-    models: ["claude-sonnet-4-20250514", "claude-3-5-haiku-20241022"],
+    docsLabel: "console.anthropic.com",
+    models: ["Claude Sonnet 4", "Claude 3.5 Haiku"],
   },
   {
-    id: "google",
-    name: "Google AI",
-    accent: "text-blue-400",
-    accentBg: "bg-blue-500/10",
-    accentBorder: "border-blue-500/30",
-    docsUrl: "https://aistudio.google.com/apikey",
-    docsLabel: "aistudio.google.com/apikey",
-    models: ["gemini-2.0-flash", "gemini-2.5-pro"],
+    id: "moonshot",
+    name: "Moonshot AI (Kimi)",
+    accent: "text-violet-400",
+    accentBg: "bg-violet-500/10",
+    accentBorder: "border-violet-500/30",
+    docsUrl: "https://platform.moonshot.cn/console/api-keys",
+    docsLabel: "platform.moonshot.cn",
+    models: ["moonshot-v1-8k", "moonshot-v1-32k"],
   },
   {
-    id: "deepseek",
-    name: "DeepSeek",
-    accent: "text-purple-400",
-    accentBg: "bg-purple-500/10",
-    accentBorder: "border-purple-500/30",
-    docsUrl: "https://platform.deepseek.com/api_keys",
-    docsLabel: "platform.deepseek.com/api_keys",
-    models: ["deepseek-chat", "deepseek-reasoner"],
+    id: "qwen",
+    name: "Qwen (Alibaba)",
+    accent: "text-indigo-400",
+    accentBg: "bg-indigo-500/10",
+    accentBorder: "border-indigo-500/30",
+    docsUrl: "https://dashscope.console.aliyun.com/apiKey",
+    docsLabel: "dashscope.aliyun.com",
+    models: ["qwen-turbo", "qwen-plus", "qwen-max"],
+  },
+  {
+    id: "zhipu",
+    name: "Zhipu AI (GLM)",
+    accent: "text-rose-400",
+    accentBg: "bg-rose-500/10",
+    accentBorder: "border-rose-500/30",
+    docsUrl: "https://open.bigmodel.cn/usercenter/apikeys",
+    docsLabel: "open.bigmodel.cn",
+    models: ["GLM-4 Plus", "GLM-4 Flash"],
   },
 ];
 
@@ -865,8 +915,12 @@ export default function ConfiguracionPage() {
                         onChange={(e) => setDefaultModel(e.target.value)}
                         className="w-full bg-[#111116] border border-[#2A2A35] rounded-xl px-3 py-2.5 text-sm text-[#F5F5F5] focus:outline-none focus:border-[#EAB308]"
                       >
-                        {MODELS.map((m) => (
-                          <option key={m.id} value={m.id}>{m.name}</option>
+                        {["Gratis", "Estándar", "Avanzado"].map((group) => (
+                          <optgroup key={group} label={group}>
+                            {MODELS.filter((m) => m.group === group).map((m) => (
+                              <option key={m.id} value={m.id}>{m.name}</option>
+                            ))}
+                          </optgroup>
                         ))}
                       </select>
                       <p className="text-[10px] text-[#6B7280] mt-1">

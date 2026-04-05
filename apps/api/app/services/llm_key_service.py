@@ -117,8 +117,8 @@ def _model_to_provider(model: str) -> str | None:
     """
     Map a model name/ID to a provider slug.
 
-    Supports LiteLLM-style prefixes (e.g. 'gemini/gemini-2.0-flash')
-    as well as plain names.
+    Supports LiteLLM-style prefixes (e.g. 'gemini/gemini-2.0-flash',
+    'groq/llama-3.1-8b-instant', 'deepseek/deepseek-chat') as well as plain names.
     """
     model_lower = model.lower() if model else ""
 
@@ -128,12 +128,22 @@ def _model_to_provider(model: str) -> str | None:
         return "anthropic"
     elif any(x in model_lower for x in ["gemini", "google", "palm"]):
         return "google"
-    elif any(x in model_lower for x in ["mistral", "mixtral"]):
-        return "mistral"
-    elif any(x in model_lower for x in ["llama", "meta"]):
-        return "meta"
     elif any(x in model_lower for x in ["deepseek"]):
         return "deepseek"
+    elif any(x in model_lower for x in ["groq", "llama-3", "llama"]) and "groq" in model_lower:
+        return "groq"
+    elif any(x in model_lower for x in ["llama"]) and "groq" not in model_lower:
+        return "meta"
+    elif any(x in model_lower for x in ["mistral", "mixtral"]):
+        return "mistral"
+    elif any(x in model_lower for x in ["moonshot", "kimi"]):
+        return "moonshot"
+    elif any(x in model_lower for x in ["qwen", "dashscope"]):
+        return "qwen"
+    elif any(x in model_lower for x in ["zhipu", "glm"]):
+        return "zhipu"
+    elif any(x in model_lower for x in ["minimax"]):
+        return "minimax"
     return None
 
 
@@ -147,33 +157,32 @@ def get_available_providers() -> list[dict]:
     Return the list of LLM providers supported for BYOK.
 
     Each entry includes:
-    - id:          slug used in `provider` column
-    - name:        human-readable name
-    - models:      model IDs available from this provider
-    - key_prefix:  expected prefix of the API key (for UI validation hints)
-    - docs_url:    where users can generate their own keys
+    - id:           slug used in `provider` column
+    - name:         human-readable name
+    - models:       model IDs available from this provider
+    - key_prefix:   expected prefix of the API key (for UI validation hints)
+    - docs_url:     where users can generate their own keys
+    - setup_guide:  short instructions for getting a key
+    - pricing_note: brief pricing info
     """
     return [
-        {
-            "id": "openai",
-            "name": "OpenAI",
-            "models": ["gpt-4o", "gpt-4o-mini", "o1-mini", "o3-mini"],
-            "key_prefix": "sk-",
-            "docs_url": "https://platform.openai.com/api-keys",
-        },
-        {
-            "id": "anthropic",
-            "name": "Anthropic",
-            "models": ["claude-sonnet-4-20250514", "claude-3-5-haiku-20241022"],
-            "key_prefix": "sk-ant-",
-            "docs_url": "https://console.anthropic.com/settings/keys",
-        },
         {
             "id": "google",
             "name": "Google AI",
             "models": ["gemini-2.0-flash", "gemini-2.5-pro", "gemini-2.5-flash"],
             "key_prefix": "AI",
             "docs_url": "https://aistudio.google.com/apikey",
+            "setup_guide": "Entrá a aistudio.google.com/apikey y generá tu clave. 100% gratis para empezar.",
+            "pricing_note": "Gemini Flash es GRATIS. Pro desde $1.25/millón tokens.",
+        },
+        {
+            "id": "groq",
+            "name": "Groq",
+            "models": ["llama-3.1-8b-instant", "llama-3.3-70b-versatile", "qwen-qwq-32b", "moonshotai/kimi-k2-instruct"],
+            "key_prefix": "gsk_",
+            "docs_url": "https://console.groq.com/keys",
+            "setup_guide": "Registrate gratis en console.groq.com y generá tu API key. Tiene tier gratuito.",
+            "pricing_note": "Desde $0.05/millón tokens. Inferencia ultra rápida en hardware dedicado.",
         },
         {
             "id": "deepseek",
@@ -181,5 +190,52 @@ def get_available_providers() -> list[dict]:
             "models": ["deepseek-chat", "deepseek-reasoner"],
             "key_prefix": "sk-",
             "docs_url": "https://platform.deepseek.com/api_keys",
+            "setup_guide": "Registrate en platform.deepseek.com, recargá desde $2 USD y creá tu API key.",
+            "pricing_note": "Desde $0.28/millón de tokens. Uno de los más baratos del mercado.",
+        },
+        {
+            "id": "openai",
+            "name": "OpenAI",
+            "models": ["gpt-4o", "gpt-4o-mini", "o1-mini", "o3-mini"],
+            "key_prefix": "sk-",
+            "docs_url": "https://platform.openai.com/api-keys",
+            "setup_guide": "Registrate en platform.openai.com, cargá créditos y creá tu API key.",
+            "pricing_note": "Desde $0.15/millón tokens (GPT-4o-mini). Pay-as-you-go.",
+        },
+        {
+            "id": "anthropic",
+            "name": "Anthropic",
+            "models": ["claude-sonnet-4-20250514", "claude-3-5-haiku-20241022"],
+            "key_prefix": "sk-ant-",
+            "docs_url": "https://console.anthropic.com/settings/keys",
+            "setup_guide": "Registrate en console.anthropic.com. Obtené créditos iniciales gratis.",
+            "pricing_note": "Desde $0.25/millón tokens (Haiku). Pay-as-you-go.",
+        },
+        {
+            "id": "moonshot",
+            "name": "Moonshot AI (Kimi)",
+            "models": ["moonshot-v1-8k", "moonshot-v1-32k"],
+            "key_prefix": "sk-",
+            "docs_url": "https://platform.moonshot.cn/console/api-keys",
+            "setup_guide": "Registrate en platform.moonshot.cn (disponible en inglés). Creá tu API key.",
+            "pricing_note": "Desde $1.00/millón tokens. Modelo chino con buen rendimiento en español.",
+        },
+        {
+            "id": "qwen",
+            "name": "Qwen (Alibaba)",
+            "models": ["qwen-turbo", "qwen-plus", "qwen-max"],
+            "key_prefix": "sk-",
+            "docs_url": "https://dashscope.console.aliyun.com/apiKey",
+            "setup_guide": "Registrate en dashscope.aliyun.com. Obtené tu API key de DashScope.",
+            "pricing_note": "Desde $0.35/millón tokens. Modelos de Alibaba Cloud, open source.",
+        },
+        {
+            "id": "zhipu",
+            "name": "Zhipu AI (GLM)",
+            "models": ["glm-4-plus", "glm-4-flash"],
+            "key_prefix": "",
+            "docs_url": "https://open.bigmodel.cn/usercenter/apikeys",
+            "setup_guide": "Registrate en open.bigmodel.cn. Generá tu API key desde el panel.",
+            "pricing_note": "Desde $0.70/millón tokens. GLM-4, fuerte en razonamiento.",
         },
     ]

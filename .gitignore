@@ -22,6 +22,9 @@ out/
 .env.local
 .env.*.local
 .env.production
+.env.backup
+.env.bak
+key/
 
 # IDE
 .vscode/

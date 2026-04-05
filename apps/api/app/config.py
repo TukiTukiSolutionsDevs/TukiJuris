@@ -29,6 +29,8 @@ class Settings(BaseSettings):
     openai_api_key: str = ""
     anthropic_api_key: str = ""
     google_api_key: str = ""
+    deepseek_api_key: str = ""
+    groq_api_key: str = ""
     default_llm_provider: str = "openai"
     default_llm_model: str = "gpt-4o-mini"
 

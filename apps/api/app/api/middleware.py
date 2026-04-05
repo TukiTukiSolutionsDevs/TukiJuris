@@ -16,6 +16,9 @@ logger = logging.getLogger(__name__)
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     """Add security headers to all responses."""
 
+    # Paths that serve HTML with external resources (Swagger UI, ReDoc)
+    _DOCS_PREFIXES = ("/docs", "/redoc", "/openapi")
+
     async def dispatch(self, request: Request, call_next) -> Response:
         response = await call_next(request)
 
@@ -27,10 +30,21 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         # Referrer policy — send origin only when crossing to HTTPS
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
 
-        # CSP for an API: no resources should be loaded, no framing allowed
-        response.headers["Content-Security-Policy"] = (
-            "default-src 'none'; frame-ancestors 'none'"
-        )
+        # CSP: permissive for /docs (Swagger UI needs CDN resources),
+        # strict for all other API endpoints
+        if any(request.url.path.startswith(p) for p in self._DOCS_PREFIXES):
+            response.headers["Content-Security-Policy"] = (
+                "default-src 'self'; "
+                "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+                "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+                "img-src 'self' data: https://fastapi.tiangolo.com; "
+                "font-src 'self' https://cdn.jsdelivr.net; "
+                "frame-ancestors 'none'"
+            )
+        else:
+            response.headers["Content-Security-Policy"] = (
+                "default-src 'none'; frame-ancestors 'none'"
+            )
 
         # HSTS only in production — avoids breaking localhost dev flows
         if not settings.app_debug:
