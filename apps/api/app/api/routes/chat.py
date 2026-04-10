@@ -118,7 +118,7 @@ async def chat_query(
                 status_code=400,
                 detail=(
                     f"No tienes una API key configurada para el modelo '{body.model}'. "
-                    "Ve a Configuración → Mis API Keys para agregar tu clave del proveedor."
+                    "Esta beta funciona con clave propia por usuario. Ve a Configuración → Mis API Keys para agregar tu clave del proveedor."
                 ),
             )
 

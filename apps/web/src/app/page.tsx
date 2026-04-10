@@ -48,7 +48,6 @@ import {
   Store,
   TreePine,
   Heart,
-  Sparkles,
 } from "lucide-react";
 import NotificationBell from "@/components/NotificationBell";
 import KeyboardShortcuts from "@/components/KeyboardShortcuts";
@@ -57,7 +56,7 @@ import { AppLayout } from "@/components/AppLayout";
 import { getToken } from "@/lib/auth";
 import { t } from "@/lib/i18n";
 import { renderMarkdown } from "@/lib/markdown";
-import { MODEL_CATALOG, FREE_TIER_MODELS, availableModelsForProviders, modelSupportsThinking } from "@/lib/models";
+import { MODEL_CATALOG, availableModelsForProviders, modelSupportsThinking } from "@/lib/models";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -272,40 +271,27 @@ function ChatPage() {
     setAuthToken(getToken());
   }, []);
 
-  // Fetch available models from user's configured LLM keys + free tier
+  // Beta BYOK-only: fetch available models strictly from the user's own keys.
   useEffect(() => {
     const token = getToken();
     if (!token) return;
 
-    // Fetch BYOK keys and free tier models in parallel
-    Promise.all([
-      fetch(`${API_URL}/api/keys/llm-keys`, {
-        headers: { Authorization: `Bearer ${token}` },
-      }).then((r) => (r.ok ? r.json() : [])),
-      fetch(`${API_URL}/api/keys/free-models`).then((r) => (r.ok ? r.json() : { models: [], enabled: false })),
-    ])
-      .then(([keys, freeTier]: [{ provider: string }[], { models: { id: string }[]; enabled: boolean }]) => {
+    fetch(`${API_URL}/api/keys/llm-keys`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((r) => (r.ok ? r.json() : []))
+      .then((keys: { provider: string }[]) => {
         const providers = keys.map((k) => k.provider);
-        const byokModels = availableModelsForProviders(providers);
+        const byokModels = [...new Set(availableModelsForProviders(providers))];
 
-        // If user has BYOK keys, show those models.
-        // If not (or additionally), include free tier models.
-        const freeModelIds = freeTier.enabled ? freeTier.models.map((m) => m.id) : [];
-        const allModels = [...new Set([...freeModelIds, ...byokModels])];
-
-        setAvailableModels(allModels);
+        setAvailableModels(byokModels);
         // Update selected model if current selection is no longer available
-        if (allModels.length > 0 && !allModels.includes(selectedModel)) {
-          setSelectedModel(allModels[0]);
+        if (byokModels.length > 0 && !byokModels.includes(selectedModel)) {
+          setSelectedModel(byokModels[0]);
         }
       })
       .catch(() => {
-        // Fallback: show free tier models from local catalog
-        const fallback = FREE_TIER_MODELS.map((m) => m.id);
-        setAvailableModels(fallback);
-        if (fallback.length > 0 && !fallback.includes(selectedModel)) {
-          setSelectedModel(fallback[0]);
-        }
+        setAvailableModels([]);
       });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -619,6 +605,7 @@ function ChatPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim() || isLoading) return;
+    if (availableModels.length === 0) return;
 
     // Build the query — prepend file context if an attachment is present
     let queryToSend = input;
@@ -1018,18 +1005,13 @@ function ChatPage() {
                 aria-label={t("model.select")}
                 className="bg-surface-container-low border border-[rgba(79,70,51,0.15)] rounded-lg px-2 py-1 text-xs text-on-surface/60 focus:outline-none focus:border-primary/50"
               >
-                {/* Show all available models — both BYOK and free tier combined */}
-                {[...MODEL_CATALOG, ...FREE_TIER_MODELS.filter((fm) => !MODEL_CATALOG.some((mc) => mc.id === fm.id))]
+                {MODEL_CATALOG
                   .filter((model) => availableModels.includes(model.id))
-                  .map((model) => {
-                    const isFree = FREE_TIER_MODELS.some((fm) => fm.id === model.id);
-                    const hasByokForThis = !isFree; // If it's not a free model, user has BYOK
-                    return (
-                      <option key={model.id} value={model.id}>
-                        {isFree && !hasByokForThis ? `${model.name} (gratis)` : model.name}
-                      </option>
-                    );
-                  })}
+                  .map((model) => (
+                    <option key={model.id} value={model.id}>
+                      {model.name}
+                    </option>
+                  ))}
               </select>
             )}
 
@@ -1115,26 +1097,14 @@ function ChatPage() {
           </div>
         )}
 
-        {/* Free tier info banner — shown when user has no BYOK keys but free models are available */}
-        {availableModels.length > 0 && availableModels.every((m) => FREE_TIER_MODELS.some((fm) => fm.id === m)) && authToken && (
-          <div className="mx-4 mt-3 mb-0 p-4 bg-surface-container border border-[rgba(79,70,51,0.15)] rounded-lg shrink-0 flex items-center gap-3">
-            <Sparkles className="w-4 h-4 text-primary-container shrink-0" />
-            <p className="text-sm text-on-surface/60">
-              Estás usando el plan gratuito (10 consultas/día).{" "}
-              <a href="/configuracion" className="text-primary hover:text-primary/80 font-medium">
-                Conectá tu propia IA para acceso ilimitado →
-              </a>
-            </p>
-          </div>
-        )}
         {/* No models at all — something is wrong */}
         {availableModels.length === 0 && authToken && (
           <div className="mx-4 mt-3 mb-0 p-4 bg-surface-container border border-[rgba(79,70,51,0.15)] rounded-lg shrink-0 flex items-center gap-3">
             <Lock className="w-4 h-4 text-primary-container shrink-0" />
             <p className="text-sm text-on-surface/60">
-              No hay modelos disponibles en este momento. Intentá de nuevo o{" "}
+              Esta beta funciona con API key propia por usuario. Configurá tu clave para habilitar el chat en{" "}
               <a href="/configuracion" className="text-primary hover:text-primary/80 font-medium">
-                configurá tu propia clave →
+                Configuración → API Keys
               </a>
             </p>
           </div>
@@ -1417,10 +1387,10 @@ function ChatPage() {
                     handleSubmit(e as unknown as React.FormEvent);
                   }
                 }}
-                placeholder={t("chat.placeholder")}
                 aria-label={t("chat.placeholder")}
                 className="flex-1 bg-surface-container border border-[rgba(79,70,51,0.15)] rounded-lg px-4 py-3 text-sm placeholder-on-surface/30 focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/20 resize-none min-h-[52px] max-h-32 overflow-y-auto text-on-surface transition-colors"
-                disabled={isLoading}
+                disabled={isLoading || availableModels.length === 0}
+                placeholder={availableModels.length === 0 ? "Configurá tu API key para usar el chat en esta beta" : t("chat.placeholder")}
                 style={{ height: "auto" }}
                 onInput={(e) => {
                   const el = e.currentTarget;
@@ -1430,7 +1400,7 @@ function ChatPage() {
               />
               <button
                 type="submit"
-                disabled={isLoading || !input.trim()}
+                disabled={isLoading || !input.trim() || availableModels.length === 0}
                 aria-label={t("chat.send")}
                 className="bg-gradient-to-tr from-primary to-primary-container hover:from-primary/90 hover:to-primary-container/90 disabled:from-surface-container-low disabled:to-surface-container-low disabled:text-on-surface/20 text-on-primary rounded-lg px-4 py-3 transition-all self-end focus:outline-none focus:ring-2 focus:ring-primary/40"
               >

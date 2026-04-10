@@ -240,7 +240,6 @@ class LLMService:
 
     def __init__(self):
         self._configure_api_keys()
-        self._byok_cache: dict[str, str] = {}  # provider → decrypted key
 
     def _configure_api_keys(self):
         """Set platform-level API keys from settings (used for internal operations)."""
@@ -294,20 +293,16 @@ class LLMService:
 
     def _get_platform_key(self, model: str) -> str | None:
         """
-        Return the best available API key for a model.
+        Return ONLY the platform-owned API key for a model.
 
-        Priority: BYOK keys from DB (user-configured) → .env fallback.
-        The BYOK model means keys come from the app UI (configuración),
-        NOT from .env files.  The .env is only a last-resort fallback for
-        providers where the platform has its own key (e.g. internal ops).
+        CRITICAL SECURITY RULE:
+        Platform operations and free tier resolution MUST NEVER reuse keys
+        uploaded by other users. Cross-tenant key reuse would mean one user's
+        provider account pays for another user's traffic.
+
+        Therefore this method reads exclusively from server-side settings/.env.
         """
         provider = self._provider_from_model(model)
-
-        # 1. BYOK key from DB cache (user-configured via app UI) — PRIORITY
-        if provider and provider in self._byok_cache:
-            return self._byok_cache[provider]
-
-        # 2. Fallback: env-based platform key (NOT for Google — always BYOK)
         env_keys = {
             "openai": settings.openai_api_key,
             "anthropic": settings.anthropic_api_key,
@@ -322,39 +317,6 @@ class LLMService:
             return env_key
 
         return None
-
-    async def _resolve_byok_for_platform(self) -> None:
-        """
-        Load BYOK keys from DB into cache for platform internal operations.
-        Called once on first internal request that needs a key.
-        SaaS model: users configure keys in the app, not in .env files.
-        """
-        if self._byok_cache:
-            return  # already loaded
-
-        try:
-            from app.core.database import async_session_factory
-            from app.models.llm_key import UserLLMKey
-            from app.services.llm_key_service import decrypt_key
-            from sqlalchemy import select
-
-            async with async_session_factory() as session:
-                result = await session.execute(
-                    select(UserLLMKey)
-                    .where(UserLLMKey.is_active.is_(True))
-                    .order_by(UserLLMKey.created_at.asc())
-                    .limit(20)
-                )
-                keys = result.scalars().all()
-                for k in keys:
-                    if k.provider not in self._byok_cache:
-                        try:
-                            self._byok_cache[k.provider] = decrypt_key(k.api_key_encrypted)
-                            logger.info(f"BYOK key loaded for platform ops: {k.provider}")
-                        except Exception:
-                            pass
-        except Exception as exc:
-            logger.warning(f"Could not load BYOK keys for platform: {exc}")
 
     async def completion(
         self,
@@ -390,9 +352,6 @@ class LLMService:
 
         # BYOK key resolution
         api_key = user_api_key or self._get_platform_key(model)
-        if not api_key:
-            await self._resolve_byok_for_platform()
-            api_key = self._get_platform_key(model)
 
         try:
             call_kwargs: dict = dict(

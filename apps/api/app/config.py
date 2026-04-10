@@ -37,7 +37,7 @@ class Settings(BaseSettings):
     default_llm_model: str = "gemini/gemini-2.5-flash"
 
     # Free Tier — platform-provided models for users without BYOK keys
-    free_tier_enabled: bool = True
+    free_tier_enabled: bool = False
     free_tier_model: str = "gemini/gemini-2.5-flash"
     free_tier_fallback_models: list[str] = [
         "groq/llama-3.3-70b-versatile",

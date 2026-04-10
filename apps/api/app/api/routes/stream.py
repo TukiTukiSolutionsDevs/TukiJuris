@@ -534,33 +534,20 @@ async def chat_stream(
     - done: Final metadata (citations, latency, conversation_id)
     - error: Error message
     """
-    # BYOK: Resolve the user's API key before streaming starts.
-    # Free tier: if user has no BYOK key, use platform-provided free model.
+    # BYOK beta: resolve ONLY the user's own API key before streaming starts.
+    # No platform free-tier fallback is allowed while beta runs without
+    # platform-owned provider credentials.
     user_api_key: str | None = None
-    free_tier_active = False
     if current_user is not None and body.model:
         user_api_key = await get_user_keys_for_model(current_user.id, body.model, db)
         if not user_api_key:
-            # No BYOK key — try free tier if enabled and user is on free plan
-            if settings.free_tier_enabled and current_user.plan == "free":
-                resolved = llm_service.resolve_free_tier(body.model)
-                if resolved:
-                    body.model, user_api_key = resolved
-                    free_tier_active = True
-                    logger.info(f"Free tier activated for user {current_user.id}: {body.model}")
-                else:
-                    raise HTTPException(
-                        status_code=503,
-                        detail="El servicio gratuito no está disponible en este momento. Intenta más tarde.",
-                    )
-            else:
-                raise HTTPException(
-                    status_code=400,
-                    detail=(
-                        f"No tienes una API key configurada para el modelo '{body.model}'. "
-                        "Ve a Configuración → Mis API Keys para agregar tu clave del proveedor."
-                    ),
-                )
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"No tienes una API key configurada para el modelo '{body.model}'. "
+                    "Esta beta funciona con clave propia por usuario. Ve a Configuración → Mis API Keys para agregar tu clave del proveedor."
+                ),
+            )
 
     # Daily query limit enforcement — checked before opening the stream
     if current_user is not None:
