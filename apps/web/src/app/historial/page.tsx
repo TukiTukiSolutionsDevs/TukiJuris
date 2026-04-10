@@ -81,20 +81,6 @@ const AREA_LABELS: Record<string, string> = {
   comercio_exterior: "Comercio Ext.",
 };
 
-const AREA_COLORS: Record<string, string> = {
-  civil: "bg-blue-500/10 text-blue-400",
-  penal: "bg-red-500/10 text-red-400",
-  laboral: "bg-green-500/10 text-green-400",
-  tributario: "bg-yellow-500/10 text-yellow-400",
-  constitucional: "bg-purple-500/10 text-purple-400",
-  administrativo: "bg-orange-500/10 text-orange-400",
-  corporativo: "bg-cyan-500/10 text-cyan-400",
-  registral: "bg-pink-500/10 text-pink-400",
-  competencia: "bg-amber-500/10 text-amber-400",
-  compliance: "bg-indigo-500/10 text-indigo-400",
-  comercio_exterior: "bg-teal-500/10 text-teal-400",
-};
-
 const TAG_COLOR_PRESETS = [
   "#3b82f6",
   "#ef4444",
@@ -208,7 +194,6 @@ export default function HistorialPage() {
     fetchFolders();
   }, [fetchTags, fetchFolders]);
 
-  // Close dropdowns on outside click
   useEffect(() => {
     const handler = () => {
       setTagDropdownConv(null);
@@ -459,44 +444,41 @@ export default function HistorialPage() {
 
   return (
     <AppLayout>
-      <div className="min-h-full text-[#F5F5F5]">
-        {/* ---------------------------------------------------------------- */}
+      <div className="min-h-full text-on-surface">
         {/* Header */}
-        {/* ---------------------------------------------------------------- */}
-        <div className="border-b border-[#1E1E2A] px-4 sm:px-6 py-4 flex items-center gap-3">
-          <History className="w-5 h-5 text-[#EAB308]" />
-          <h1 className="font-bold text-base tracking-tight">Historial de consultas</h1>
+        <div className="border-b border-[rgba(79,70,51,0.15)] px-4 sm:px-6 py-5 flex items-center gap-3 sticky top-0 z-10 bg-[#0e0e14]">
+          <History className="w-4 h-4 text-primary" />
+          <span className="text-primary text-xs uppercase tracking-[0.2em] font-bold">Consultas</span>
+          <span className="text-on-surface/20 mx-1">·</span>
+          <h1 className="font-['Newsreader'] text-xl font-bold text-on-surface">Historial</h1>
         </div>
 
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 flex gap-6">
-          {/* ---------------------------------------------------------------- */}
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 flex gap-5">
           {/* Sidebar */}
-          {/* ---------------------------------------------------------------- */}
-          <aside className="w-56 shrink-0 space-y-4">
+          <aside className="w-52 shrink-0 space-y-3">
             {/* Folders section */}
-            <div className="bg-[#111116] border border-[#2A2A35] rounded-xl overflow-hidden">
+            <div className="bg-surface-container-low border border-[rgba(79,70,51,0.15)] rounded-lg overflow-hidden">
               <button
                 onClick={() => setFoldersExpanded((v) => !v)}
-                className="w-full flex items-center justify-between px-3 py-2.5 text-sm font-medium text-[#F5F5F5] hover:text-white transition-colors"
+                className="w-full flex items-center justify-between px-3 py-2.5 text-sm font-medium text-on-surface hover:bg-surface-container transition-colors"
               >
                 <span className="flex items-center gap-2">
-                  <Folder className="w-4 h-4 text-[#EAB308]" />
+                  <Folder className="w-3.5 h-3.5 text-primary" />
                   Carpetas
                 </span>
                 <ChevronRight
-                  className={`w-3.5 h-3.5 text-[#6B7280] transition-transform ${foldersExpanded ? "rotate-90" : ""}`}
+                  className={`w-3.5 h-3.5 text-on-surface/30 transition-transform ${foldersExpanded ? "rotate-90" : ""}`}
                 />
               </button>
 
               {foldersExpanded && (
                 <div className="pb-2">
-                  {/* All conversations option */}
                   <button
                     onClick={() => setActiveFolderFilter(null)}
                     className={`w-full flex items-center gap-2 px-3 py-1.5 text-sm transition-colors ${
                       activeFolderFilter === null
-                        ? "text-[#EAB308] bg-[#EAB308]/10"
-                        : "text-[#9CA3AF] hover:text-[#F5F5F5] hover:bg-[#1A1A22]"
+                        ? "text-primary bg-primary/10"
+                        : "text-on-surface/60 hover:text-on-surface hover:bg-surface-container"
                     }`}
                   >
                     <FolderOpen className="w-3.5 h-3.5 shrink-0" />
@@ -513,18 +495,18 @@ export default function HistorialPage() {
                         }
                         className={`flex-1 flex items-center gap-2 px-2 py-1.5 rounded-lg text-sm transition-colors ${
                           activeFolderFilter === folder.id
-                            ? "text-[#EAB308] bg-[#EAB308]/10"
-                            : "text-[#9CA3AF] hover:text-[#F5F5F5] hover:bg-[#1A1A22]"
+                            ? "text-primary bg-primary/10"
+                            : "text-on-surface/60 hover:text-on-surface hover:bg-surface-container"
                         }`}
                       >
                         <Folder className="w-3.5 h-3.5 shrink-0" />
                         <span className="truncate flex-1 text-left">{folder.name}</span>
-                        <span className="text-xs text-[#6B7280]">{folder.conversation_count}</span>
+                        <span className="text-xs text-on-surface/30">{folder.conversation_count}</span>
                       </button>
                       <button
                         onClick={() => handleDeleteFolder(folder.id)}
                         disabled={folderActionLoading === folder.id}
-                        className="opacity-0 group-hover:opacity-100 p-1 rounded text-[#6B7280] hover:text-red-400 transition-all"
+                        className="opacity-0 group-hover:opacity-100 p-1 rounded text-on-surface/30 hover:text-[#ffb4ab] transition-all"
                       >
                         {folderActionLoading === folder.id ? (
                           <Loader2 className="w-3 h-3 animate-spin" />
@@ -535,7 +517,6 @@ export default function HistorialPage() {
                     </div>
                   ))}
 
-                  {/* New folder form */}
                   {showNewFolderForm ? (
                     <div className="px-3 pt-1 pb-2 space-y-1.5">
                       <input
@@ -548,13 +529,13 @@ export default function HistorialPage() {
                           if (e.key === "Escape") setShowNewFolderForm(false);
                         }}
                         placeholder="Nombre de carpeta"
-                        className="w-full bg-[#1A1A22] border border-[#2A2A35] rounded-lg px-2 py-1 text-xs text-[#F5F5F5] placeholder-[#6B7280] focus:outline-none focus:border-[#EAB308]/50"
+                        className="w-full bg-[#35343a] border border-transparent rounded-lg px-2 py-1 text-xs text-on-surface placeholder-on-surface/30 focus:outline-none focus:border-primary transition-colors"
                       />
                       <div className="flex gap-1.5">
                         <button
                           onClick={handleCreateFolder}
                           disabled={folderActionLoading === "create"}
-                          className="flex-1 py-1 rounded-lg text-xs bg-[#EAB308]/20 text-[#EAB308] hover:bg-[#EAB308]/30 transition-colors"
+                          className="flex-1 py-1 rounded-lg text-xs bg-primary/15 text-primary hover:bg-primary/25 transition-colors"
                         >
                           {folderActionLoading === "create" ? (
                             <Loader2 className="w-3 h-3 animate-spin mx-auto" />
@@ -564,7 +545,7 @@ export default function HistorialPage() {
                         </button>
                         <button
                           onClick={() => setShowNewFolderForm(false)}
-                          className="px-2 py-1 rounded-lg text-xs text-[#6B7280] hover:text-[#F5F5F5] transition-colors"
+                          className="px-2 py-1 rounded-lg text-xs text-on-surface/40 hover:text-on-surface transition-colors"
                         >
                           Cancelar
                         </button>
@@ -573,7 +554,7 @@ export default function HistorialPage() {
                   ) : (
                     <button
                       onClick={() => setShowNewFolderForm(true)}
-                      className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-[#6B7280] hover:text-[#9CA3AF] transition-colors"
+                      className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-on-surface/30 hover:text-on-surface/60 transition-colors"
                     >
                       <Plus className="w-3 h-3" />
                       Nueva carpeta
@@ -584,27 +565,26 @@ export default function HistorialPage() {
             </div>
 
             {/* Tags section */}
-            <div className="bg-[#111116] border border-[#2A2A35] rounded-xl overflow-hidden">
+            <div className="bg-surface-container-low border border-[rgba(79,70,51,0.15)] rounded-lg overflow-hidden">
               <button
                 onClick={() => setTagsExpanded((v) => !v)}
-                className="w-full flex items-center justify-between px-3 py-2.5 text-sm font-medium text-[#F5F5F5] hover:text-white transition-colors"
+                className="w-full flex items-center justify-between px-3 py-2.5 text-sm font-medium text-on-surface hover:bg-surface-container transition-colors"
               >
                 <span className="flex items-center gap-2">
-                  <Tag className="w-4 h-4 text-blue-400" />
+                  <Tag className="w-3.5 h-3.5 text-secondary" />
                   Etiquetas
                 </span>
                 <ChevronRight
-                  className={`w-3.5 h-3.5 text-[#6B7280] transition-transform ${tagsExpanded ? "rotate-90" : ""}`}
+                  className={`w-3.5 h-3.5 text-on-surface/30 transition-transform ${tagsExpanded ? "rotate-90" : ""}`}
                 />
               </button>
 
               {tagsExpanded && (
                 <div className="pb-2">
-                  {/* Clear filter option */}
                   {activeTagFilter && (
                     <button
                       onClick={() => setActiveTagFilter(null)}
-                      className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-[#9CA3AF] hover:text-[#F5F5F5] hover:bg-[#1A1A22] transition-colors"
+                      className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-on-surface/60 hover:text-on-surface hover:bg-surface-container transition-colors"
                     >
                       <X className="w-3.5 h-3.5" />
                       Limpiar filtro
@@ -625,7 +605,7 @@ export default function HistorialPage() {
                             if (e.key === "Enter") handleUpdateTag(editingTag);
                             if (e.key === "Escape") setEditingTag(null);
                           }}
-                          className="w-full bg-[#1A1A22] border border-[#2A2A35] rounded px-2 py-0.5 text-xs text-[#F5F5F5] focus:outline-none focus:border-[#EAB308]/50"
+                          className="w-full bg-[#35343a] border border-transparent rounded px-2 py-0.5 text-xs text-on-surface focus:outline-none focus:border-primary transition-colors"
                         />
                         <div className="flex gap-1 flex-wrap">
                           {TAG_COLOR_PRESETS.map((c) => (
@@ -643,7 +623,7 @@ export default function HistorialPage() {
                           <button
                             onClick={() => handleUpdateTag(editingTag)}
                             disabled={tagActionLoading === t.id}
-                            className="flex-1 py-0.5 rounded text-xs bg-[#EAB308]/20 text-[#EAB308] hover:bg-[#EAB308]/30"
+                            className="flex-1 py-0.5 rounded text-xs bg-primary/15 text-primary hover:bg-primary/25"
                           >
                             {tagActionLoading === t.id ? (
                               <Loader2 className="w-3 h-3 animate-spin mx-auto" />
@@ -653,7 +633,7 @@ export default function HistorialPage() {
                           </button>
                           <button
                             onClick={() => setEditingTag(null)}
-                            className="px-2 py-0.5 rounded text-xs text-[#6B7280] hover:text-[#F5F5F5]"
+                            className="px-2 py-0.5 rounded text-xs text-on-surface/40 hover:text-on-surface"
                           >
                             X
                           </button>
@@ -667,26 +647,26 @@ export default function HistorialPage() {
                           }
                           className={`flex-1 flex items-center gap-2 px-2 py-1.5 rounded-lg text-sm transition-colors ${
                             activeTagFilter === t.id
-                              ? "bg-[#1A1A22]"
-                              : "hover:bg-[#1A1A22]"
+                              ? "bg-surface-container"
+                              : "hover:bg-surface-container"
                           }`}
                         >
                           <span
                             className="w-2.5 h-2.5 rounded-full shrink-0"
                             style={{ backgroundColor: t.color }}
                           />
-                          <span className="truncate text-[#F5F5F5]">{t.name}</span>
+                          <span className="truncate text-on-surface">{t.name}</span>
                         </button>
                         <button
                           onClick={() => setEditingTag({ ...t })}
-                          className="opacity-0 group-hover:opacity-100 p-1 rounded text-[#6B7280] hover:text-[#F5F5F5] transition-all"
+                          className="opacity-0 group-hover:opacity-100 p-1 rounded text-on-surface/30 hover:text-on-surface transition-all"
                         >
                           <Edit2 className="w-3 h-3" />
                         </button>
                         <button
                           onClick={() => handleDeleteTag(t.id)}
                           disabled={tagActionLoading === t.id}
-                          className="opacity-0 group-hover:opacity-100 p-1 rounded text-[#6B7280] hover:text-red-400 transition-all"
+                          className="opacity-0 group-hover:opacity-100 p-1 rounded text-on-surface/30 hover:text-[#ffb4ab] transition-all"
                         >
                           {tagActionLoading === t.id ? (
                             <Loader2 className="w-3 h-3 animate-spin" />
@@ -698,7 +678,6 @@ export default function HistorialPage() {
                     )
                   )}
 
-                  {/* New tag form */}
                   {showNewTagForm ? (
                     <div className="px-3 pt-1 pb-2 space-y-1.5">
                       <input
@@ -711,7 +690,7 @@ export default function HistorialPage() {
                           if (e.key === "Escape") setShowNewTagForm(false);
                         }}
                         placeholder="Nombre de etiqueta"
-                        className="w-full bg-[#1A1A22] border border-[#2A2A35] rounded-lg px-2 py-1 text-xs text-[#F5F5F5] placeholder-[#6B7280] focus:outline-none focus:border-[#EAB308]/50"
+                        className="w-full bg-[#35343a] border border-transparent rounded-lg px-2 py-1 text-xs text-on-surface placeholder-on-surface/30 focus:outline-none focus:border-primary transition-colors"
                       />
                       <div className="flex gap-1.5 flex-wrap">
                         {TAG_COLOR_PRESETS.map((c) => (
@@ -729,7 +708,7 @@ export default function HistorialPage() {
                         <button
                           onClick={handleCreateTag}
                           disabled={tagActionLoading === "create"}
-                          className="flex-1 py-1 rounded-lg text-xs bg-[#EAB308]/20 text-[#EAB308] hover:bg-[#EAB308]/30 transition-colors"
+                          className="flex-1 py-1 rounded-lg text-xs bg-primary/15 text-primary hover:bg-primary/25 transition-colors"
                         >
                           {tagActionLoading === "create" ? (
                             <Loader2 className="w-3 h-3 animate-spin mx-auto" />
@@ -739,7 +718,7 @@ export default function HistorialPage() {
                         </button>
                         <button
                           onClick={() => setShowNewTagForm(false)}
-                          className="px-2 py-1 rounded-lg text-xs text-[#6B7280] hover:text-[#F5F5F5] transition-colors"
+                          className="px-2 py-1 rounded-lg text-xs text-on-surface/40 hover:text-on-surface transition-colors"
                         >
                           Cancelar
                         </button>
@@ -748,7 +727,7 @@ export default function HistorialPage() {
                   ) : (
                     <button
                       onClick={() => setShowNewTagForm(true)}
-                      className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-[#6B7280] hover:text-[#9CA3AF] transition-colors"
+                      className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-on-surface/30 hover:text-on-surface/60 transition-colors"
                     >
                       <Plus className="w-3 h-3" />
                       Nueva etiqueta
@@ -759,44 +738,42 @@ export default function HistorialPage() {
             </div>
           </aside>
 
-          {/* ---------------------------------------------------------------- */}
           {/* Main content */}
-          {/* ---------------------------------------------------------------- */}
-          <div className="flex-1 min-w-0 space-y-5">
+          <div className="flex-1 min-w-0 space-y-4">
             {/* Search + Sort row */}
             <div className="flex flex-col sm:flex-row gap-3">
               <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#6B7280]" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-on-surface/30" />
                 <input
                   type="text"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="Buscar conversaciones..."
-                  className="w-full bg-[#1A1A22] border border-[#2A2A35] rounded-xl pl-9 pr-4 py-2.5 text-sm text-[#F5F5F5] placeholder-[#6B7280] focus:outline-none focus:border-[#EAB308]/50 focus:ring-1 focus:ring-[#EAB308]/25 transition-colors"
+                  className="w-full bg-surface-container-low border border-[rgba(79,70,51,0.15)] rounded-lg pl-9 pr-4 py-2.5 text-sm text-on-surface placeholder-on-surface/30 focus:outline-none focus:border-primary transition-colors"
                 />
               </div>
               <div className="relative">
                 <select
                   value={sortKey}
                   onChange={(e) => setSortKey(e.target.value as SortKey)}
-                  className="appearance-none bg-[#1A1A22] border border-[#2A2A35] rounded-xl px-3 py-2.5 pr-8 text-sm text-[#F5F5F5] focus:outline-none focus:border-[#EAB308]/50 cursor-pointer transition-colors"
+                  className="appearance-none bg-surface-container-low border border-[rgba(79,70,51,0.15)] rounded-lg px-3 py-2.5 pr-8 text-sm text-on-surface focus:outline-none focus:border-primary cursor-pointer transition-colors"
                 >
                   <option value="date_desc">Mas recientes</option>
                   <option value="date_asc">Mas antiguas</option>
                   <option value="area">Por area</option>
                   <option value="messages">Por mensajes</option>
                 </select>
-                <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#6B7280] pointer-events-none" />
+                <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-on-surface/30 pointer-events-none" />
               </div>
             </div>
 
             {/* Active filters indicator */}
             {(activeTagFilter || activeFolderFilter) && (
-              <div className="flex items-center gap-2 text-xs text-[#9CA3AF]">
+              <div className="flex items-center gap-2 text-xs text-on-surface/40">
                 <span>Filtrando por:</span>
                 {activeTagFilter && (
                   <span
-                    className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#1A1A22] border border-[#2A2A35] cursor-pointer hover:bg-[#2A2A35] transition-colors"
+                    className="flex items-center gap-1 px-2 py-0.5 rounded-lg bg-surface-container-low border border-[rgba(79,70,51,0.15)] cursor-pointer hover:bg-surface-container transition-colors"
                     onClick={() => setActiveTagFilter(null)}
                   >
                     <span
@@ -811,7 +788,7 @@ export default function HistorialPage() {
                 )}
                 {activeFolderFilter && (
                   <span
-                    className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#1A1A22] border border-[#2A2A35] cursor-pointer hover:bg-[#2A2A35] transition-colors"
+                    className="flex items-center gap-1 px-2 py-0.5 rounded-lg bg-surface-container-low border border-[rgba(79,70,51,0.15)] cursor-pointer hover:bg-surface-container transition-colors"
                     onClick={() => setActiveFolderFilter(null)}
                   >
                     <Folder className="w-3 h-3" />
@@ -823,15 +800,15 @@ export default function HistorialPage() {
             )}
 
             {/* Tabs */}
-            <div className="flex gap-0 border-b border-[#1E1E2A]">
+            <div className="flex gap-0 border-b border-[rgba(79,70,51,0.15)]">
               {tabItems.map(({ key, label }) => (
                 <button
                   key={key}
                   onClick={() => setTab(key)}
-                  className={`px-5 py-2 text-sm font-medium transition-colors relative ${
+                  className={`px-5 py-2.5 text-sm font-medium transition-colors relative ${
                     tab === key
-                      ? "text-[#EAB308] border-b-2 border-[#EAB308] -mb-px bg-[#EAB308]/5"
-                      : "text-[#9CA3AF] hover:text-[#F5F5F5] border-b-2 border-transparent -mb-px"
+                      ? "text-primary border-b-2 border-primary -mb-px"
+                      : "text-on-surface/60 hover:text-on-surface border-b-2 border-transparent -mb-px"
                   }`}
                 >
                   {label}
@@ -844,10 +821,10 @@ export default function HistorialPage() {
               <div className="flex items-center gap-3 text-sm">
                 <button
                   onClick={selectAll}
-                  className="flex items-center gap-1.5 text-[#9CA3AF] hover:text-[#F5F5F5] transition-colors"
+                  className="flex items-center gap-1.5 text-on-surface/40 hover:text-on-surface transition-colors"
                 >
                   {selected.size === filtered.length && filtered.length > 0 ? (
-                    <CheckSquare className="w-4 h-4 text-[#EAB308]" />
+                    <CheckSquare className="w-4 h-4 text-primary" />
                   ) : (
                     <Square className="w-4 h-4" />
                   )}
@@ -855,11 +832,11 @@ export default function HistorialPage() {
                 </button>
 
                 {selected.size > 0 && (
-                  <div className="flex items-center gap-2 ml-2 px-3 py-1.5 bg-[#111116] border border-[#2A2A35] rounded-xl">
+                  <div className="flex items-center gap-2 ml-2 px-3 py-1.5 bg-surface-container-low border border-[rgba(79,70,51,0.15)] rounded-lg">
                     <button
                       onClick={() => bulkAction("archive")}
                       disabled={bulkLoading}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#1A1A22] hover:bg-[#2A2A35] text-[#F5F5F5] transition-colors disabled:opacity-50"
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface hover:bg-surface-container text-on-surface transition-colors disabled:opacity-50"
                     >
                       {bulkLoading ? (
                         <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -871,7 +848,7 @@ export default function HistorialPage() {
                     <button
                       onClick={() => bulkAction("delete")}
                       disabled={bulkLoading}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 transition-colors disabled:opacity-50"
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#ffb4ab]/30 text-[#ffb4ab] hover:bg-[#93000a]/20 transition-colors disabled:opacity-50"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                       Eliminar
@@ -884,16 +861,16 @@ export default function HistorialPage() {
             {/* Conversation list */}
             {loading ? (
               <div className="flex items-center justify-center py-20">
-                <Loader2 className="w-6 h-6 text-[#EAB308] animate-spin" />
+                <Loader2 className="w-6 h-6 text-primary animate-spin" />
               </div>
             ) : filtered.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-20 text-center">
                 <img
                   src="/brand/logo-full.png"
-                  className="w-24 mx-auto mb-4 opacity-40"
+                  className="w-24 mx-auto mb-4 opacity-20"
                   alt="Logo"
                 />
-                <p className="text-[#9CA3AF] text-sm">
+                <p className="text-on-surface/40 text-sm">
                   {search || activeTagFilter || activeFolderFilter
                     ? "No hay resultados para tu busqueda."
                     : "No hay conversaciones aqui."}
@@ -901,7 +878,7 @@ export default function HistorialPage() {
                 {tab === "archived" && (
                   <button
                     onClick={() => setTab("active")}
-                    className="mt-3 text-[#EAB308] text-sm hover:underline flex items-center gap-1"
+                    className="mt-3 text-primary text-sm hover:text-primary-container flex items-center gap-1 transition-colors"
                   >
                     <RotateCcw className="w-3.5 h-3.5" />
                     Ver conversaciones activas
@@ -909,10 +886,9 @@ export default function HistorialPage() {
                 )}
               </div>
             ) : (
-              <div className="space-y-2">
-                {filtered.map((conv) => {
+              <div className="space-y-0">
+                {filtered.map((conv, idx) => {
                   const isSelected = selected.has(conv.id);
-                  const areaColor = conv.legal_area ? AREA_COLORS[conv.legal_area] : "";
                   const areaLabel = conv.legal_area
                     ? AREA_LABELS[conv.legal_area] ?? conv.legal_area
                     : null;
@@ -923,11 +899,11 @@ export default function HistorialPage() {
                   return (
                     <div
                       key={conv.id}
-                      className={`group relative flex items-start gap-3 p-4 rounded-xl border transition-all cursor-pointer ${
+                      className={`group relative flex items-start gap-3 p-4 transition-all cursor-pointer ${
                         isSelected
-                          ? "bg-[#EAB308]/5 border-[#EAB308]/30"
-                          : "bg-[#111116] border-[#1E1E2A] hover:border-[#2A2A35] hover:bg-[#1A1A22]"
-                      }`}
+                          ? "bg-primary/5"
+                          : idx % 2 === 0 ? "bg-surface" : "bg-surface-container-low"
+                      } hover:bg-surface-container`}
                       onClick={() => router.push(`/?conversation=${conv.id}`)}
                     >
                       {/* Checkbox */}
@@ -936,10 +912,10 @@ export default function HistorialPage() {
                           e.stopPropagation();
                           toggleSelect(conv.id);
                         }}
-                        className="mt-0.5 text-[#6B7280] hover:text-[#EAB308] transition-colors shrink-0"
+                        className="mt-0.5 text-on-surface/20 hover:text-primary transition-colors shrink-0"
                       >
                         {isSelected ? (
-                          <CheckSquare className="w-4 h-4 text-[#EAB308]" />
+                          <CheckSquare className="w-4 h-4 text-primary" />
                         ) : (
                           <Square className="w-4 h-4" />
                         )}
@@ -951,35 +927,33 @@ export default function HistorialPage() {
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-2 flex-wrap">
                               {conv.is_pinned && (
-                                <Pin className="w-3 h-3 text-[#EAB308] shrink-0" />
+                                <Pin className="w-3 h-3 text-primary shrink-0" />
                               )}
                               {conv.folder_name && (
-                                <span className="flex items-center gap-1 text-xs text-[#6B7280]">
+                                <span className="flex items-center gap-1 text-xs text-on-surface/30">
                                   <Folder className="w-3 h-3" />
                                   {conv.folder_name}
                                 </span>
                               )}
-                              <h3 className="text-sm font-medium text-[#F5F5F5] truncate">
+                              <h3 className="text-sm font-medium text-on-surface truncate">
                                 {conv.title ?? "Consulta sin titulo"}
                               </h3>
                             </div>
                             <div className="flex items-center gap-3 mt-1.5 flex-wrap">
                               {areaLabel && (
-                                <span
-                                  className={`text-xs px-2 py-0.5 rounded-full ${areaColor}`}
-                                >
+                                <span className="bg-secondary-container text-secondary text-[10px] uppercase tracking-widest rounded px-2 py-0.5">
                                   {areaLabel}
                                 </span>
                               )}
-                              <span className="text-xs text-[#6B7280] flex items-center gap-1">
+                              <span className="text-xs text-on-surface/30 flex items-center gap-1">
                                 <MessageSquare className="w-3 h-3" />
                                 {conv.message_count} mensajes
                               </span>
-                              <span className="text-xs text-[#6B7280]">
+                              <span className="text-xs text-on-surface/30">
                                 {formatDate(conv.updated_at)}
                               </span>
                               {conv.is_shared && (
-                                <span className="text-xs text-teal-400/70">Compartida</span>
+                                <span className="text-xs text-secondary/50">Compartida</span>
                               )}
                             </div>
 
@@ -992,7 +966,7 @@ export default function HistorialPage() {
                                 {conv.tags.map((t) => (
                                   <span
                                     key={t.id}
-                                    className="flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs cursor-pointer hover:opacity-75 transition-opacity"
+                                    className="flex items-center gap-1 px-1.5 py-0.5 rounded text-xs cursor-pointer hover:opacity-75 transition-opacity"
                                     style={{
                                       backgroundColor: t.color + "22",
                                       color: t.color,
@@ -1006,7 +980,6 @@ export default function HistorialPage() {
                                   </span>
                                 ))}
 
-                                {/* Add tag button */}
                                 {unassignedTags.length > 0 && (
                                   <div className="relative">
                                     <button
@@ -1016,21 +989,21 @@ export default function HistorialPage() {
                                           tagDropdownConv === conv.id ? null : conv.id
                                         );
                                       }}
-                                      className="flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-xs text-[#6B7280] border border-[#2A2A35] hover:text-[#9CA3AF] hover:border-[#EAB308]/30 transition-colors opacity-0 group-hover:opacity-100"
+                                      className="flex items-center gap-0.5 px-1.5 py-0.5 rounded text-xs text-on-surface/30 border border-[rgba(79,70,51,0.15)] hover:text-on-surface/60 hover:border-primary/20 transition-colors opacity-0 group-hover:opacity-100"
                                     >
                                       <Tag className="w-2.5 h-2.5" />
                                       <Plus className="w-2.5 h-2.5" />
                                     </button>
                                     {tagDropdownConv === conv.id && (
                                       <div
-                                        className="absolute left-0 top-6 z-20 bg-[#111116] border border-[#2A2A35] rounded-xl shadow-lg shadow-black/40 min-w-[140px] py-1"
+                                        className="absolute left-0 top-6 z-20 bg-surface-container-low border border-[rgba(79,70,51,0.15)] rounded-lg shadow-lg shadow-black/40 min-w-[140px] py-1"
                                         onClick={(e) => e.stopPropagation()}
                                       >
                                         {unassignedTags.map((t) => (
                                           <button
                                             key={t.id}
                                             onClick={() => handleAssignTag(conv.id, t.id)}
-                                            className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-[#F5F5F5] hover:bg-[#1A1A22] transition-colors"
+                                            className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-on-surface hover:bg-surface-container transition-colors"
                                           >
                                             <span
                                               className="w-2.5 h-2.5 rounded-full shrink-0"
@@ -1056,7 +1029,7 @@ export default function HistorialPage() {
                               title={conv.is_pinned ? "Desfijar" : "Fijar"}
                               loading={actionLoading === conv.id + "pin"}
                               onClick={() => apiAction(conv.id, "pin")}
-                              icon={<Pin className={`w-3.5 h-3.5 ${conv.is_pinned ? "text-[#EAB308]" : ""}`} />}
+                              icon={<Pin className={`w-3.5 h-3.5 ${conv.is_pinned ? "text-primary" : ""}`} />}
                             />
                             <ActionButton
                               title={conv.is_archived ? "Desarchivar" : "Archivar"}
@@ -1079,16 +1052,16 @@ export default function HistorialPage() {
                               />
                               {folderMenuConv === conv.id && (
                                 <div
-                                  className="absolute right-0 top-7 z-20 bg-[#111116] border border-[#2A2A35] rounded-xl shadow-lg shadow-black/40 min-w-[160px] py-1"
+                                  className="absolute right-0 top-7 z-20 bg-surface-container-low border border-[rgba(79,70,51,0.15)] rounded-lg shadow-lg shadow-black/40 min-w-[160px] py-1"
                                   onClick={(e) => e.stopPropagation()}
                                 >
-                                  <p className="px-3 py-1 text-xs text-[#6B7280] font-medium">
+                                  <p className="px-3 py-1 text-xs text-on-surface/30 font-medium">
                                     Mover a carpeta
                                   </p>
                                   {conv.folder_id && (
                                     <button
                                       onClick={() => handleMoveToFolder(conv.id, null)}
-                                      className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-[#9CA3AF] hover:bg-[#1A1A22] transition-colors"
+                                      className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-on-surface/60 hover:bg-surface-container transition-colors"
                                     >
                                       <X className="w-3.5 h-3.5" />
                                       Quitar de carpeta
@@ -1098,21 +1071,21 @@ export default function HistorialPage() {
                                     <button
                                       key={f.id}
                                       onClick={() => handleMoveToFolder(conv.id, f.id)}
-                                      className={`w-full flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-[#1A1A22] transition-colors ${
+                                      className={`w-full flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-surface-container transition-colors ${
                                         conv.folder_id === f.id
-                                          ? "text-[#EAB308]"
-                                          : "text-[#F5F5F5]"
+                                          ? "text-primary"
+                                          : "text-on-surface"
                                       }`}
                                     >
                                       <Folder className="w-3.5 h-3.5 shrink-0" />
                                       <span className="truncate">{f.name}</span>
                                       {conv.folder_id === f.id && (
-                                        <Check className="w-3 h-3 ml-auto text-[#EAB308]" />
+                                        <Check className="w-3 h-3 ml-auto text-primary" />
                                       )}
                                     </button>
                                   ))}
                                   {folders.length === 0 && (
-                                    <p className="px-3 py-2 text-xs text-[#6B7280]">
+                                    <p className="px-3 py-2 text-xs text-on-surface/30">
                                       No hay carpetas creadas
                                     </p>
                                   )}
@@ -1126,7 +1099,7 @@ export default function HistorialPage() {
                               onClick={() => handleShare(conv.id)}
                               icon={
                                 copiedId === conv.id ? (
-                                  <Check className="w-3.5 h-3.5 text-green-400" />
+                                  <Check className="w-3.5 h-3.5 text-[#6ee7b7]" />
                                 ) : (
                                   <Share2 className="w-3.5 h-3.5" />
                                 )
@@ -1136,7 +1109,7 @@ export default function HistorialPage() {
                               title="Eliminar"
                               loading={actionLoading === conv.id + ""}
                               onClick={() => handleDelete(conv.id)}
-                              icon={<Trash2 className="w-3.5 h-3.5 text-red-400" />}
+                              icon={<Trash2 className="w-3.5 h-3.5 text-[#ffb4ab]" />}
                               danger
                             />
                           </div>
@@ -1170,8 +1143,8 @@ function ActionButton({ title, loading, onClick, icon, danger }: ActionButtonPro
       disabled={loading}
       className={`p-1.5 rounded-lg transition-colors disabled:opacity-50 ${
         danger
-          ? "hover:bg-red-500/10 text-[#6B7280] hover:text-red-400"
-          : "hover:bg-[#2A2A35] text-[#6B7280] hover:text-[#F5F5F5]"
+          ? "hover:bg-[#93000a]/20 text-on-surface/30 hover:text-[#ffb4ab]"
+          : "hover:bg-[#35343a] text-on-surface/30 hover:text-on-surface"
       }`}
     >
       {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : icon}

@@ -13,6 +13,79 @@ This is the brain of Agente Derecho. It:
 import json
 import logging
 import re
+from typing import Any as _Any
+
+
+def _extract_json_robust(text: str) -> dict | None:
+    """Extract a JSON object from LLM output, handling all common edge cases.
+
+    Reasoning models (Gemini 3.1 Pro, DeepSeek Reasoner, etc.) often produce:
+    - Thinking text BEFORE the JSON
+    - Markdown code fences around the JSON
+    - Explanatory text AFTER the JSON
+    - Multiple JSON-like fragments (we want the one with "needs_more")
+
+    Strategy: try multiple extraction methods, return first valid parse.
+    """
+    if not text or not text.strip():
+        return None
+
+    clean = text.strip()
+
+    # Strategy 1: Try parsing the entire response as JSON directly
+    try:
+        parsed = json.loads(clean)
+        if isinstance(parsed, dict) and "needs_more" in parsed:
+            return parsed
+    except (json.JSONDecodeError, ValueError):
+        pass
+
+    # Strategy 2: Strip markdown code fences, then parse
+    defenced = clean
+    if "```" in defenced:
+        # Extract content between first ``` and last ```
+        fence_match = re.search(r'```(?:json)?\s*\n?(.*?)\n?\s*```', defenced, re.DOTALL)
+        if fence_match:
+            try:
+                parsed = json.loads(fence_match.group(1).strip())
+                if isinstance(parsed, dict):
+                    return parsed
+            except (json.JSONDecodeError, ValueError):
+                pass
+
+    # Strategy 3: Find ALL {…} candidates, try each one, pick the one with "needs_more"
+    # This handles thinking text before/after the JSON
+    brace_depth = 0
+    start_idx = None
+    candidates = []
+    for i, ch in enumerate(clean):
+        if ch == '{':
+            if brace_depth == 0:
+                start_idx = i
+            brace_depth += 1
+        elif ch == '}':
+            brace_depth -= 1
+            if brace_depth == 0 and start_idx is not None:
+                candidates.append(clean[start_idx:i + 1])
+                start_idx = None
+
+    for candidate in candidates:
+        try:
+            parsed = json.loads(candidate)
+            if isinstance(parsed, dict) and "needs_more" in parsed:
+                return parsed
+        except (json.JSONDecodeError, ValueError):
+            continue
+
+    # Strategy 4: Last resort — greedy regex (handles simple cases)
+    json_match = re.search(r'\{[^{}]*"needs_more"[^{}]*\}', clean)
+    if json_match:
+        try:
+            return json.loads(json_match.group())
+        except (json.JSONDecodeError, ValueError):
+            pass
+
+    return None
 from typing import Any, TypedDict
 
 from langgraph.graph import END, StateGraph
@@ -206,10 +279,14 @@ Consulta: {query}"""
         model=state.get("model") or settings.default_llm_model,
         temperature=0.0,
         max_tokens=200,
+        user_api_key=state.get("user_api_key"),
+        reasoning_effort=state.get("reasoning_effort"),
     )
 
-    # Parse classification response
-    content = llm_result["content"]
+    # Parse classification response — guard against None from thinking models
+    content = llm_result.get("content") or ""
+    if not content:
+        logger.warning("Classification returned empty content — model may have put everything in thinking block")
     primary = ""
     secondary = []
     confidence = 0.5
@@ -356,11 +433,12 @@ async def execute_primary_agent(state: OrchestratorState) -> dict[str, Any]:
                 {"role": "user", "content": agent_query},
             ],
             model=state.get("model"),
-            user_api_key=state.get("user_api_key"),  # BYOK
+            user_api_key=state.get("user_api_key"),
+            reasoning_effort=state.get("reasoning_effort"),
         )
         return {
             "primary_response": {
-                "response": result["content"],
+                "response": result.get("content") or "",
                 "agent_used": "General",
                 "legal_area": state["primary_area"],
                 "model_used": result["model"],
@@ -397,69 +475,81 @@ async def evaluate_response(state: OrchestratorState) -> dict[str, Any]:
     primary_area = state.get("primary_area", "")
     user_api_key = state.get("user_api_key")
 
-    eval_prompt = f"""Eres el orquestador jurídico de TukiJuris — un general que supervisa un equipo de abogados especializados.
+    eval_prompt = f"""Eres el ORQUESTADOR JURÍDICO de TukiJuris — el socio director de un bufete de abogados especializados en derecho peruano.
 
-Acabas de recibir la respuesta del abogado de {primary_area}. Ahora debes EVALUAR si esta respuesta es suficiente o si necesitas consultar a otro especialista.
+Tu trabajo es GARANTIZAR que el cliente reciba la respuesta más COMPLETA posible. Diriges un equipo de 11 especialistas y tu deber es convocar a TODOS los que tengan algo que aportar.
 
-CONSULTA ORIGINAL DEL USUARIO:
+CONSULTA DEL CLIENTE:
 {query}
 
-RESPUESTA DEL ABOGADO DE {primary_area.upper()}:
-{primary_text[:2000]}
+RESPUESTA DEL ESPECIALISTA EN {primary_area.upper()}:
+{primary_text[:3000]}
 
-PREGUNTA: ¿Esta respuesta cubre completamente la consulta del usuario, o se necesita la opinión de otro especialista?
+INSTRUCCIONES:
+Analiza si la respuesta del {primary_area} cubre TODAS las dimensiones legales de la consulta. En un bufete serio, si hay la MÍNIMA implicancia de otra área, SE CONVOCA al especialista. No somos conservadores — somos exhaustivos.
 
-Responde en EXACTAMENTE este formato JSON:
-{{"needs_more": true/false, "additional_areas": ["area1", "area2"], "reason": "explicación breve"}}
+Responde SOLO con este JSON (sin markdown, sin comentarios, reason máximo 50 palabras):
+{{"needs_more": true/false, "additional_areas": ["area1", "area2"], "reason": "breve"}}
 
-REGLAS:
-- needs_more = true SOLO si la respuesta claramente necesita otra perspectiva legal
-- additional_areas debe ser de: {', '.join(LEGAL_AREAS)}
-- NO incluyas el área primaria ({primary_area}) en additional_areas
-- Máximo 2 áreas adicionales
-- Si la respuesta ya es completa y coherente, needs_more = false
-- Ejemplos de cuándo needs_more=true:
-  * El usuario pregunta sobre costos/impuestos pero solo recibió respuesta civil
-  * El caso mezcla laboral con penal (ej: acoso laboral que es delito)
-  * Se mencionan trámites administrativos pero solo respondió el civilista
-  * El usuario pregunta por una empresa y también hay implicancias tributarias"""
+CRITERIOS PARA needs_more = true (convoca si aplica CUALQUIERA):
+- La consulta MENCIONA o IMPLICA temas de otra área (aunque sea tangencialmente)
+- El usuario pide explícitamente consultar a otro especialista
+- Hay consecuencias tributarias no cubiertas (impuestos, SUNAT, IGV, RUC)
+- Hay trámites administrativos no detallados (municipalidad, licencias, TUPA)
+- Hay aspectos corporativos (constitución de empresa, sociedad)
+- Hay implicancias registrales (SUNARP, inscripción, títulos)
+- Hay aspectos laborales (contratos de trabajo, beneficios)
+- Hay riesgos penales no mencionados
+- El caso tiene dimensión constitucional
+- Hay temas de compliance o competencia
+
+ÁREAS DISPONIBLES: {', '.join(LEGAL_AREAS)}
+ÁREA YA CUBIERTA (NO repetir): {primary_area}
+
+needs_more = false SOLO cuando la consulta es 100% de una sola área y la respuesta la cubre completamente sin dejar ningún flanco legal abierto.
+
+EJEMPLOS:
+- Terreno + papeles → civil + registral + tributario (impuesto predial) + administrativo (municipalidad)
+- Despido + empresa → laboral + tributario (liquidación) + corporativo
+- Negocio + restaurante → corporativo + tributario + administrativo (licencias)
+- Robo simple → solo penal (needs_more = false)
+- Divorcio con bienes e hijos → civil + tributario (bienes)"""
 
     try:
         result = await llm_service.completion(
             messages=[{"role": "user", "content": eval_prompt}],
             model=state.get("model") or settings.default_llm_model,
             temperature=0.0,
-            max_tokens=300,
+            max_tokens=2048,
             user_api_key=user_api_key,
+            reasoning_effort=state.get("reasoning_effort"),
         )
         content = result.get("content", "")
+        logger.info(f"Evaluation raw response: {content[:400]}")
 
-        # Parse JSON response — look for the JSON object in the response
-        json_match = re.search(r'\{[^}]+\}', content, re.DOTALL)
-        if json_match:
-            try:
-                parsed = json.loads(json_match.group())
-                needs_more = parsed.get("needs_more", False)
-                additional = parsed.get("additional_areas", [])
-                reason = parsed.get("reason", "")
+        parsed = _extract_json_robust(content)
+        if parsed:
+            needs_more = parsed.get("needs_more", False)
+            additional = parsed.get("additional_areas", [])
+            reason = parsed.get("reason", "")
 
-                # Validate: only known areas, never the primary area, max 2
-                valid_additional = [
-                    a for a in additional
-                    if a in LEGAL_AREAS and a != primary_area
-                ][:2]
+            # Validate: only known areas, never the primary area, up to 4
+            valid_additional = [
+                a for a in additional
+                if a in LEGAL_AREAS and a != primary_area
+            ][:4]
 
-                logger.info(
-                    f"Evaluation: needs_more={needs_more}, areas={valid_additional}, reason={reason[:100]}"
-                )
+            logger.info(
+                f"Evaluation: needs_more={needs_more}, areas={valid_additional}, reason={reason[:100]}"
+            )
 
-                return {
-                    "needs_enrichment": needs_more and len(valid_additional) > 0,
-                    "secondary_areas": valid_additional,
-                    "evaluation_reason": reason,
-                }
-            except (json.JSONDecodeError, KeyError) as parse_err:
-                logger.warning(f"Evaluation JSON parse failed: {parse_err} | raw: {content[:200]}")
+            return {
+                "needs_enrichment": needs_more and len(valid_additional) > 0,
+                "secondary_areas": valid_additional,
+                "evaluation_reason": reason,
+            }
+        else:
+            logger.warning(f"Evaluation: could not extract JSON from response: {content[:300]}")
     except Exception as e:
         logger.warning("Evaluation LLM call failed: %s", e)
 
@@ -475,16 +565,29 @@ async def enrich_with_secondary(state: OrchestratorState) -> dict[str, Any]:
     Node 5 (conditional): Get additional context from secondary domain agents.
 
     Only runs when evaluate_response() determines needs_enrichment=True.
-    Secondary agents receive RAG context for their specific area.
+    Secondary agents receive:
+    1. The user's original query
+    2. The PRIMARY agent's response (so they can COMPLEMENT, not repeat)
+    3. RAG context for their specific area
     """
     secondary_responses = []
-    for area in state.get("secondary_areas", [])[:2]:  # Max 2 secondary agents
+    primary = state.get("primary_response", {})
+    primary_text = primary.get("response", "") if isinstance(primary, dict) else str(primary)
+    primary_agent_name = state.get("primary_agent_name", "especialista previo")
+
+    for area in state.get("secondary_areas", [])[:4]:  # Up to 4 secondary agents
         agent = get_agent(area)
         if agent:
+            # KEY: Secondary agents see the primary response to COMPLEMENT it
             enrichment_query = (
-                f"En relación a la siguiente consulta, proporciona tu análisis desde la perspectiva "
-                f"del {agent.name}. Sé específico con la normativa aplicable.\n\n"
-                f"Consulta: {state['query']}"
+                f"Otro especialista ({primary_agent_name}) ya analizó esta consulta. "
+                f"Tu rol es COMPLEMENTAR su análisis desde tu perspectiva como {agent.name}. "
+                f"NO repitas lo que ya dijo — enfocate en lo que falta o difiere.\n\n"
+                f"CONSULTA ORIGINAL: {state['query']}\n\n"
+                f"ANÁLISIS PREVIO DEL {primary_agent_name.upper()}:\n"
+                f"{primary_text[:2500]}\n\n"
+                f"Ahora da tu análisis complementario desde {agent.name}. "
+                f"Sé específico con normativa y artículos aplicables."
             )
 
             # Retrieve RAG context for this secondary area
@@ -566,6 +669,7 @@ Escribe la respuesta final integrada:"""
             temperature=0.3,
             max_tokens=4096,
             user_api_key=user_api_key,
+            reasoning_effort=state.get("reasoning_effort"),
         )
         synthesized = result.get("content", primary_text)
     except Exception as exc:

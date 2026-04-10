@@ -129,7 +129,7 @@ interface TopQueriesData {
 function Skeleton({ className }: { className?: string }) {
   return (
     <div
-      className={`animate-pulse bg-[#1A1A22] rounded ${className ?? ""}`}
+      className={`animate-pulse bg-[#25242b] rounded ${className ?? ""}`}
     />
   );
 }
@@ -149,7 +149,7 @@ interface StatCardProps {
 function StatCard({ label, value, sub, icon, loading }: StatCardProps) {
   if (loading) {
     return (
-      <div className="bg-[#111116] border border-[#1E1E2A] rounded-xl p-5">
+      <div className="bg-surface-container-low border border-[rgba(79,70,51,0.15)] rounded-lg p-6">
         <Skeleton className="h-3 w-24 mb-4" />
         <Skeleton className="h-8 w-32 mb-2" />
         <Skeleton className="h-3 w-20" />
@@ -157,13 +157,13 @@ function StatCard({ label, value, sub, icon, loading }: StatCardProps) {
     );
   }
   return (
-    <div className="bg-[#111116] border border-[#1E1E2A] rounded-xl p-4 sm:p-5">
-      <div className="flex items-center justify-between mb-2 sm:mb-3">
-        <p className="text-[10px] sm:text-xs text-[#6B7280] uppercase tracking-wider leading-tight">{label}</p>
-        {icon && <div className="text-[#6B7280] shrink-0">{icon}</div>}
+    <div className="bg-surface-container-low border border-[rgba(79,70,51,0.15)] rounded-lg p-6">
+      <div className="flex items-center justify-between mb-3">
+        <p className="text-[10px] text-[#7c7885] uppercase tracking-wider leading-tight">{label}</p>
+        {icon && <div className="text-[#7c7885] shrink-0">{icon}</div>}
       </div>
-      <p className="text-2xl sm:text-3xl font-bold text-[#EAB308]">{value}</p>
-      {sub && <div className="mt-1">{sub}</div>}
+      <p className="font-['Newsreader'] text-3xl font-bold text-primary">{value}</p>
+      {sub && <div className="mt-2">{sub}</div>}
     </div>
   );
 }
@@ -185,7 +185,7 @@ function BarChart({
         {Array.from({ length: 20 }).map((_, i) => (
           <div
             key={i}
-            className="flex-1 animate-pulse rounded-md bg-muted"
+            className="flex-1 animate-pulse rounded bg-[#25242b]"
             style={{ height: `${20 + Math.random() * 60}%` }}
           />
         ))}
@@ -195,7 +195,7 @@ function BarChart({
 
   if (!data.length) {
     return (
-      <div className="h-36 flex items-center justify-center text-[#6B7280] text-sm">
+      <div className="h-36 flex items-center justify-center text-[#7c7885] text-sm">
         Sin datos en este periodo
       </div>
     );
@@ -214,11 +214,10 @@ function BarChart({
             title={`${d.date}: ${d.count} consultas`}
           >
             <div
-              className="w-full bg-[#EAB308] hover:bg-[#D4A00A] rounded-t-sm transition-colors cursor-default"
+              className="w-full bg-primary hover:bg-primary-container rounded-t-sm transition-colors cursor-default"
               style={{ height: `${heightPct}%` }}
             />
-            {/* tooltip on hover */}
-            <div className="absolute bottom-full mb-1 left-1/2 -translate-x-1/2 hidden group-hover:block bg-[#0A0A0F] border border-[#2A2A35] rounded px-2 py-1 text-[10px] text-white whitespace-nowrap z-10 pointer-events-none">
+            <div className="absolute bottom-full mb-1 left-1/2 -translate-x-1/2 hidden group-hover:block bg-[#0e0e12] border border-[rgba(79,70,51,0.3)] rounded px-2 py-1 text-[10px] text-on-surface whitespace-nowrap z-10 pointer-events-none">
               {d.date}: {d.count}
             </div>
           </div>
@@ -249,7 +248,7 @@ function DonutChart({
 
   if (!data.length) {
     return (
-      <div className="h-40 flex items-center justify-center text-[#6B7280] text-sm">
+      <div className="h-40 flex items-center justify-center text-[#7c7885] text-sm">
         Sin datos
       </div>
     );
@@ -257,7 +256,6 @@ function DonutChart({
 
   const total = data.reduce((s, d) => s + d.count, 0) || 1;
 
-  // Build conic-gradient segments
   let cumulative = 0;
   const segments = data.map((d) => {
     const pct = (d.count / total) * 100;
@@ -295,8 +293,8 @@ function DonutChart({
                 className="w-2.5 h-2.5 rounded-sm shrink-0"
                 style={{ background: area?.hex ?? "#6b7280" }}
               />
-              <span className="text-[#9CA3AF] truncate">{area?.name ?? d.area}</span>
-              <span className="text-[#6B7280] ml-auto pl-2">{pct}%</span>
+              <span className="text-[#a09ba8] truncate">{area?.name ?? d.area}</span>
+              <span className="text-[#7c7885] ml-auto pl-2">{pct}%</span>
             </div>
           );
         })}
@@ -310,9 +308,9 @@ function DonutChart({
 // ---------------------------------------------------------------------------
 
 function LatencyBadge({ ms }: { ms: number | null }) {
-  if (ms === null || ms === undefined) return <span className="text-[#6B7280]">—</span>;
+  if (ms === null || ms === undefined) return <span className="text-[#7c7885]">—</span>;
   const color =
-    ms < 2000 ? "text-green-400" : ms < 5000 ? "text-[#EAB308]" : "text-red-400";
+    ms < 2000 ? "text-green-400" : ms < 5000 ? "text-primary" : "text-red-400";
   return <span className={`font-mono ${color}`}>{Math.round(ms)}ms</span>;
 }
 
@@ -328,7 +326,7 @@ function TrendIndicator({
   suffix?: string;
 }) {
   if (value === null || value === undefined) {
-    return <span className="text-[#6B7280] text-xs">—</span>;
+    return <span className="text-[#7c7885] text-xs">—</span>;
   }
   if (value > 0) {
     return (
@@ -347,7 +345,7 @@ function TrendIndicator({
     );
   }
   return (
-    <span className="flex items-center gap-0.5 text-xs text-[#6B7280]">
+    <span className="flex items-center gap-0.5 text-xs text-[#7c7885]">
       <Minus className="w-3 h-3" />
       0{suffix}
     </span>
@@ -359,17 +357,15 @@ function TrendIndicator({
 // ---------------------------------------------------------------------------
 
 function AreaBadge({ area }: { area: string | null }) {
-  if (!area) return <span className="text-[#6B7280] text-xs">—</span>;
+  if (!area) return <span className="text-[#7c7885] text-xs">—</span>;
   const a = AREA_MAP[area];
   return (
-    <span
-      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-[#1A1A22] border border-[#2A2A35]"
-    >
+    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-surface-container-low border border-[rgba(79,70,51,0.15)]">
       <span
         className="w-1.5 h-1.5 rounded-full"
         style={{ background: a?.hex ?? "#6b7280" }}
       />
-      <span className="text-[#F5F5F5]">{a?.name ?? area}</span>
+      <span className="text-on-surface">{a?.name ?? area}</span>
     </span>
   );
 }
@@ -467,7 +463,6 @@ export default function AnalyticsPage() {
         setTopQueries(topQueriesData);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Error al cargar datos");
-        // Load placeholder data so layout still renders
         setOverview({
           queries_today: 0,
           queries_today_vs_yesterday_pct: 0,
@@ -530,43 +525,49 @@ export default function AnalyticsPage() {
 
   return (
     <AppLayout>
-      <div className="min-h-full text-[#F5F5F5]">
+      <div className="min-h-full text-on-surface">
         {/* Page header with controls */}
-        <div className="border-b border-[#1E1E2A] px-4 sm:px-6 py-3 flex items-center justify-between sticky top-0 bg-[#0A0A0F] z-20">
-          <div className="flex items-center gap-2">
-            <BarChart3 className="w-5 h-5 text-[#EAB308]" />
-            <h1 className="text-sm font-semibold text-white">Analytics</h1>
+        <div className="border-b border-[rgba(79,70,51,0.15)] px-4 sm:px-6 py-4 flex items-center justify-between sticky top-0 bg-[#0e0e12] z-20">
+          <div className="flex items-center gap-3">
+            <BarChart3 className="w-5 h-5 text-primary" />
+            <h1 className="font-['Newsreader'] text-4xl font-bold text-on-surface leading-none">
+              Analytics
+            </h1>
           </div>
           <div className="flex items-center gap-2">
             {/* Date range selector */}
-            <div className="flex items-center gap-1 bg-[#111116] border border-[#1E1E2A] rounded-xl p-1">
+            <div className="flex items-center gap-1 bg-surface-container-low border border-[rgba(79,70,51,0.15)] rounded-lg p-1">
               {dateRangeOptions.map((opt) => (
                 <button
                   key={opt.value}
                   onClick={() => setDays(opt.value)}
-                  className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${
+                  className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
                     days === opt.value
-                      ? "bg-[#EAB308]/10 text-[#EAB308]"
-                      : "text-[#9CA3AF] bg-[#1A1A22] hover:text-[#F5F5F5]"
+                      ? "bg-primary/10 text-primary"
+                      : "text-[#a09ba8] hover:text-on-surface"
                   }`}
                 >
                   {opt.label}
                 </button>
               ))}
             </div>
+
+            {/* Export button */}
             <button
               onClick={handleExport}
               disabled={exporting}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium text-[#F5F5F5] hover:text-white hover:bg-[#1A1A22] border border-[#2A2A35] transition-colors disabled:opacity-50"
+              className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold uppercase tracking-widest text-on-surface border border-[rgba(79,70,51,0.15)] hover:bg-surface-container-high transition-colors disabled:opacity-50"
               title="Exportar CSV"
             >
               <Download className={`w-3.5 h-3.5 ${exporting ? "animate-bounce" : ""}`} />
               <span className="hidden sm:inline">Exportar CSV</span>
             </button>
+
+            {/* Refresh button */}
             <button
               onClick={() => fetchData(true)}
               disabled={refreshing}
-              className="p-2 rounded-xl text-[#6B7280] hover:text-[#F5F5F5] hover:bg-[#1A1A22] transition-colors disabled:opacity-50"
+              className="p-2 rounded-lg text-[#7c7885] hover:text-on-surface border border-[rgba(79,70,51,0.15)] hover:bg-surface-container-high transition-colors disabled:opacity-50"
               title="Actualizar datos"
             >
               <RefreshCw className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`} />
@@ -575,721 +576,750 @@ export default function AnalyticsPage() {
         </div>
 
         <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6">
-        {/* Loading org state */}
-        {orgLoading && (
-          <div className="flex items-center justify-center py-20">
-            <div className="w-5 h-5 border-2 border-[#EAB308] border-t-transparent rounded-full animate-spin mr-3" />
-            <span className="text-[#9CA3AF] text-sm">Cargando organización...</span>
-          </div>
-        )}
+          {/* Loading org state */}
+          {orgLoading && (
+            <div className="flex items-center justify-center py-20">
+              <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin mr-3" />
+              <span className="text-[#a09ba8] text-sm">Cargando organización...</span>
+            </div>
+          )}
 
-        {/* No org state */}
-        {!orgLoading && !orgId && (
-          <div className="flex flex-col items-center justify-center py-20 text-center">
-            <BarChart3 className="w-12 h-12 text-[#2A2A35] mb-4" />
-            <h2 className="text-lg font-semibold text-[#F5F5F5] mb-2">
-              Sin organización
-            </h2>
-            <p className="text-[#6B7280] text-sm max-w-sm">
-              Crea una organización para ver analytics.
-            </p>
-            <a
-              href="/organizacion"
-              className="mt-4 inline-flex items-center gap-2 bg-[#EAB308] hover:bg-[#D4A00A] text-[#0A0A0F] text-sm font-medium px-4 py-2 rounded-xl transition-colors"
-            >
-              Crear organización
-            </a>
-          </div>
-        )}
-
-        {/* Error banner */}
-        {!orgLoading && orgId && error && (
-          <div className="bg-red-950/50 border border-red-800/50 rounded-xl px-4 py-3 text-sm text-red-300">
-            <strong>Error:</strong> {error}
-          </div>
-        )}
-
-        {/* Main content — only shown when orgId is resolved */}
-        {!orgLoading && orgId && (
-        <>
-
-        {/* Tab navigation */}
-        <div className="flex items-center gap-1 border-b border-[#1E1E2A] -mb-2">
-          {(
-            [
-              { id: "overview", label: "Resumen", icon: BarChart3 },
-              { id: "costos", label: "Costos", icon: DollarSign },
-              { id: "frecuentes", label: "Consultas Frecuentes", icon: MessageSquare },
-            ] as { id: TabId; label: string; icon: React.ComponentType<{ className?: string }> }[]
-          ).map(({ id, label, icon: Icon }) => (
-            <button
-              key={id}
-              onClick={() => setActiveTab(id)}
-              className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-medium border-b-2 transition-colors ${
-                activeTab === id
-                  ? "border-[#EAB308] text-[#EAB308]"
-                  : "border-transparent text-[#6B7280] hover:text-[#F5F5F5]"
-              }`}
-            >
-              <Icon className="w-3.5 h-3.5" />
-              {label}
-            </button>
-          ))}
-        </div>
-
-        {/* ── OVERVIEW TAB ─────────────────────────────────────────────── */}
-        {activeTab === "overview" && (
-          <>
-        {/* Stat cards */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-          <StatCard
-            loading={loading}
-            label="Consultas hoy"
-            value={overview?.queries_today ?? 0}
-            icon={<BarChart3 className="w-4 h-4" />}
-            sub={
-              <TrendIndicator value={overview?.queries_today_vs_yesterday_pct ?? null} />
-            }
-          />
-          <StatCard
-            loading={loading}
-            label={`Consultas (${days}d)`}
-            value={overview?.queries_month ?? 0}
-            icon={<TrendingUp className="w-4 h-4" />}
-            sub={
-              <p className="text-xs text-[#6B7280]">
-                {overview?.queries_week ?? 0} esta semana
+          {/* No org state */}
+          {!orgLoading && !orgId && (
+            <div className="flex flex-col items-center justify-center py-20 text-center">
+              <BarChart3 className="w-12 h-12 text-[#25242b] mb-4" />
+              <h2 className="font-['Newsreader'] text-3xl font-bold text-on-surface mb-2">
+                Sin organización
+              </h2>
+              <p className="text-[#7c7885] text-sm max-w-sm">
+                Crea una organización para ver analytics.
               </p>
-            }
-          />
-          <StatCard
-            loading={loading}
-            label="Latencia promedio"
-            value={`${Math.round(overview?.avg_latency_ms ?? 0)}ms`}
-            icon={<Timer className="w-4 h-4" />}
-            sub={
-              <LatencyBadge ms={overview?.avg_latency_ms ?? null} />
-            }
-          />
-          <StatCard
-            loading={loading}
-            label="Usuarios activos"
-            value={overview?.active_users ?? 0}
-            icon={<Users className="w-4 h-4" />}
-            sub={
-              overview?.satisfaction_rate ? (
-                <div className="flex items-center gap-1 text-xs text-[#6B7280]">
-                  <ThumbsUp className="w-3 h-3 text-green-400" />
-                  <span>{overview.satisfaction_rate}% satisfaccion</span>
-                </div>
-              ) : null
-            }
-          />
-        </div>
-
-        {/* Charts row */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {/* Bar chart */}
-          <div className="bg-[#111116] border border-[#1E1E2A] rounded-xl p-5">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h2 className="text-sm font-semibold text-white">Volumen de consultas</h2>
-                <p className="text-xs text-[#6B7280]">Ultimos {days} dias</p>
-              </div>
-              <BarChart3 className="w-4 h-4 text-[#2A2A35]" />
+              <a
+                href="/organizacion"
+                className="mt-4 inline-flex items-center gap-2 bg-gradient-to-br from-primary to-primary-container hover:opacity-90 text-on-primary text-sm font-bold px-4 py-2 rounded-lg transition-opacity"
+              >
+                Crear organización
+              </a>
             </div>
-            <BarChart data={overview?.queries_trend ?? []} loading={loading} />
-            {/* X-axis labels — first, mid, last */}
-            {!loading && overview?.queries_trend && overview.queries_trend.length > 1 && (
-              <div className="flex justify-between mt-1 text-[10px] text-[#6B7280]">
-                <span>{overview.queries_trend[0]?.date.slice(5)}</span>
-                <span>
-                  {
-                    overview.queries_trend[
-                      Math.floor(overview.queries_trend.length / 2)
-                    ]?.date.slice(5)
-                  }
-                </span>
-                <span>
-                  {overview.queries_trend[overview.queries_trend.length - 1]?.date.slice(5)}
-                </span>
-              </div>
-            )}
-          </div>
+          )}
 
-          {/* Donut chart */}
-          <div className="bg-[#111116] border border-[#1E1E2A] rounded-xl p-5">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h2 className="text-sm font-semibold text-white">Por area juridica</h2>
-                <p className="text-xs text-[#6B7280]">Distribucion del periodo</p>
-              </div>
+          {/* Error banner */}
+          {!orgLoading && orgId && error && (
+            <div className="bg-red-950/50 border border-red-800/50 rounded-lg px-4 py-3 text-sm text-red-300">
+              <strong>Error:</strong> {error}
             </div>
-            <DonutChart
-              data={overview?.top_areas ?? []}
-              loading={loading}
-            />
-          </div>
-        </div>
+          )}
 
-        {/* Tables row */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {/* Top legal areas table */}
-          <div className="bg-[#111116] border border-[#1E1E2A] rounded-xl overflow-hidden">
-            <div className="px-5 py-4 border-b border-[#1E1E2A] bg-[#1A1A22]">
-              <h2 className="text-sm font-semibold text-white">Areas mas consultadas</h2>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[380px] text-xs">
-                <thead>
-                  <tr className="border-b border-[#1E1E2A]">
-                    <th className="text-left px-5 py-3 text-[#6B7280] font-medium uppercase tracking-wider">
-                      Area
-                    </th>
-                    <th className="text-right px-4 py-3 text-[#6B7280] font-medium uppercase tracking-wider">
-                      Consultas
-                    </th>
-                    <th className="text-right px-4 py-3 text-[#6B7280] font-medium uppercase tracking-wider">
-                      %
-                    </th>
-                    <th className="text-right px-5 py-3 text-[#6B7280] font-medium uppercase tracking-wider">
-                      Tendencia
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {loading
-                    ? Array.from({ length: 5 }).map((_, i) => (
-                        <tr key={i} className="border-b border-[#1E1E2A]/50">
-                          <td className="px-5 py-3">
-                            <Skeleton className="h-3 w-24" />
-                          </td>
-                          <td className="px-4 py-3 text-right">
-                            <Skeleton className="h-3 w-10 ml-auto" />
-                          </td>
-                          <td className="px-4 py-3 text-right">
-                            <Skeleton className="h-3 w-8 ml-auto" />
-                          </td>
-                          <td className="px-5 py-3 text-right">
-                            <Skeleton className="h-3 w-12 ml-auto" />
-                          </td>
-                        </tr>
-                      ))
-                    : areas.length === 0
-                    ? (
-                      <tr>
-                        <td colSpan={4} className="px-5 py-8 text-center text-[#6B7280]">
-                          Sin datos disponibles
-                        </td>
-                      </tr>
-                    )
-                    : areas.map((a) => {
-                        const meta = AREA_MAP[a.area];
-                        return (
-                          <tr
-                            key={a.area}
-                            className="border-b border-[#1E1E2A]/50 hover:bg-[#1A1A22] transition-colors"
-                          >
-                            <td className="px-5 py-3">
-                              <div className="flex items-center gap-2">
-                                <span
-                                  className="w-2 h-2 rounded-full shrink-0"
-                                  style={{ background: meta?.hex ?? "#6b7280" }}
-                                />
-                                <span className="text-[#F5F5F5]">{meta?.name ?? a.area}</span>
-                              </div>
-                            </td>
-                            <td className="px-4 py-3 text-right text-[#F5F5F5] font-mono">
-                              {a.count.toLocaleString()}
-                            </td>
-                            <td className="px-4 py-3 text-right">
-                              <div className="flex items-center justify-end gap-1.5">
-                                <div className="w-12 h-1.5 bg-[#2A2A35] rounded-full overflow-hidden">
-                                  <div
-                                    className="h-full rounded-full"
-                                    style={{
-                                      width: `${a.percentage}%`,
-                                      background: meta?.hex ?? "#6b7280",
-                                    }}
-                                  />
-                                </div>
-                                <span className="text-[#9CA3AF] w-8 text-right">
-                                  {a.percentage}%
-                                </span>
-                              </div>
-                            </td>
-                            <td className="px-5 py-3 text-right">
-                              {a.trend === "up" ? (
-                                <span className="flex items-center justify-end gap-0.5 text-green-400">
-                                  <TrendingUp className="w-3 h-3" />
-                                  {a.change_pct !== null ? `+${a.change_pct}%` : ""}
-                                </span>
-                              ) : a.trend === "down" ? (
-                                <span className="flex items-center justify-end gap-0.5 text-red-400">
-                                  <TrendingDown className="w-3 h-3" />
-                                  {a.change_pct !== null ? `${a.change_pct}%` : ""}
-                                </span>
-                              ) : (
-                                <span className="flex items-center justify-end gap-0.5 text-[#6B7280]">
-                                  <Minus className="w-3 h-3" />
-                                </span>
-                              )}
-                            </td>
+          {/* Main content — only shown when orgId is resolved */}
+          {!orgLoading && orgId && (
+            <>
+              {/* Tab navigation */}
+              <div className="flex items-center gap-1 border-b border-[rgba(79,70,51,0.15)] -mb-2">
+                {(
+                  [
+                    { id: "overview", label: "Resumen", icon: BarChart3 },
+                    { id: "costos", label: "Costos", icon: DollarSign },
+                    { id: "frecuentes", label: "Consultas Frecuentes", icon: MessageSquare },
+                  ] as { id: TabId; label: string; icon: React.ComponentType<{ className?: string }> }[]
+                ).map(({ id, label, icon: Icon }) => (
+                  <button
+                    key={id}
+                    onClick={() => setActiveTab(id)}
+                    className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-medium border-b-2 transition-colors ${
+                      activeTab === id
+                        ? "border-primary text-primary"
+                        : "border-transparent text-[#7c7885] hover:text-on-surface"
+                    }`}
+                  >
+                    <Icon className="w-3.5 h-3.5" />
+                    {label}
+                  </button>
+                ))}
+              </div>
+
+              {/* ── OVERVIEW TAB ──────────────────────────────────────────── */}
+              {activeTab === "overview" && (
+                <>
+                  {/* Stat cards */}
+                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+                    <StatCard
+                      loading={loading}
+                      label="Consultas hoy"
+                      value={overview?.queries_today ?? 0}
+                      icon={<BarChart3 className="w-4 h-4" />}
+                      sub={
+                        <TrendIndicator value={overview?.queries_today_vs_yesterday_pct ?? null} />
+                      }
+                    />
+                    <StatCard
+                      loading={loading}
+                      label={`Consultas (${days}d)`}
+                      value={overview?.queries_month ?? 0}
+                      icon={<TrendingUp className="w-4 h-4" />}
+                      sub={
+                        <p className="text-xs text-[#7c7885]">
+                          {overview?.queries_week ?? 0} esta semana
+                        </p>
+                      }
+                    />
+                    <StatCard
+                      loading={loading}
+                      label="Latencia promedio"
+                      value={`${Math.round(overview?.avg_latency_ms ?? 0)}ms`}
+                      icon={<Timer className="w-4 h-4" />}
+                      sub={<LatencyBadge ms={overview?.avg_latency_ms ?? null} />}
+                    />
+                    <StatCard
+                      loading={loading}
+                      label="Usuarios activos"
+                      value={overview?.active_users ?? 0}
+                      icon={<Users className="w-4 h-4" />}
+                      sub={
+                        overview?.satisfaction_rate ? (
+                          <div className="flex items-center gap-1 text-xs text-[#7c7885]">
+                            <ThumbsUp className="w-3 h-3 text-green-400" />
+                            <span>{overview.satisfaction_rate}% satisfacción</span>
+                          </div>
+                        ) : null
+                      }
+                    />
+                  </div>
+
+                  {/* Charts row */}
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    {/* Bar chart */}
+                    <div className="bg-surface-container-low border border-[rgba(79,70,51,0.15)] rounded-lg p-6">
+                      <div className="flex items-center justify-between mb-4">
+                        <div>
+                          <h2 className="font-['Newsreader'] text-lg font-bold text-on-surface">
+                            Volumen de consultas
+                          </h2>
+                          <p className="text-xs text-[#7c7885]">Últimos {days} días</p>
+                        </div>
+                        <BarChart3 className="w-4 h-4 text-[#25242b]" />
+                      </div>
+                      <BarChart data={overview?.queries_trend ?? []} loading={loading} />
+                      {!loading && overview?.queries_trend && overview.queries_trend.length > 1 && (
+                        <div className="flex justify-between mt-1 text-[10px] text-[#7c7885]">
+                          <span>{overview.queries_trend[0]?.date.slice(5)}</span>
+                          <span>
+                            {
+                              overview.queries_trend[
+                                Math.floor(overview.queries_trend.length / 2)
+                              ]?.date.slice(5)
+                            }
+                          </span>
+                          <span>
+                            {overview.queries_trend[overview.queries_trend.length - 1]?.date.slice(5)}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Donut chart */}
+                    <div className="bg-surface-container-low border border-[rgba(79,70,51,0.15)] rounded-lg p-6">
+                      <div className="flex items-center justify-between mb-4">
+                        <div>
+                          <h2 className="font-['Newsreader'] text-lg font-bold text-on-surface">
+                            Por área jurídica
+                          </h2>
+                          <p className="text-xs text-[#7c7885]">Distribución del periodo</p>
+                        </div>
+                      </div>
+                      <DonutChart
+                        data={overview?.top_areas ?? []}
+                        loading={loading}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Tables row */}
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    {/* Top legal areas table */}
+                    <div className="bg-surface-container-low border border-[rgba(79,70,51,0.15)] rounded-lg overflow-hidden">
+                      <div className="px-5 py-4 border-b border-[rgba(79,70,51,0.15)] bg-surface">
+                        <h2 className="font-['Newsreader'] text-base font-bold text-on-surface">
+                          Áreas más consultadas
+                        </h2>
+                      </div>
+                      <div className="overflow-x-auto">
+                        <table className="w-full min-w-[380px] text-xs">
+                          <thead>
+                            <tr className="border-b border-[rgba(79,70,51,0.15)] bg-surface">
+                              <th className="text-left px-5 py-3 text-[#7c7885] font-medium uppercase tracking-wider">
+                                Área
+                              </th>
+                              <th className="text-right px-4 py-3 text-[#7c7885] font-medium uppercase tracking-wider">
+                                Consultas
+                              </th>
+                              <th className="text-right px-4 py-3 text-[#7c7885] font-medium uppercase tracking-wider">
+                                %
+                              </th>
+                              <th className="text-right px-5 py-3 text-[#7c7885] font-medium uppercase tracking-wider">
+                                Tendencia
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {loading
+                              ? Array.from({ length: 5 }).map((_, i) => (
+                                  <tr
+                                    key={i}
+                                    className={`border-b border-[rgba(79,70,51,0.1)] ${
+                                      i % 2 === 0 ? "bg-surface-container-low" : "bg-surface"
+                                    }`}
+                                  >
+                                    <td className="px-5 py-3">
+                                      <Skeleton className="h-3 w-24" />
+                                    </td>
+                                    <td className="px-4 py-3 text-right">
+                                      <Skeleton className="h-3 w-10 ml-auto" />
+                                    </td>
+                                    <td className="px-4 py-3 text-right">
+                                      <Skeleton className="h-3 w-8 ml-auto" />
+                                    </td>
+                                    <td className="px-5 py-3 text-right">
+                                      <Skeleton className="h-3 w-12 ml-auto" />
+                                    </td>
+                                  </tr>
+                                ))
+                              : areas.length === 0
+                              ? (
+                                <tr>
+                                  <td colSpan={4} className="px-5 py-8 text-center text-[#7c7885]">
+                                    Sin datos disponibles
+                                  </td>
+                                </tr>
+                              )
+                              : areas.map((a, idx) => {
+                                  const meta = AREA_MAP[a.area];
+                                  return (
+                                    <tr
+                                      key={a.area}
+                                      className={`border-b border-[rgba(79,70,51,0.1)] hover:bg-[#25242b] transition-colors ${
+                                        idx % 2 === 0 ? "bg-surface-container-low" : "bg-surface"
+                                      }`}
+                                    >
+                                      <td className="px-5 py-3">
+                                        <div className="flex items-center gap-2">
+                                          <span
+                                            className="w-2 h-2 rounded-full shrink-0"
+                                            style={{ background: meta?.hex ?? "#6b7280" }}
+                                          />
+                                          <span className="text-on-surface">{meta?.name ?? a.area}</span>
+                                        </div>
+                                      </td>
+                                      <td className="px-4 py-3 text-right text-on-surface font-mono">
+                                        {a.count.toLocaleString()}
+                                      </td>
+                                      <td className="px-4 py-3 text-right">
+                                        <div className="flex items-center justify-end gap-1.5">
+                                          <div className="w-12 h-1.5 bg-[#25242b] rounded-full overflow-hidden">
+                                            <div
+                                              className="h-full rounded-full"
+                                              style={{
+                                                width: `${a.percentage}%`,
+                                                background: meta?.hex ?? "#6b7280",
+                                              }}
+                                            />
+                                          </div>
+                                          <span className="text-[#a09ba8] w-8 text-right">
+                                            {a.percentage}%
+                                          </span>
+                                        </div>
+                                      </td>
+                                      <td className="px-5 py-3 text-right">
+                                        {a.trend === "up" ? (
+                                          <span className="flex items-center justify-end gap-0.5 text-green-400">
+                                            <TrendingUp className="w-3 h-3" />
+                                            {a.change_pct !== null ? `+${a.change_pct}%` : ""}
+                                          </span>
+                                        ) : a.trend === "down" ? (
+                                          <span className="flex items-center justify-end gap-0.5 text-red-400">
+                                            <TrendingDown className="w-3 h-3" />
+                                            {a.change_pct !== null ? `${a.change_pct}%` : ""}
+                                          </span>
+                                        ) : (
+                                          <span className="flex items-center justify-end gap-0.5 text-[#7c7885]">
+                                            <Minus className="w-3 h-3" />
+                                          </span>
+                                        )}
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+
+                    {/* Model usage table */}
+                    <div className="bg-surface-container-low border border-[rgba(79,70,51,0.15)] rounded-lg overflow-hidden">
+                      <div className="px-5 py-4 border-b border-[rgba(79,70,51,0.15)] bg-surface">
+                        <h2 className="font-['Newsreader'] text-base font-bold text-on-surface">
+                          Uso por modelo
+                        </h2>
+                      </div>
+                      <div className="overflow-x-auto">
+                        <table className="w-full min-w-[360px] text-xs">
+                          <thead>
+                            <tr className="border-b border-[rgba(79,70,51,0.15)] bg-surface">
+                              <th className="text-left px-5 py-3 text-[#7c7885] font-medium uppercase tracking-wider">
+                                Modelo
+                              </th>
+                              <th className="text-right px-4 py-3 text-[#7c7885] font-medium uppercase tracking-wider">
+                                Consultas
+                              </th>
+                              <th className="text-right px-5 py-3 text-[#7c7885] font-medium uppercase tracking-wider">
+                                Latencia prom.
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {loading
+                              ? Array.from({ length: 4 }).map((_, i) => (
+                                  <tr
+                                    key={i}
+                                    className={`border-b border-[rgba(79,70,51,0.1)] ${
+                                      i % 2 === 0 ? "bg-surface-container-low" : "bg-surface"
+                                    }`}
+                                  >
+                                    <td className="px-5 py-3">
+                                      <Skeleton className="h-3 w-28" />
+                                    </td>
+                                    <td className="px-4 py-3 text-right">
+                                      <Skeleton className="h-3 w-10 ml-auto" />
+                                    </td>
+                                    <td className="px-5 py-3 text-right">
+                                      <Skeleton className="h-3 w-14 ml-auto" />
+                                    </td>
+                                  </tr>
+                                ))
+                              : models.length === 0
+                              ? (
+                                <tr>
+                                  <td colSpan={3} className="px-5 py-8 text-center text-[#7c7885]">
+                                    Sin datos disponibles
+                                  </td>
+                                </tr>
+                              )
+                              : models.map((m, idx) => (
+                                  <tr
+                                    key={m.model}
+                                    className={`border-b border-[rgba(79,70,51,0.1)] hover:bg-[#25242b] transition-colors ${
+                                      idx % 2 === 0 ? "bg-surface-container-low" : "bg-surface"
+                                    }`}
+                                  >
+                                    <td className="px-5 py-3">
+                                      <div className="space-y-0.5">
+                                        <p className="text-on-surface font-medium">
+                                          {m.model.split("/").pop() ?? m.model}
+                                        </p>
+                                        <div className="w-24 h-1 bg-[#25242b] rounded-full overflow-hidden">
+                                          <div
+                                            className="h-full bg-primary rounded-full"
+                                            style={{ width: `${m.percentage}%` }}
+                                          />
+                                        </div>
+                                      </div>
+                                    </td>
+                                    <td className="px-4 py-3 text-right text-on-surface font-mono">
+                                      {m.count.toLocaleString()}
+                                      <span className="text-[#7c7885] ml-1">({m.percentage}%)</span>
+                                    </td>
+                                    <td className="px-5 py-3 text-right">
+                                      <LatencyBadge ms={m.avg_latency_ms} />
+                                    </td>
+                                  </tr>
+                                ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Recent queries */}
+                  <div className="bg-surface-container-low border border-[rgba(79,70,51,0.15)] rounded-lg overflow-hidden">
+                    <div className="px-5 py-4 border-b border-[rgba(79,70,51,0.15)] bg-surface flex items-center justify-between">
+                      <div>
+                        <h2 className="font-['Newsreader'] text-base font-bold text-on-surface">
+                          Consultas recientes
+                        </h2>
+                        <p className="text-xs text-[#7c7885]">Últimas 20 respuestas del asistente</p>
+                      </div>
+                    </div>
+                    <div className="overflow-x-auto">
+                      <table className="w-full min-w-[600px] text-xs">
+                        <thead>
+                          <tr className="border-b border-[rgba(79,70,51,0.15)] bg-surface">
+                            <th className="text-left px-5 py-3 text-[#7c7885] font-medium uppercase tracking-wider">
+                              Fecha
+                            </th>
+                            <th className="text-left px-4 py-3 text-[#7c7885] font-medium uppercase tracking-wider">
+                              Usuario
+                            </th>
+                            <th className="text-left px-4 py-3 text-[#7c7885] font-medium uppercase tracking-wider">
+                              Área
+                            </th>
+                            <th className="text-left px-4 py-3 text-[#7c7885] font-medium uppercase tracking-wider">
+                              Modelo
+                            </th>
+                            <th className="text-right px-5 py-3 text-[#7c7885] font-medium uppercase tracking-wider">
+                              Latencia
+                            </th>
                           </tr>
-                        );
-                      })}
-                </tbody>
-              </table>
-            </div>
-          </div>
+                        </thead>
+                        <tbody>
+                          {loading
+                            ? Array.from({ length: 8 }).map((_, i) => (
+                                <tr
+                                  key={i}
+                                  className={`border-b border-[rgba(79,70,51,0.1)] ${
+                                    i % 2 === 0 ? "bg-surface-container-low" : "bg-surface"
+                                  }`}
+                                >
+                                  {Array.from({ length: 5 }).map((__, j) => (
+                                    <td key={j} className="px-5 py-3">
+                                      <Skeleton className="h-3 w-full" />
+                                    </td>
+                                  ))}
+                                </tr>
+                              ))
+                            : queries.length === 0
+                            ? (
+                              <tr>
+                                <td colSpan={5} className="px-5 py-10 text-center text-[#7c7885]">
+                                  No hay consultas registradas en este periodo
+                                </td>
+                              </tr>
+                            )
+                            : queries.map((q, idx) => (
+                                <tr
+                                  key={q.id}
+                                  className={`border-b border-[rgba(79,70,51,0.1)] hover:bg-[#25242b] transition-colors ${
+                                    idx % 2 === 0 ? "bg-surface-container-low" : "bg-surface"
+                                  }`}
+                                >
+                                  <td className="px-5 py-3 text-[#7c7885] whitespace-nowrap">
+                                    {q.created_at
+                                      ? new Date(q.created_at).toLocaleString("es-PE", {
+                                          month: "short",
+                                          day: "numeric",
+                                          hour: "2-digit",
+                                          minute: "2-digit",
+                                        })
+                                      : "—"}
+                                  </td>
+                                  <td className="px-4 py-3 text-on-surface max-w-[160px] truncate">
+                                    {q.user_email}
+                                  </td>
+                                  <td className="px-4 py-3">
+                                    <AreaBadge area={q.legal_area} />
+                                  </td>
+                                  <td className="px-4 py-3 text-[#a09ba8] max-w-[140px] truncate">
+                                    {q.model?.split("/").pop() ?? "—"}
+                                  </td>
+                                  <td className="px-5 py-3 text-right">
+                                    <LatencyBadge ms={q.latency_ms} />
+                                  </td>
+                                </tr>
+                              ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
 
-          {/* Model usage table */}
-          <div className="bg-[#111116] border border-[#1E1E2A] rounded-xl overflow-hidden">
-            <div className="px-5 py-4 border-b border-[#1E1E2A] bg-[#1A1A22]">
-              <h2 className="text-sm font-semibold text-white">Uso por modelo</h2>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[360px] text-xs">
-                <thead>
-                  <tr className="border-b border-[#1E1E2A]">
-                    <th className="text-left px-5 py-3 text-[#6B7280] font-medium uppercase tracking-wider">
-                      Modelo
-                    </th>
-                    <th className="text-right px-4 py-3 text-[#6B7280] font-medium uppercase tracking-wider">
-                      Consultas
-                    </th>
-                    <th className="text-right px-5 py-3 text-[#6B7280] font-medium uppercase tracking-wider">
-                      Latencia prom.
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {loading
-                    ? Array.from({ length: 4 }).map((_, i) => (
-                        <tr key={i} className="border-b border-[#1E1E2A]/50">
-                          <td className="px-5 py-3">
-                            <Skeleton className="h-3 w-28" />
-                          </td>
-                          <td className="px-4 py-3 text-right">
-                            <Skeleton className="h-3 w-10 ml-auto" />
-                          </td>
-                          <td className="px-5 py-3 text-right">
-                            <Skeleton className="h-3 w-14 ml-auto" />
-                          </td>
-                        </tr>
-                      ))
-                    : models.length === 0
-                    ? (
-                      <tr>
-                        <td colSpan={3} className="px-5 py-8 text-center text-[#6B7280]">
-                          Sin datos disponibles
-                        </td>
-                      </tr>
-                    )
-                    : models.map((m) => (
-                        <tr
-                          key={m.model}
-                          className="border-b border-[#1E1E2A]/50 hover:bg-[#1A1A22] transition-colors"
-                        >
-                          <td className="px-5 py-3">
-                            <div className="space-y-0.5">
-                              <p className="text-[#F5F5F5] font-medium">
-                                {m.model.split("/").pop() ?? m.model}
-                              </p>
-                              <div className="w-24 h-1 bg-[#2A2A35] rounded-full overflow-hidden">
-                                <div
-                                  className="h-full bg-[#EAB308] rounded-full"
-                                  style={{ width: `${m.percentage}%` }}
-                                />
-                              </div>
-                            </div>
-                          </td>
-                          <td className="px-4 py-3 text-right text-[#F5F5F5] font-mono">
-                            {m.count.toLocaleString()}
-                            <span className="text-[#6B7280] ml-1">({m.percentage}%)</span>
-                          </td>
-                          <td className="px-5 py-3 text-right">
-                            <LatencyBadge ms={m.avg_latency_ms} />
-                          </td>
-                        </tr>
-                      ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
+                  <p className="text-center text-[11px] text-[#25242b] pb-2">
+                    Datos en tiempo real — actualizado al momento de la carga
+                  </p>
+                </>
+              )}
+              {/* ── END OVERVIEW TAB ────────────────────────────────────── */}
 
-        {/* Recent queries */}
-        <div className="bg-[#111116] border border-[#1E1E2A] rounded-xl overflow-hidden">
-          <div className="px-5 py-4 border-b border-[#1E1E2A] bg-[#1A1A22] flex items-center justify-between">
-            <div>
-              <h2 className="text-sm font-semibold text-white">Consultas recientes</h2>
-              <p className="text-xs text-[#6B7280]">Ultimas 20 respuestas del asistente</p>
-            </div>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[600px] text-xs">
-              <thead>
-                <tr className="border-b border-[#1E1E2A]">
-                  <th className="text-left px-5 py-3 text-[#6B7280] font-medium uppercase tracking-wider">
-                    Fecha
-                  </th>
-                  <th className="text-left px-4 py-3 text-[#6B7280] font-medium uppercase tracking-wider">
-                    Usuario
-                  </th>
-                  <th className="text-left px-4 py-3 text-[#6B7280] font-medium uppercase tracking-wider">
-                    Area
-                  </th>
-                  <th className="text-left px-4 py-3 text-[#6B7280] font-medium uppercase tracking-wider">
-                    Modelo
-                  </th>
-                  <th className="text-right px-5 py-3 text-[#6B7280] font-medium uppercase tracking-wider">
-                    Latencia
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {loading
-                  ? Array.from({ length: 8 }).map((_, i) => (
-                      <tr key={i} className="border-b border-[#1E1E2A]/50">
-                        {Array.from({ length: 5 }).map((__, j) => (
-                          <td key={j} className="px-5 py-3">
-                            <Skeleton className="h-3 w-full" />
-                          </td>
-                        ))}
-                      </tr>
-                    ))
-                  : queries.length === 0
-                  ? (
-                    <tr>
-                      <td colSpan={5} className="px-5 py-10 text-center text-[#6B7280]">
-                        No hay consultas registradas en este periodo
-                      </td>
-                    </tr>
-                  )
-                  : queries.map((q) => (
-                      <tr
-                        key={q.id}
-                        className="border-b border-[#1E1E2A]/50 hover:bg-[#1A1A22] transition-colors"
-                      >
-                        <td className="px-5 py-3 text-[#6B7280] whitespace-nowrap">
-                          {q.created_at
-                            ? new Date(q.created_at).toLocaleString("es-PE", {
-                                month: "short",
-                                day: "numeric",
-                                hour: "2-digit",
-                                minute: "2-digit",
-                              })
-                            : "—"}
-                        </td>
-                        <td className="px-4 py-3 text-[#F5F5F5] max-w-[160px] truncate">
-                          {q.user_email}
-                        </td>
-                        <td className="px-4 py-3">
-                          <AreaBadge area={q.legal_area} />
-                        </td>
-                        <td className="px-4 py-3 text-[#9CA3AF] max-w-[140px] truncate">
-                          {q.model?.split("/").pop() ?? "—"}
-                        </td>
-                        <td className="px-5 py-3 text-right">
-                          <LatencyBadge ms={q.latency_ms} />
-                        </td>
-                      </tr>
-                    ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
+              {/* ── COSTOS TAB ─────────────────────────────────────────── */}
+              {activeTab === "costos" && (
+                <>
+                  {/* Summary cards */}
+                  <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+                    <StatCard
+                      loading={loading}
+                      label={`Costo total (${days}d)`}
+                      value={costs ? `$${costs.total_cost_usd.toFixed(4)}` : "$0.0000"}
+                      icon={<DollarSign className="w-4 h-4" />}
+                      sub={<p className="text-xs text-[#7c7885]">Estimado USD</p>}
+                    />
+                    <StatCard
+                      loading={loading}
+                      label="Modelos en uso"
+                      value={costs?.models.length ?? 0}
+                      icon={<BarChart3 className="w-4 h-4" />}
+                    />
+                    <StatCard
+                      loading={loading}
+                      label="Costo promedio / consulta"
+                      value={
+                        costs && costs.models.reduce((s, m) => s + m.query_count, 0) > 0
+                          ? `$${(
+                              costs.total_cost_usd /
+                              costs.models.reduce((s, m) => s + m.query_count, 0)
+                            ).toFixed(5)}`
+                          : "$0.00000"
+                      }
+                      icon={<TrendingUp className="w-4 h-4" />}
+                    />
+                  </div>
 
-        {/* Footer note */}
-        <p className="text-center text-[11px] text-[#2A2A35] pb-2">
-          Datos en tiempo real — actualizado al momento de la carga
-        </p>
-          </>
-        )}
-        {/* ── END OVERVIEW TAB ─────────────────────────────────────────── */}
-
-        {/* ── COSTOS TAB ───────────────────────────────────────────────── */}
-        {activeTab === "costos" && (
-          <>
-            {/* Summary cards */}
-            <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
-              <StatCard
-                loading={loading}
-                label={`Costo total (${days}d)`}
-                value={
-                  costs
-                    ? `$${costs.total_cost_usd.toFixed(4)}`
-                    : "$0.0000"
-                }
-                icon={<DollarSign className="w-4 h-4" />}
-                sub={
-                  <p className="text-xs text-[#6B7280]">Estimado USD</p>
-                }
-              />
-              <StatCard
-                loading={loading}
-                label="Modelos en uso"
-                value={costs?.models.length ?? 0}
-                icon={<BarChart3 className="w-4 h-4" />}
-              />
-              <StatCard
-                loading={loading}
-                label="Costo promedio / consulta"
-                value={
-                  costs && costs.models.reduce((s, m) => s + m.query_count, 0) > 0
-                    ? `$${(
-                        costs.total_cost_usd /
-                        costs.models.reduce((s, m) => s + m.query_count, 0)
-                      ).toFixed(5)}`
-                    : "$0.00000"
-                }
-                icon={<TrendingUp className="w-4 h-4" />}
-              />
-            </div>
-
-            {/* Cost breakdown table + mini bars */}
-            <div className="bg-[#111116] border border-[#1E1E2A] rounded-xl overflow-hidden">
-              <div className="px-5 py-4 border-b border-[#1E1E2A] bg-[#1A1A22]">
-                <h2 className="text-sm font-semibold text-white">Desglose por modelo</h2>
-                <p className="text-xs text-[#6B7280]">
-                  Costo estimado basado en tokens usados
-                </p>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[540px] text-xs">
-                  <thead>
-                    <tr className="border-b border-[#1E1E2A]">
-                      <th className="text-left px-5 py-3 text-[#6B7280] font-medium uppercase tracking-wider">
-                        Modelo
-                      </th>
-                      <th className="text-right px-4 py-3 text-[#6B7280] font-medium uppercase tracking-wider">
-                        Consultas
-                      </th>
-                      <th className="text-right px-4 py-3 text-[#6B7280] font-medium uppercase tracking-wider">
-                        Tokens totales
-                      </th>
-                      <th className="text-right px-4 py-3 text-[#6B7280] font-medium uppercase tracking-wider">
-                        Tokens / consulta
-                      </th>
-                      <th className="text-right px-5 py-3 text-[#6B7280] font-medium uppercase tracking-wider">
-                        Costo USD
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {loading ? (
-                      Array.from({ length: 4 }).map((_, i) => (
-                        <tr key={i} className="border-b border-[#1E1E2A]/50">
-                          {Array.from({ length: 5 }).map((__, j) => (
-                            <td key={j} className="px-5 py-3">
-                              <Skeleton className="h-3 w-full" />
-                            </td>
-                          ))}
-                        </tr>
-                      ))
-                    ) : !costs || costs.models.length === 0 ? (
-                      <tr>
-                        <td
-                          colSpan={5}
-                          className="px-5 py-10 text-center text-[#6B7280]"
-                        >
-                          Sin datos disponibles
-                        </td>
-                      </tr>
-                    ) : (
-                      (() => {
-                        const maxCost = Math.max(
-                          ...costs.models.map((m) => m.estimated_cost_usd),
-                          0.000001
-                        );
-                        return costs.models.map((m) => {
-                          const barPct = Math.max(
-                            (m.estimated_cost_usd / maxCost) * 100,
-                            2
-                          );
-                          return (
-                            <tr
-                              key={m.model}
-                              className="border-b border-[#1E1E2A]/50 hover:bg-[#1A1A22] transition-colors"
-                            >
-                              <td className="px-5 py-3">
-                                <div className="space-y-1">
-                                  <p className="text-[#F5F5F5] font-medium">
-                                    {m.model.split("/").pop() ?? m.model}
-                                  </p>
-                                  <div className="w-28 h-1.5 bg-[#2A2A35] rounded-full overflow-hidden">
-                                    <div
-                                      className="h-full bg-[#EAB308] rounded-full"
-                                      style={{ width: `${barPct}%` }}
-                                    />
-                                  </div>
-                                </div>
+                  {/* Cost breakdown table */}
+                  <div className="bg-surface-container-low border border-[rgba(79,70,51,0.15)] rounded-lg overflow-hidden">
+                    <div className="px-5 py-4 border-b border-[rgba(79,70,51,0.15)] bg-surface">
+                      <h2 className="font-['Newsreader'] text-base font-bold text-on-surface">
+                        Desglose por modelo
+                      </h2>
+                      <p className="text-xs text-[#7c7885]">
+                        Costo estimado basado en tokens usados
+                      </p>
+                    </div>
+                    <div className="overflow-x-auto">
+                      <table className="w-full min-w-[540px] text-xs">
+                        <thead>
+                          <tr className="border-b border-[rgba(79,70,51,0.15)] bg-surface">
+                            <th className="text-left px-5 py-3 text-[#7c7885] font-medium uppercase tracking-wider">
+                              Modelo
+                            </th>
+                            <th className="text-right px-4 py-3 text-[#7c7885] font-medium uppercase tracking-wider">
+                              Consultas
+                            </th>
+                            <th className="text-right px-4 py-3 text-[#7c7885] font-medium uppercase tracking-wider">
+                              Tokens totales
+                            </th>
+                            <th className="text-right px-4 py-3 text-[#7c7885] font-medium uppercase tracking-wider">
+                              Tokens / consulta
+                            </th>
+                            <th className="text-right px-5 py-3 text-[#7c7885] font-medium uppercase tracking-wider">
+                              Costo USD
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {loading ? (
+                            Array.from({ length: 4 }).map((_, i) => (
+                              <tr
+                                key={i}
+                                className={`border-b border-[rgba(79,70,51,0.1)] ${
+                                  i % 2 === 0 ? "bg-surface-container-low" : "bg-surface"
+                                }`}
+                              >
+                                {Array.from({ length: 5 }).map((__, j) => (
+                                  <td key={j} className="px-5 py-3">
+                                    <Skeleton className="h-3 w-full" />
+                                  </td>
+                                ))}
+                              </tr>
+                            ))
+                          ) : !costs || costs.models.length === 0 ? (
+                            <tr>
+                              <td colSpan={5} className="px-5 py-10 text-center text-[#7c7885]">
+                                Sin datos disponibles
                               </td>
-                              <td className="px-4 py-3 text-right text-[#F5F5F5] font-mono">
-                                {m.query_count.toLocaleString()}
+                            </tr>
+                          ) : (
+                            (() => {
+                              const maxCost = Math.max(
+                                ...costs.models.map((m) => m.estimated_cost_usd),
+                                0.000001
+                              );
+                              return costs.models.map((m, idx) => {
+                                const barPct = Math.max(
+                                  (m.estimated_cost_usd / maxCost) * 100,
+                                  2
+                                );
+                                return (
+                                  <tr
+                                    key={m.model}
+                                    className={`border-b border-[rgba(79,70,51,0.1)] hover:bg-[#25242b] transition-colors ${
+                                      idx % 2 === 0 ? "bg-surface-container-low" : "bg-surface"
+                                    }`}
+                                  >
+                                    <td className="px-5 py-3">
+                                      <div className="space-y-1">
+                                        <p className="text-on-surface font-medium">
+                                          {m.model.split("/").pop() ?? m.model}
+                                        </p>
+                                        <div className="w-28 h-1.5 bg-[#25242b] rounded-full overflow-hidden">
+                                          <div
+                                            className="h-full bg-primary rounded-full"
+                                            style={{ width: `${barPct}%` }}
+                                          />
+                                        </div>
+                                      </div>
+                                    </td>
+                                    <td className="px-4 py-3 text-right text-on-surface font-mono">
+                                      {m.query_count.toLocaleString()}
+                                    </td>
+                                    <td className="px-4 py-3 text-right text-on-surface font-mono">
+                                      {m.total_tokens.toLocaleString()}
+                                    </td>
+                                    <td className="px-4 py-3 text-right text-[#a09ba8] font-mono">
+                                      {Math.round(m.avg_tokens_per_query).toLocaleString()}
+                                    </td>
+                                    <td className="px-5 py-3 text-right">
+                                      <span className="text-green-400 font-mono font-medium">
+                                        ${m.estimated_cost_usd.toFixed(4)}
+                                      </span>
+                                    </td>
+                                  </tr>
+                                );
+                              });
+                            })()
+                          )}
+                        </tbody>
+                        {costs && costs.models.length > 0 && (
+                          <tfoot>
+                            <tr className="border-t border-[rgba(79,70,51,0.2)] bg-surface">
+                              <td className="px-5 py-3 text-[#a09ba8] font-medium">
+                                Total
                               </td>
-                              <td className="px-4 py-3 text-right text-[#F5F5F5] font-mono">
-                                {m.total_tokens.toLocaleString()}
+                              <td className="px-4 py-3 text-right text-on-surface font-mono font-medium">
+                                {costs.models
+                                  .reduce((s, m) => s + m.query_count, 0)
+                                  .toLocaleString()}
                               </td>
-                              <td className="px-4 py-3 text-right text-[#9CA3AF] font-mono">
-                                {Math.round(m.avg_tokens_per_query).toLocaleString()}
+                              <td className="px-4 py-3 text-right text-on-surface font-mono font-medium">
+                                {costs.models
+                                  .reduce((s, m) => s + m.total_tokens, 0)
+                                  .toLocaleString()}
                               </td>
+                              <td className="px-4 py-3" />
                               <td className="px-5 py-3 text-right">
-                                <span className="text-green-400 font-mono font-medium">
-                                  ${m.estimated_cost_usd.toFixed(4)}
+                                <span className="font-['Newsreader'] text-base font-bold text-primary">
+                                  ${costs.total_cost_usd.toFixed(4)}
                                 </span>
                               </td>
                             </tr>
-                          );
-                        });
-                      })()
-                    )}
-                  </tbody>
-                  {costs && costs.models.length > 0 && (
-                    <tfoot>
-                      <tr className="border-t border-[#2A2A35] bg-[#111116]">
-                        <td className="px-5 py-3 text-[#9CA3AF] font-medium">
-                          Total
-                        </td>
-                        <td className="px-4 py-3 text-right text-[#F5F5F5] font-mono font-medium">
-                          {costs.models
-                            .reduce((s, m) => s + m.query_count, 0)
-                            .toLocaleString()}
-                        </td>
-                        <td className="px-4 py-3 text-right text-[#F5F5F5] font-mono font-medium">
-                          {costs.models
-                            .reduce((s, m) => s + m.total_tokens, 0)
-                            .toLocaleString()}
-                        </td>
-                        <td className="px-4 py-3" />
-                        <td className="px-5 py-3 text-right">
-                          <span className="text-[#EAB308] font-mono font-bold">
-                            ${costs.total_cost_usd.toFixed(4)}
-                          </span>
-                        </td>
-                      </tr>
-                    </tfoot>
-                  )}
-                </table>
-              </div>
-            </div>
+                          </tfoot>
+                        )}
+                      </table>
+                    </div>
+                  </div>
 
-            <p className="text-center text-[11px] text-[#2A2A35] pb-2">
-              Costos estimados · Las tarifas reales pueden variar según el proveedor
-            </p>
-          </>
-        )}
-        {/* ── END COSTOS TAB ───────────────────────────────────────────── */}
-
-        {/* ── CONSULTAS FRECUENTES TAB ─────────────────────────────────── */}
-        {activeTab === "frecuentes" && (
-          <>
-            <div className="bg-[#111116] border border-[#1E1E2A] rounded-xl overflow-hidden">
-              <div className="px-5 py-4 border-b border-[#1E1E2A] bg-[#1A1A22] flex items-center justify-between">
-                <div>
-                  <h2 className="text-sm font-semibold text-white">
-                    Patrones de consulta más frecuentes
-                  </h2>
-                  <p className="text-xs text-[#6B7280]">
-                    Agrupados por los primeros 100 caracteres · Últimos {days} días
+                  <p className="text-center text-[11px] text-[#25242b] pb-2">
+                    Costos estimados · Las tarifas reales pueden variar según el proveedor
                   </p>
-                </div>
-                <MessageSquare className="w-4 h-4 text-[#2A2A35]" />
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[560px] text-xs">
-                  <thead>
-                    <tr className="border-b border-[#1E1E2A]">
-                      <th className="text-left px-5 py-3 text-[#6B7280] font-medium uppercase tracking-wider">
-                        Vista previa
-                      </th>
-                      <th className="text-right px-4 py-3 text-[#6B7280] font-medium uppercase tracking-wider">
-                        Veces
-                      </th>
-                      <th className="text-left px-4 py-3 text-[#6B7280] font-medium uppercase tracking-wider">
-                        Áreas
-                      </th>
-                      <th className="text-right px-5 py-3 text-[#6B7280] font-medium uppercase tracking-wider">
-                        Última vez
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {loading ? (
-                      Array.from({ length: 8 }).map((_, i) => (
-                        <tr key={i} className="border-b border-[#1E1E2A]/50">
-                          {Array.from({ length: 4 }).map((__, j) => (
-                            <td key={j} className="px-5 py-3">
-                              <Skeleton className="h-3 w-full" />
-                            </td>
-                          ))}
-                        </tr>
-                      ))
-                    ) : !topQueries || topQueries.queries.length === 0 ? (
-                      <tr>
-                        <td
-                          colSpan={4}
-                          className="px-5 py-10 text-center text-[#6B7280]"
-                        >
-                          Sin consultas registradas en este periodo
-                        </td>
-                      </tr>
-                    ) : (
-                      topQueries.queries.map((q, idx) => (
-                        <tr
-                          key={idx}
-                          className="border-b border-[#1E1E2A]/50 hover:bg-[#1A1A22] transition-colors"
-                        >
-                          <td className="px-5 py-3 max-w-[280px]">
-                            <p
-                              className="text-[#F5F5F5] truncate"
-                              title={q.query_preview}
-                            >
-                              {q.query_preview}
-                            </p>
-                          </td>
-                          <td className="px-4 py-3 text-right">
-                            <span className="inline-flex items-center justify-center w-8 h-6 rounded-md bg-[#EAB308]/10 border border-[#EAB308]/20 text-[#EAB308] font-mono font-bold">
-                              {q.count}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3">
-                            <div className="flex flex-wrap gap-1">
-                              {q.legal_areas.length > 0 ? (
-                                q.legal_areas.slice(0, 3).map((area) => (
-                                  <AreaBadge key={area} area={area} />
-                                ))
-                              ) : (
-                                <span className="text-[#6B7280]">—</span>
-                              )}
-                            </div>
-                          </td>
-                          <td className="px-5 py-3 text-right text-[#6B7280] whitespace-nowrap">
-                            {q.last_asked
-                              ? new Date(q.last_asked).toLocaleDateString("es-PE", {
-                                  month: "short",
-                                  day: "numeric",
-                                })
-                              : "—"}
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+                </>
+              )}
+              {/* ── END COSTOS TAB ──────────────────────────────────────── */}
 
-            <p className="text-center text-[11px] text-[#2A2A35] pb-2">
-              Patrones calculados sobre los primeros 100 caracteres normalizados de cada consulta
-            </p>
-          </>
-        )}
-        {/* ── END CONSULTAS FRECUENTES TAB ─────────────────────────────── */}
+              {/* ── CONSULTAS FRECUENTES TAB ────────────────────────────── */}
+              {activeTab === "frecuentes" && (
+                <>
+                  <div className="bg-surface-container-low border border-[rgba(79,70,51,0.15)] rounded-lg overflow-hidden">
+                    <div className="px-5 py-4 border-b border-[rgba(79,70,51,0.15)] bg-surface flex items-center justify-between">
+                      <div>
+                        <h2 className="font-['Newsreader'] text-base font-bold text-on-surface">
+                          Patrones de consulta más frecuentes
+                        </h2>
+                        <p className="text-xs text-[#7c7885]">
+                          Agrupados por los primeros 100 caracteres · Últimos {days} días
+                        </p>
+                      </div>
+                      <MessageSquare className="w-4 h-4 text-[#25242b]" />
+                    </div>
+                    <div className="overflow-x-auto">
+                      <table className="w-full min-w-[560px] text-xs">
+                        <thead>
+                          <tr className="border-b border-[rgba(79,70,51,0.15)] bg-surface">
+                            <th className="text-left px-5 py-3 text-[#7c7885] font-medium uppercase tracking-wider">
+                              Vista previa
+                            </th>
+                            <th className="text-right px-4 py-3 text-[#7c7885] font-medium uppercase tracking-wider">
+                              Veces
+                            </th>
+                            <th className="text-left px-4 py-3 text-[#7c7885] font-medium uppercase tracking-wider">
+                              Áreas
+                            </th>
+                            <th className="text-right px-5 py-3 text-[#7c7885] font-medium uppercase tracking-wider">
+                              Última vez
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {loading ? (
+                            Array.from({ length: 8 }).map((_, i) => (
+                              <tr
+                                key={i}
+                                className={`border-b border-[rgba(79,70,51,0.1)] ${
+                                  i % 2 === 0 ? "bg-surface-container-low" : "bg-surface"
+                                }`}
+                              >
+                                {Array.from({ length: 4 }).map((__, j) => (
+                                  <td key={j} className="px-5 py-3">
+                                    <Skeleton className="h-3 w-full" />
+                                  </td>
+                                ))}
+                              </tr>
+                            ))
+                          ) : !topQueries || topQueries.queries.length === 0 ? (
+                            <tr>
+                              <td colSpan={4} className="px-5 py-10 text-center text-[#7c7885]">
+                                Sin consultas registradas en este periodo
+                              </td>
+                            </tr>
+                          ) : (
+                            topQueries.queries.map((q, idx) => (
+                              <tr
+                                key={idx}
+                                className={`border-b border-[rgba(79,70,51,0.1)] hover:bg-[#25242b] transition-colors ${
+                                  idx % 2 === 0 ? "bg-surface-container-low" : "bg-surface"
+                                }`}
+                              >
+                                <td className="px-5 py-3 max-w-[280px]">
+                                  <p
+                                    className="text-on-surface truncate"
+                                    title={q.query_preview}
+                                  >
+                                    {q.query_preview}
+                                  </p>
+                                </td>
+                                <td className="px-4 py-3 text-right">
+                                  <span className="inline-flex items-center justify-center w-8 h-6 rounded bg-primary/10 border border-primary/20 text-primary font-mono font-bold">
+                                    {q.count}
+                                  </span>
+                                </td>
+                                <td className="px-4 py-3">
+                                  <div className="flex flex-wrap gap-1">
+                                    {q.legal_areas.length > 0 ? (
+                                      q.legal_areas.slice(0, 3).map((area) => (
+                                        <AreaBadge key={area} area={area} />
+                                      ))
+                                    ) : (
+                                      <span className="text-[#7c7885]">—</span>
+                                    )}
+                                  </div>
+                                </td>
+                                <td className="px-5 py-3 text-right text-[#7c7885] whitespace-nowrap">
+                                  {q.last_asked
+                                    ? new Date(q.last_asked).toLocaleDateString("es-PE", {
+                                        month: "short",
+                                        day: "numeric",
+                                      })
+                                    : "—"}
+                                </td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
 
-        </> // end orgId block
-        )}
+                  <p className="text-center text-[11px] text-[#25242b] pb-2">
+                    Patrones calculados sobre los primeros 100 caracteres normalizados de cada consulta
+                  </p>
+                </>
+              )}
+              {/* ── END CONSULTAS FRECUENTES TAB ────────────────────────── */}
+            </>
+          )}
         </main>
       </div>
     </AppLayout>

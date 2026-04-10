@@ -60,6 +60,42 @@ db-shell:               ## Open psql shell
 db-stats:               ## Show knowledge base stats
 	@curl -s http://localhost:8000/api/health/knowledge | python3 -m json.tool
 
+db-backup:              ## Backup full DB to backups/ (schema + data + embeddings, ~1.6MB)
+	@mkdir -p backups
+	@echo "Dumping database..."
+	@docker exec agente-derecho-db-1 pg_dump -U postgres --format=custom --compress=9 agente_derecho > backups/tukijuris_$(shell date +%Y%m%d_%H%M%S).dump
+	@echo "✅ Backup saved to backups/"
+	@ls -lh backups/*.dump | tail -1
+
+db-restore:             ## Restore DB from backup (usage: make db-restore FILE=backups/tukijuris_xxx.dump)
+	@test -n "$(FILE)" || (echo "❌ Usage: make db-restore FILE=backups/tukijuris_xxx.dump" && exit 1)
+	@test -f "$(FILE)" || (echo "❌ File not found: $(FILE)" && exit 1)
+	@echo "⚠️  Restoring $(FILE) — this REPLACES all data..."
+	@docker exec agente-derecho-db-1 psql -U postgres -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname='agente_derecho' AND pid <> pg_backend_pid();" > /dev/null 2>&1 || true
+	@docker exec agente-derecho-db-1 dropdb -U postgres --if-exists agente_derecho
+	@docker exec agente-derecho-db-1 createdb -U postgres agente_derecho
+	@cat $(FILE) | docker exec -i agente-derecho-db-1 pg_restore -U postgres -d agente_derecho --no-owner --no-privileges
+	@echo "✅ Restored. Restarting API to reconnect..."
+	@docker compose restart api > /dev/null 2>&1
+	@sleep 3
+	@curl -s http://localhost:8000/api/health/knowledge | python3 -m json.tool
+
+db-seed-full:           ## Full pipeline: ingest + embeddings + scrapers (populates empty DB)
+	@echo "=== Step 1/3: Ingesting seeder documents ==="
+	@docker exec agente-derecho-api-1 python -m services.ingestion.ingest
+	@echo ""
+	@echo "=== Step 2/3: Generating embeddings (this takes ~4 min) ==="
+	@docker exec agente-derecho-api-1 python -m services.ingestion.generate_embeddings
+	@echo ""
+	@echo "=== Step 3/3: Running scrapers (El Peruano, TC, INDECOPI) ==="
+	@docker exec agente-derecho-api-1 python -m services.ingestion.scrapers.scheduler
+	@echo ""
+	@echo "=== Generating embeddings for scraped data ==="
+	@docker exec agente-derecho-api-1 python -m services.ingestion.generate_embeddings
+	@echo ""
+	@echo "✅ Full seed complete. Knowledge base status:"
+	@curl -s http://localhost:8000/api/health/knowledge | python3 -m json.tool
+
 # === Development ===
 seed:                   ## Run all data seeders
 	@echo "Seeding legal documents..."

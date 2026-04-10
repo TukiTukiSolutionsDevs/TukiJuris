@@ -1,16 +1,6 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
+import { ThemeProvider } from "@/components/ThemeProvider";
 
 export const metadata: Metadata = {
   title: "TukiJuris | Plataforma Juridica Inteligente",
@@ -44,18 +34,39 @@ export const metadata: Metadata = {
   },
 };
 
+/**
+ * Inline script to resolve theme BEFORE React hydrates.
+ * Prevents the flash of wrong theme (FOUC).
+ */
+const themeScript = `
+(function() {
+  try {
+    var stored = localStorage.getItem('tukijuris-theme');
+    var theme = stored === 'light' || stored === 'dark'
+      ? stored
+      : (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+    document.documentElement.classList.add(theme);
+  } catch (e) {
+    document.documentElement.classList.add('dark');
+  }
+})();
+`;
+
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
   return (
-    <html
-      lang="es"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
-    >
-      <body className="min-h-full flex flex-col bg-[#0A0A0F] text-[#F5F5F5]">
-        {children}
+    <html lang="es" className="h-full antialiased" suppressHydrationWarning>
+      <head>
+        <meta name="theme-color" content="#0C0E14" />
+        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+      </head>
+      <body className="min-h-full flex flex-col">
+        <ThemeProvider>
+          {children}
+        </ThemeProvider>
       </body>
     </html>
   );

@@ -34,9 +34,9 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   }, []);
 
   return (
-    <div className="flex h-screen bg-[#0a0a0f] overflow-hidden">
+    <div className="flex h-screen bg-background overflow-hidden">
       <AdminSidebar currentPath={pathname ?? "/admin"} />
-      <main className="flex-1 overflow-auto bg-[#12121a]">
+      <main className="flex-1 overflow-auto bg-surface-container-lowest">
         {children}
       </main>
     </div>

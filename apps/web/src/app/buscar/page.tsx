@@ -38,17 +38,17 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 // ---------------------------------------------------------------------------
 
 const LEGAL_AREAS = [
-  { id: "civil", name: "Civil", icon: BookOpen, color: "text-blue-400", badge: "bg-blue-500/10 text-blue-400 border-blue-500/30" },
-  { id: "penal", name: "Penal", icon: Shield, color: "text-red-400", badge: "bg-red-500/10 text-red-400 border-red-500/30" },
-  { id: "laboral", name: "Laboral", icon: Briefcase, color: "text-green-400", badge: "bg-green-500/10 text-green-400 border-green-500/30" },
-  { id: "tributario", name: "Tributario", icon: Landmark, color: "text-yellow-400", badge: "bg-yellow-500/10 text-yellow-400 border-yellow-500/30" },
-  { id: "constitucional", name: "Constitucional", icon: Gavel, color: "text-purple-400", badge: "bg-purple-500/10 text-purple-400 border-purple-500/30" },
-  { id: "administrativo", name: "Administrativo", icon: Building2, color: "text-orange-400", badge: "bg-orange-500/10 text-orange-400 border-orange-500/30" },
-  { id: "corporativo", name: "Corporativo", icon: ScrollText, color: "text-cyan-400", badge: "bg-cyan-500/10 text-cyan-400 border-cyan-500/30" },
-  { id: "registral", name: "Registral", icon: FileCheck, color: "text-pink-400", badge: "bg-pink-500/10 text-pink-400 border-pink-500/30" },
-  { id: "comercio_exterior", name: "Comercio Ext.", icon: Globe, color: "text-teal-400", badge: "bg-teal-500/10 text-teal-400 border-teal-500/30" },
-  { id: "compliance", name: "Compliance", icon: Lock, color: "text-indigo-400", badge: "bg-indigo-500/10 text-indigo-400 border-indigo-500/30" },
-  { id: "competencia", name: "Competencia/PI", icon: BadgeCheck, color: "text-amber-400", badge: "bg-amber-500/10 text-amber-400 border-amber-500/30" },
+  { id: "civil", name: "Civil", icon: BookOpen, color: "text-blue-400" },
+  { id: "penal", name: "Penal", icon: Shield, color: "text-red-400" },
+  { id: "laboral", name: "Laboral", icon: Briefcase, color: "text-green-400" },
+  { id: "tributario", name: "Tributario", icon: Landmark, color: "text-yellow-400" },
+  { id: "constitucional", name: "Constitucional", icon: Gavel, color: "text-purple-400" },
+  { id: "administrativo", name: "Administrativo", icon: Building2, color: "text-orange-400" },
+  { id: "corporativo", name: "Corporativo", icon: ScrollText, color: "text-cyan-400" },
+  { id: "registral", name: "Registral", icon: FileCheck, color: "text-pink-400" },
+  { id: "comercio_exterior", name: "Comercio Ext.", icon: Globe, color: "text-teal-400" },
+  { id: "compliance", name: "Compliance", icon: Lock, color: "text-indigo-400" },
+  { id: "competencia", name: "Competencia/PI", icon: BadgeCheck, color: "text-amber-400" },
 ];
 
 const AREA_MAP = Object.fromEntries(LEGAL_AREAS.map((a) => [a.id, a]));
@@ -149,7 +149,7 @@ function HighlightedText({ text, query }: { text: string; query: string }) {
       {parts.map((part, i) => {
         const isHighlighted = i % 2 === 1;
         return isHighlighted ? (
-          <mark key={i} className="bg-amber-500/25 text-amber-300 rounded px-0.5 not-italic font-semibold">
+          <mark key={i} className="bg-primary/20 text-primary rounded px-0.5 not-italic font-semibold">
             {part}
           </mark>
         ) : (
@@ -160,21 +160,21 @@ function HighlightedText({ text, query }: { text: string; query: string }) {
   );
 }
 
-// Skeleton card — premium tokens
+// Skeleton card
 function SkeletonCard() {
   return (
-    <div className="bg-[#111116] border border-[#1E1E2A] rounded-xl p-5 animate-pulse">
+    <div className="bg-surface-container-low border border-[rgba(79,70,51,0.15)] rounded-lg p-5 animate-pulse">
       <div className="flex justify-between gap-4 mb-3">
         <div className="flex-1">
-          <div className="h-4 bg-[#2A2A35] rounded w-3/4 mb-2" />
-          <div className="h-3 bg-[#1A1A22] rounded w-1/3" />
+          <div className="h-4 bg-[#35343a] rounded w-3/4 mb-2" />
+          <div className="h-3 bg-surface rounded w-1/3" />
         </div>
-        <div className="h-5 bg-[#2A2A35] rounded-full w-20 shrink-0" />
+        <div className="h-5 bg-[#35343a] rounded w-20 shrink-0" />
       </div>
       <div className="space-y-1.5">
-        <div className="h-3 bg-[#1A1A22] rounded w-full" />
-        <div className="h-3 bg-[#1A1A22] rounded w-5/6" />
-        <div className="h-3 bg-[#1A1A22] rounded w-4/6" />
+        <div className="h-3 bg-surface rounded w-full" />
+        <div className="h-3 bg-surface rounded w-5/6" />
+        <div className="h-3 bg-surface rounded w-4/6" />
       </div>
     </div>
   );
@@ -214,6 +214,10 @@ function BuscarPage() {
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
 
+  // All documents for browse mode (shown when no search query)
+  const [allDocs, setAllDocs] = useState<Array<{id: string; title: string; document_type: string; document_number: string | null; legal_area: string; hierarchy: string | null; source: string}>>([]);
+  const [docsLoading, setDocsLoading] = useState(true);
+
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const suggestTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -240,6 +244,12 @@ function BuscarPage() {
       fetchSavedSearches();
       fetchHistory();
     }
+    // Load all documents for browse mode
+    fetch(`${API_URL}/api/documents/`)
+      .then((r) => (r.ok ? r.json() : []))
+      .then((docs) => setAllDocs(docs))
+      .catch(() => {})
+      .finally(() => setDocsLoading(false));
   }, []);
 
   const fetchSavedSearches = async () => {
@@ -291,7 +301,6 @@ function BuscarPage() {
       setLoading(true);
       setSearched(true);
 
-      // Sync URL state
       const params = new URLSearchParams();
       params.set("q", q);
       if (f.areas.length) f.areas.forEach((a) => params.append("area", a));
@@ -341,7 +350,6 @@ function BuscarPage() {
         setTotalPages(0);
       } finally {
         setLoading(false);
-        // Refresh sidebar history after search
         if (isLoggedIn) fetchHistory();
       }
     },
@@ -513,554 +521,617 @@ function BuscarPage() {
 
   return (
     <AppLayout>
-      <div className="min-h-full text-[#F5F5F5]">
+      <div className="min-h-full text-on-surface">
         {/* Page header */}
-        <div className="border-b border-[#1E1E2A] px-4 sm:px-6 py-3 flex items-center justify-between sticky top-0 bg-[#0A0A0F] z-30">
-          <div className="flex items-center gap-2">
-            <Search className="w-5 h-5 text-[#EAB308]" />
-            <h1 className="font-bold text-base">Buscador Avanzado</h1>
+        <div className="border-b border-[rgba(79,70,51,0.15)] px-4 sm:px-6 py-5 flex items-center justify-between sticky top-0 bg-[#0e0e14] z-30">
+          <div className="flex items-center gap-3">
+            <Search className="w-4 h-4 text-primary" />
+            <span className="text-primary text-xs uppercase tracking-[0.2em] font-bold">Normativa</span>
+            <span className="text-on-surface/20 mx-1">·</span>
+            <h1 className="font-['Newsreader'] text-xl font-bold text-on-surface">Buscador Avanzado</h1>
           </div>
           {/* Mobile: toggle filters button */}
           <button
             onClick={() => setShowFilters((v) => !v)}
-            className="sm:hidden flex items-center gap-1.5 text-sm text-[#9CA3AF] hover:text-[#F5F5F5] transition-colors bg-[#1A1A22] border border-[#2A2A35] rounded-xl px-3 py-1.5"
+            className="sm:hidden flex items-center gap-1.5 text-sm text-on-surface/60 hover:text-on-surface transition-colors bg-surface-container-low border border-[rgba(79,70,51,0.15)] rounded-lg px-3 py-1.5"
           >
             <SlidersHorizontal className="w-4 h-4" />
             Filtros
             {hasActiveFilters && (
-              <span className="w-1.5 h-1.5 rounded-full bg-[#EAB308] ml-0.5" />
+              <span className="w-1.5 h-1.5 rounded-full bg-primary ml-0.5" />
             )}
           </button>
         </div>
 
         <div className="max-w-screen-xl mx-auto px-4 sm:px-6 py-6">
-        {/* ------------------------------------------------------------------ */}
-        {/* Search bar                                                           */}
-        {/* ------------------------------------------------------------------ */}
-        <div className="relative mb-4">
-          <form onSubmit={handleSubmit}>
-            <div className="relative">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#6B7280] pointer-events-none" />
-              <input
-                ref={searchInputRef}
-                type="text"
-                value={query}
-                onChange={handleQueryChange}
-                onFocus={() => suggestions.length && setShowSuggestions(true)}
-                onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
-                placeholder="Buscar en la normativa peruana... (ej: despido arbitrario, alimentos, IGV)"
-                className="w-full bg-[#111116] border border-[#2A2A35] rounded-2xl pl-12 pr-40 h-14 text-lg placeholder-[#6B7280] focus:outline-none focus:border-[#EAB308] focus:ring-1 focus:ring-[#EAB308]/25 transition-colors"
-                autoComplete="off"
-              />
-              <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-2">
-                {query && (
-                  <button
-                    type="button"
-                    onClick={() => { setQuery(""); setSuggestions([]); }}
-                    className="text-[#6B7280] hover:text-[#F5F5F5] transition-colors p-1"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                )}
-                <button
-                  type="submit"
-                  disabled={loading || !query.trim()}
-                  className="bg-[#EAB308] hover:bg-[#CA9E00] disabled:bg-[#2A2A35] disabled:text-[#6B7280] text-[#0A0A0F] rounded-xl px-5 h-11 text-sm font-semibold transition-colors"
-                >
-                  {loading ? "Buscando..." : "Buscar"}
-                </button>
-              </div>
-            </div>
-          </form>
-
-          {/* Auto-suggest dropdown */}
-          {showSuggestions && suggestions.length > 0 && (
-            <div className="absolute top-full left-0 right-0 mt-1 bg-[#111116] border border-[#2A2A35] rounded-xl shadow-2xl z-50 overflow-hidden">
-              {suggestions.map((s, i) => (
-                <button
-                  key={i}
-                  onMouseDown={() => pickSuggestion(s)}
-                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-[#F5F5F5] hover:bg-[#1A1A22] hover:text-white transition-colors text-left"
-                >
-                  <Search className="w-3.5 h-3.5 text-[#6B7280] shrink-0" />
-                  <span>{s}</span>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* ------------------------------------------------------------------ */}
-        {/* Layout: filters + results + sidebar                                 */}
-        {/* ------------------------------------------------------------------ */}
-        <div className="flex gap-6">
-          {/* ================================================================ */}
-          {/* LEFT: Filter panel                                                */}
-          {/* Desktop: always visible. Mobile: slide-out via showFilters.       */}
-          {/* ================================================================ */}
-          <aside
-            className={`
-              ${showFilters ? "block" : "hidden"} sm:block
-              w-full sm:w-64 lg:w-72 shrink-0
-              ${showFilters ? "fixed inset-0 z-50 sm:relative sm:inset-auto sm:z-auto" : ""}
-            `}
-          >
-            {/* Mobile overlay backdrop */}
-            {showFilters && (
-              <div
-                className="fixed inset-0 bg-black/60 sm:hidden z-40"
-                onClick={() => setShowFilters(false)}
-              />
-            )}
-
-            <div className={`
-              ${showFilters ? "fixed right-0 top-0 bottom-0 w-80 z-50 overflow-y-auto sm:relative sm:inset-auto sm:w-auto sm:overflow-visible" : ""}
-              bg-[#111116] sm:bg-transparent border border-[#1E1E2A] sm:border-0 rounded-xl sm:rounded-none p-4
-            `}>
-              {/* Mobile header */}
-              <div className="flex items-center justify-between mb-4 sm:hidden">
-                <span className="font-medium text-sm">Filtros</span>
-                <button onClick={() => setShowFilters(false)} className="text-[#9CA3AF] hover:text-[#F5F5F5]">
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-
-              <div className="space-y-5">
-                {/* Areas */}
-                <div>
-                  <h3 className="text-xs font-semibold text-[#9CA3AF] uppercase tracking-wider mb-3">
-                    Area del derecho
-                  </h3>
-                  <div className="space-y-1.5">
-                    {LEGAL_AREAS.map((area) => {
-                      const Icon = area.icon;
-                      const checked = filters.areas.includes(area.id);
-                      return (
-                        <label
-                          key={area.id}
-                          className={`flex items-center gap-2.5 px-2.5 py-1.5 rounded-xl cursor-pointer transition-colors text-sm ${
-                            checked
-                              ? "bg-[#1A1A22] text-[#F5F5F5]"
-                              : "text-[#9CA3AF] hover:text-[#F5F5F5] hover:bg-[#1A1A22]/50"
-                          }`}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={checked}
-                            onChange={() => toggleArea(area.id)}
-                            className="rounded border-[#2A2A35] bg-[#1A1A22] text-[#EAB308] focus:ring-[#EAB308]/50 focus:ring-1 w-3.5 h-3.5"
-                          />
-                          <Icon className={`w-3.5 h-3.5 ${area.color}`} />
-                          {area.name}
-                        </label>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Document type */}
-                <div>
-                  <h3 className="text-xs font-semibold text-[#9CA3AF] uppercase tracking-wider mb-2">
-                    Tipo de documento
-                  </h3>
-                  <div className="relative">
-                    <select
-                      value={filters.document_type}
-                      onChange={(e) => setFilters((p) => ({ ...p, document_type: e.target.value }))}
-                      className="w-full bg-[#1A1A22] border border-[#2A2A35] rounded-xl px-3 py-2 text-sm text-[#F5F5F5] focus:outline-none focus:border-[#EAB308] appearance-none pr-8"
+          {/* Search bar */}
+          <div className="relative mb-5">
+            <form onSubmit={handleSubmit}>
+              <div className="relative">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-on-surface/30 pointer-events-none" />
+                <input
+                  ref={searchInputRef}
+                  type="text"
+                  value={query}
+                  onChange={handleQueryChange}
+                  onFocus={() => suggestions.length && setShowSuggestions(true)}
+                  onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
+                  placeholder="Buscar en la normativa peruana... (ej: despido arbitrario, alimentos, IGV)"
+                  className="w-full bg-surface-container-low border border-[rgba(79,70,51,0.15)] rounded-lg pl-12 pr-40 h-14 text-base text-on-surface placeholder-on-surface/30 focus:outline-none focus:border-primary transition-colors"
+                  autoComplete="off"
+                />
+                <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-2">
+                  {query && (
+                    <button
+                      type="button"
+                      onClick={() => { setQuery(""); setSuggestions([]); }}
+                      className="text-on-surface/30 hover:text-on-surface transition-colors p-1"
                     >
-                      {DOCUMENT_TYPES.map((t) => (
-                        <option key={t.id} value={t.id}>{t.name}</option>
-                      ))}
-                    </select>
-                    <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#6B7280] pointer-events-none" />
-                  </div>
-                </div>
-
-                {/* Hierarchy */}
-                <div>
-                  <h3 className="text-xs font-semibold text-[#9CA3AF] uppercase tracking-wider mb-2">
-                    Jerarquia normativa
-                  </h3>
-                  <div className="relative">
-                    <select
-                      value={filters.hierarchy}
-                      onChange={(e) => setFilters((p) => ({ ...p, hierarchy: e.target.value }))}
-                      className="w-full bg-[#1A1A22] border border-[#2A2A35] rounded-xl px-3 py-2 text-sm text-[#F5F5F5] focus:outline-none focus:border-[#EAB308] appearance-none pr-8"
-                    >
-                      {HIERARCHY_OPTIONS.map((h) => (
-                        <option key={h.id} value={h.id}>{h.name}</option>
-                      ))}
-                    </select>
-                    <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#6B7280] pointer-events-none" />
-                  </div>
-                </div>
-
-                {/* Date range */}
-                <div>
-                  <h3 className="text-xs font-semibold text-[#9CA3AF] uppercase tracking-wider mb-2">
-                    Rango de fecha
-                  </h3>
-                  <div className="space-y-2">
-                    <div className="relative">
-                      <Calendar className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#6B7280]" />
-                      <input
-                        type="date"
-                        value={filters.date_from}
-                        onChange={(e) => setFilters((p) => ({ ...p, date_from: e.target.value }))}
-                        className="w-full bg-[#1A1A22] border border-[#2A2A35] rounded-xl pl-8 pr-3 py-2 text-sm text-[#F5F5F5] focus:outline-none focus:border-[#EAB308]"
-                      />
-                    </div>
-                    <div className="relative">
-                      <Calendar className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#6B7280]" />
-                      <input
-                        type="date"
-                        value={filters.date_to}
-                        onChange={(e) => setFilters((p) => ({ ...p, date_to: e.target.value }))}
-                        className="w-full bg-[#1A1A22] border border-[#2A2A35] rounded-xl pl-8 pr-3 py-2 text-sm text-[#F5F5F5] focus:outline-none focus:border-[#EAB308]"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Clear filters */}
-                {hasActiveFilters && (
-                  <button
-                    onClick={clearFilters}
-                    className="w-full flex items-center justify-center gap-2 text-sm text-[#9CA3AF] hover:text-[#F5F5F5] border border-[#2A2A35] hover:border-[#EAB308]/40 rounded-xl py-2 transition-colors"
-                  >
-                    <RotateCcw className="w-3.5 h-3.5" />
-                    Limpiar filtros
-                  </button>
-                )}
-
-                {/* Apply filters button (mobile) */}
-                <button
-                  onClick={() => { setShowFilters(false); setPage(1); runSearch(query, filters, sort, 1); }}
-                  className="sm:hidden w-full bg-[#EAB308] hover:bg-[#CA9E00] text-[#0A0A0F] rounded-xl py-2.5 h-11 text-sm font-semibold transition-colors"
-                >
-                  Aplicar filtros
-                </button>
-              </div>
-            </div>
-          </aside>
-
-          {/* ================================================================ */}
-          {/* CENTER: Results                                                   */}
-          {/* ================================================================ */}
-          <main className="flex-1 min-w-0">
-            {/* Toolbar: count + sort */}
-            {(searched || loading) && (
-              <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
-                <p className="text-sm text-[#9CA3AF]">
-                  {loading ? (
-                    <span className="inline-block w-32 h-4 bg-[#1A1A22] rounded animate-pulse" />
-                  ) : (
-                    <>
-                      <span className="text-[#F5F5F5] font-medium">{total.toLocaleString()}</span>{" "}
-                      resultado{total !== 1 ? "s" : ""} para{" "}
-                      <span className="text-[#EAB308]">&ldquo;{query}&rdquo;</span>
-                    </>
+                      <X className="w-4 h-4" />
+                    </button>
                   )}
-                </p>
-                <div className="relative">
-                  <select
-                    value={sort}
-                    onChange={(e) => handleSortChange(e.target.value)}
-                    className="bg-[#1A1A22] border border-[#2A2A35] rounded-xl pl-3 pr-8 py-1.5 text-sm text-[#F5F5F5] focus:outline-none focus:border-[#EAB308] appearance-none"
+                  <button
+                    type="submit"
+                    disabled={loading || !query.trim()}
+                    className="bg-gradient-to-br from-primary to-primary-container disabled:opacity-40 text-on-primary rounded-lg px-5 h-11 text-sm font-bold transition-opacity"
                   >
-                    {SORT_OPTIONS.map((s) => (
-                      <option key={s.id} value={s.id}>{s.name}</option>
-                    ))}
-                  </select>
-                  <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#6B7280] pointer-events-none" />
+                    {loading ? "Buscando..." : "Buscar"}
+                  </button>
                 </div>
               </div>
-            )}
+            </form>
 
-            {/* Loading skeletons */}
-            {loading && (
-              <div className="space-y-4">
-                {[...Array(5)].map((_, i) => <SkeletonCard key={i} />)}
-              </div>
-            )}
-
-            {/* Empty state — post-search no results */}
-            {searched && !loading && results.length === 0 && (
-              <div className="text-center py-20 text-[#6B7280]">
-                <img src="/brand/logo-full.png" className="w-24 mx-auto mb-4 opacity-40" alt="Agente Derecho" />
-                <p className="text-base text-[#9CA3AF] font-medium mb-1">
-                  No se encontraron resultados
-                </p>
-                <p className="text-sm">
-                  Intenta con otros terminos{hasActiveFilters ? " o limpia los filtros" : ""}
-                </p>
-                {hasActiveFilters && (
+            {/* Auto-suggest dropdown */}
+            {showSuggestions && suggestions.length > 0 && (
+              <div className="absolute top-full left-0 right-0 mt-1 bg-surface-container-low border border-[rgba(79,70,51,0.15)] rounded-lg shadow-2xl z-50 overflow-hidden">
+                {suggestions.map((s, i) => (
                   <button
-                    onClick={clearFilters}
-                    className="mt-4 text-sm text-[#EAB308] hover:text-[#CA9E00] underline transition-colors"
+                    key={i}
+                    onMouseDown={() => pickSuggestion(s)}
+                    className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-on-surface hover:bg-surface-container hover:text-white transition-colors text-left"
                   >
-                    Limpiar todos los filtros
+                    <Search className="w-3.5 h-3.5 text-on-surface/30 shrink-0" />
+                    <span>{s}</span>
                   </button>
-                )}
+                ))}
               </div>
             )}
+          </div>
 
-            {/* Initial empty state — never searched */}
-            {!searched && !loading && (
-              <div className="text-center py-20 text-[#6B7280]">
-                <img src="/brand/logo-full.png" className="w-24 mx-auto mb-4 opacity-40" alt="Agente Derecho" />
-                <p className="text-sm text-[#6B7280]">Ingresa un termino para comenzar la busqueda</p>
-              </div>
-            )}
+          {/* Layout: filters + results + sidebar */}
+          <div className="flex gap-5">
+            {/* LEFT: Filter panel */}
+            <aside
+              className={`
+                ${showFilters ? "block" : "hidden"} sm:block
+                w-full sm:w-60 lg:w-64 shrink-0
+                ${showFilters ? "fixed inset-0 z-50 sm:relative sm:inset-auto sm:z-auto" : ""}
+              `}
+            >
+              {showFilters && (
+                <div
+                  className="fixed inset-0 bg-black/70 sm:hidden z-40"
+                  onClick={() => setShowFilters(false)}
+                />
+              )}
 
-            {/* Result cards */}
-            {!loading && results.length > 0 && (
-              <div className="space-y-4">
-                {results.map((result) => {
-                  const areaInfo = AREA_MAP[result.legal_area];
-                  return (
-                    <Link
-                      key={result.id}
-                      href={`/documento/${result.document_id}`}
-                      className="block bg-[#111116] border border-[#1E1E2A] rounded-xl p-5 hover:border-[#2A2A35] hover:bg-[#1A1A22] transition-colors group"
+              <div className={`
+                ${showFilters ? "fixed right-0 top-0 bottom-0 w-80 z-50 overflow-y-auto sm:relative sm:inset-auto sm:w-auto sm:overflow-visible" : ""}
+                bg-surface-container-low sm:bg-transparent border border-[rgba(79,70,51,0.15)] sm:border-0 rounded-lg sm:rounded-none p-4
+              `}>
+                {/* Mobile header */}
+                <div className="flex items-center justify-between mb-4 sm:hidden">
+                  <span className="font-medium text-sm text-on-surface">Filtros</span>
+                  <button onClick={() => setShowFilters(false)} className="text-on-surface/40 hover:text-on-surface transition-colors">
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                <div className="space-y-5">
+                  {/* Areas */}
+                  <div>
+                    <h3 className="text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-3">
+                      Area del derecho
+                    </h3>
+                    <div className="space-y-1">
+                      {LEGAL_AREAS.map((area) => {
+                        const Icon = area.icon;
+                        const checked = filters.areas.includes(area.id);
+                        return (
+                          <label
+                            key={area.id}
+                            className={`flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg cursor-pointer transition-colors text-sm ${
+                              checked
+                                ? "bg-surface-container text-on-surface"
+                                : "text-on-surface/60 hover:text-on-surface hover:bg-surface-container"
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={() => toggleArea(area.id)}
+                              className="rounded border-[rgba(79,70,51,0.15)] bg-[#35343a] text-primary focus:ring-primary/50 focus:ring-1 w-3.5 h-3.5"
+                            />
+                            <Icon className={`w-3.5 h-3.5 ${area.color}`} />
+                            {area.name}
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Document type */}
+                  <div>
+                    <h3 className="text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-2">
+                      Tipo de documento
+                    </h3>
+                    <div className="relative">
+                      <select
+                        value={filters.document_type}
+                        onChange={(e) => setFilters((p) => ({ ...p, document_type: e.target.value }))}
+                        className="w-full bg-[#35343a] border border-transparent rounded-lg px-3 py-2.5 text-sm text-on-surface focus:outline-none focus:border-primary appearance-none pr-8 transition-colors"
+                      >
+                        {DOCUMENT_TYPES.map((t) => (
+                          <option key={t.id} value={t.id}>{t.name}</option>
+                        ))}
+                      </select>
+                      <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-on-surface/30 pointer-events-none" />
+                    </div>
+                  </div>
+
+                  {/* Hierarchy */}
+                  <div>
+                    <h3 className="text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-2">
+                      Jerarquia normativa
+                    </h3>
+                    <div className="relative">
+                      <select
+                        value={filters.hierarchy}
+                        onChange={(e) => setFilters((p) => ({ ...p, hierarchy: e.target.value }))}
+                        className="w-full bg-[#35343a] border border-transparent rounded-lg px-3 py-2.5 text-sm text-on-surface focus:outline-none focus:border-primary appearance-none pr-8 transition-colors"
+                      >
+                        {HIERARCHY_OPTIONS.map((h) => (
+                          <option key={h.id} value={h.id}>{h.name}</option>
+                        ))}
+                      </select>
+                      <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-on-surface/30 pointer-events-none" />
+                    </div>
+                  </div>
+
+                  {/* Date range */}
+                  <div>
+                    <h3 className="text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-2">
+                      Rango de fecha
+                    </h3>
+                    <div className="space-y-2">
+                      <div className="relative">
+                        <Calendar className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-on-surface/30" />
+                        <input
+                          type="date"
+                          value={filters.date_from}
+                          onChange={(e) => setFilters((p) => ({ ...p, date_from: e.target.value }))}
+                          className="w-full bg-[#35343a] border border-transparent rounded-lg pl-8 pr-3 py-2.5 text-sm text-on-surface focus:outline-none focus:border-primary transition-colors"
+                        />
+                      </div>
+                      <div className="relative">
+                        <Calendar className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-on-surface/30" />
+                        <input
+                          type="date"
+                          value={filters.date_to}
+                          onChange={(e) => setFilters((p) => ({ ...p, date_to: e.target.value }))}
+                          className="w-full bg-[#35343a] border border-transparent rounded-lg pl-8 pr-3 py-2.5 text-sm text-on-surface focus:outline-none focus:border-primary transition-colors"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Clear filters */}
+                  {hasActiveFilters && (
+                    <button
+                      onClick={clearFilters}
+                      className="w-full flex items-center justify-center gap-2 text-sm text-on-surface/60 hover:text-on-surface border border-[rgba(79,70,51,0.15)] hover:border-primary/30 rounded-lg py-2.5 transition-colors"
                     >
-                      {/* Title row */}
-                      <div className="flex items-start justify-between gap-3 mb-2">
-                        <div className="flex-1 min-w-0">
-                          <h3 className="font-semibold text-sm text-[#F5F5F5] group-hover:text-[#EAB308] transition-colors leading-snug">
-                            <HighlightedText text={result.title} query={query} />
-                            {result.document_number && (
-                              <span className="text-[#6B7280] font-normal ml-2 text-xs">
-                                ({result.document_number})
+                      <RotateCcw className="w-3.5 h-3.5" />
+                      Limpiar filtros
+                    </button>
+                  )}
+
+                  {/* Apply filters button (mobile) */}
+                  <button
+                    onClick={() => { setShowFilters(false); setPage(1); runSearch(query, filters, sort, 1); }}
+                    className="sm:hidden w-full bg-gradient-to-br from-primary to-primary-container text-on-primary rounded-lg py-2.5 h-11 text-sm font-bold transition-opacity"
+                  >
+                    Aplicar filtros
+                  </button>
+                </div>
+              </div>
+            </aside>
+
+            {/* CENTER: Results */}
+            <main className="flex-1 min-w-0">
+              {/* Toolbar: count + sort */}
+              {(searched || loading) && (
+                <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
+                  <p className="text-sm text-on-surface/40">
+                    {loading ? (
+                      <span className="inline-block w-32 h-4 bg-surface-container-low rounded animate-pulse" />
+                    ) : (
+                      <>
+                        <span className="text-on-surface font-medium">{total.toLocaleString()}</span>{" "}
+                        resultado{total !== 1 ? "s" : ""} para{" "}
+                        <span className="text-primary">&ldquo;{query}&rdquo;</span>
+                      </>
+                    )}
+                  </p>
+                  <div className="relative">
+                    <select
+                      value={sort}
+                      onChange={(e) => handleSortChange(e.target.value)}
+                      className="bg-surface-container-low border border-[rgba(79,70,51,0.15)] rounded-lg pl-3 pr-8 py-1.5 text-sm text-on-surface focus:outline-none focus:border-primary appearance-none transition-colors"
+                    >
+                      {SORT_OPTIONS.map((s) => (
+                        <option key={s.id} value={s.id}>{s.name}</option>
+                      ))}
+                    </select>
+                    <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-on-surface/30 pointer-events-none" />
+                  </div>
+                </div>
+              )}
+
+              {/* Loading skeletons */}
+              {loading && (
+                <div className="space-y-3">
+                  {[...Array(5)].map((_, i) => <SkeletonCard key={i} />)}
+                </div>
+              )}
+
+              {/* Empty state — post-search no results */}
+              {searched && !loading && results.length === 0 && (
+                <div className="text-center py-20">
+                  <img src="/brand/logo-full.png" className="w-24 mx-auto mb-4 opacity-20" alt="Agente Derecho" />
+                  <p className="text-base text-on-surface/60 font-medium mb-1">
+                    No se encontraron resultados
+                  </p>
+                  <p className="text-sm text-on-surface/30">
+                    Intenta con otros terminos{hasActiveFilters ? " o limpia los filtros" : ""}
+                  </p>
+                  {hasActiveFilters && (
+                    <button
+                      onClick={clearFilters}
+                      className="mt-4 text-sm text-primary hover:text-primary-container transition-colors"
+                    >
+                      Limpiar todos los filtros
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {/* Browse mode — show all documents when no search query */}
+              {!searched && !loading && (
+                <div>
+                  <div className="flex items-center justify-between mb-4">
+                    <p className="text-sm text-on-surface/60">
+                      <span className="text-on-surface font-medium">{
+                        (filters.areas.length > 0
+                          ? allDocs.filter((d) => filters.areas.includes(d.legal_area))
+                          : allDocs
+                        ).length
+                      }</span>{" "}
+                      documentos en la base de conocimiento
+                    </p>
+                  </div>
+                  {docsLoading ? (
+                    <div className="space-y-3">
+                      {[...Array(5)].map((_, i) => <SkeletonCard key={i} />)}
+                    </div>
+                  ) : allDocs.length === 0 ? (
+                    <div className="text-center py-20">
+                      <p className="text-sm text-on-surface/40">No hay documentos cargados en la base de conocimiento</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-0">
+                      {(filters.areas.length > 0
+                        ? allDocs.filter((d) => filters.areas.includes(d.legal_area))
+                        : allDocs
+                      ).map((doc, idx) => {
+                        const areaInfo = AREA_MAP[doc.legal_area];
+                        return (
+                          <Link
+                            key={doc.id}
+                            href={`/documento/${doc.id}`}
+                            className={`block p-5 transition-colors group ${
+                              idx % 2 === 0 ? "bg-surface" : "bg-surface-container-low"
+                            } hover:bg-surface-container`}
+                          >
+                            <div className="flex items-start justify-between gap-3 mb-2">
+                              <div className="flex-1 min-w-0">
+                                <h3 className="font-medium text-sm text-on-surface group-hover:text-primary transition-colors leading-snug">
+                                  {doc.title}
+                                  {doc.document_number && (
+                                    <span className="text-on-surface/30 font-normal ml-2 text-xs">
+                                      ({doc.document_number})
+                                    </span>
+                                  )}
+                                </h3>
+                              </div>
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                {areaInfo && (
+                                  <span className="bg-secondary-container text-secondary text-[10px] uppercase tracking-widest rounded px-2 py-0.5">
+                                    {areaInfo.name}
+                                  </span>
+                                )}
+                                <span className="text-[10px] px-2 py-0.5 rounded bg-[#35343a] text-on-surface/40">
+                                  {doc.document_type.replace("_", " ")}
+                                </span>
+                              </div>
+                            </div>
+                            <p className="text-xs text-on-surface/30">
+                              Fuente: {doc.source} {doc.hierarchy && `· ${doc.hierarchy}`}
+                            </p>
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Result cards */}
+              {!loading && results.length > 0 && (
+                <div className="space-y-0">
+                  {results.map((result, idx) => {
+                    const areaInfo = AREA_MAP[result.legal_area];
+                    return (
+                      <Link
+                        key={result.id}
+                        href={`/documento/${result.document_id}`}
+                        className={`block p-5 transition-colors group ${
+                          idx % 2 === 0 ? "bg-surface" : "bg-surface-container-low"
+                        } hover:bg-surface-container`}
+                      >
+                        {/* Title row */}
+                        <div className="flex items-start justify-between gap-3 mb-2">
+                          <div className="flex-1 min-w-0">
+                            <h3 className="font-medium text-sm text-on-surface group-hover:text-primary transition-colors leading-snug">
+                              <HighlightedText text={result.title} query={query} />
+                              {result.document_number && (
+                                <span className="text-on-surface/30 font-normal ml-2 text-xs">
+                                  ({result.document_number})
+                                </span>
+                              )}
+                            </h3>
+                          </div>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            {areaInfo && (
+                              <span className="bg-secondary-container text-secondary text-[10px] uppercase tracking-widest rounded px-2 py-0.5">
+                                {areaInfo.name}
                               </span>
                             )}
-                          </h3>
-                        </div>
-                        <div className="flex items-center gap-1.5 shrink-0">
-                          {areaInfo && (
-                            <span className={`text-[10px] px-2 py-0.5 rounded-full border ${areaInfo.badge}`}>
-                              {areaInfo.name}
+                            <span className="text-[10px] px-2 py-0.5 rounded bg-[#35343a] text-on-surface/40">
+                              {result.document_type.replace("_", " ")}
                             </span>
-                          )}
-                          <span className="text-[10px] px-2 py-0.5 rounded-full border bg-[#1A1A22] text-[#9CA3AF] border-[#2A2A35]">
-                            {result.document_type.replace("_", " ")}
-                          </span>
+                          </div>
                         </div>
-                      </div>
 
-                      {/* Snippet */}
-                      <p className="text-sm text-[#9CA3AF] leading-relaxed line-clamp-3">
-                        <HighlightedText text={result.snippet} query={query} />
-                      </p>
-
-                      {/* Meta row */}
-                      <div className="flex items-center gap-3 mt-3 text-xs text-[#6B7280]">
-                        {result.source && <span>{result.source}</span>}
-                        {result.publication_date && (
-                          <>
-                            <span>·</span>
-                            <span>{new Date(result.publication_date).getFullYear()}</span>
-                          </>
+                        {/* Score bar */}
+                        {result.score > 0 && (
+                          <div className="mb-2">
+                            <div className="h-0.5 bg-surface-container-low rounded-full overflow-hidden w-24">
+                              <div
+                                className="h-full bg-gradient-to-r from-primary to-primary-container rounded-full"
+                                style={{ width: `${Math.min(100, result.score * 100)}%` }}
+                              />
+                            </div>
+                          </div>
                         )}
-                        {result.hierarchy && (
-                          <>
-                            <span>·</span>
-                            <span className="capitalize">{result.hierarchy}</span>
-                          </>
-                        )}
+
+                        {/* Snippet */}
+                        <p className="text-sm text-on-surface/60 leading-relaxed line-clamp-3">
+                          <HighlightedText text={result.snippet} query={query} />
+                        </p>
+
+                        {/* Meta row */}
+                        <div className="flex items-center gap-3 mt-2 text-xs text-on-surface/30">
+                          {result.source && <span>{result.source}</span>}
+                          {result.publication_date && (
+                            <>
+                              <span>·</span>
+                              <span>{new Date(result.publication_date).getFullYear()}</span>
+                            </>
+                          )}
+                          {result.hierarchy && (
+                            <>
+                              <span>·</span>
+                              <span className="capitalize">{result.hierarchy}</span>
+                            </>
+                          )}
+                        </div>
+                      </Link>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Pagination */}
+              {!loading && totalPages > 1 && (
+                <div className="flex items-center justify-center gap-2 mt-8">
+                  <button
+                    onClick={() => handlePageChange(page - 1)}
+                    disabled={page <= 1}
+                    className="px-3 py-1.5 text-sm border border-[rgba(79,70,51,0.15)] rounded-lg text-on-surface/60 hover:text-on-surface hover:border-primary/30 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  >
+                    Anterior
+                  </button>
+
+                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                    let pageNum: number;
+                    if (totalPages <= 5) {
+                      pageNum = i + 1;
+                    } else if (page <= 3) {
+                      pageNum = i + 1;
+                    } else if (page >= totalPages - 2) {
+                      pageNum = totalPages - 4 + i;
+                    } else {
+                      pageNum = page - 2 + i;
+                    }
+                    return (
+                      <button
+                        key={pageNum}
+                        onClick={() => handlePageChange(pageNum)}
+                        className={`w-9 h-9 text-sm rounded-lg transition-colors ${
+                          pageNum === page
+                            ? "bg-gradient-to-br from-primary to-primary-container text-on-primary font-bold"
+                            : "border border-[rgba(79,70,51,0.15)] text-on-surface/60 hover:text-on-surface hover:border-primary/30"
+                        }`}
+                      >
+                        {pageNum}
+                      </button>
+                    );
+                  })}
+
+                  <button
+                    onClick={() => handlePageChange(page + 1)}
+                    disabled={page >= totalPages}
+                    className="px-3 py-1.5 text-sm border border-[rgba(79,70,51,0.15)] rounded-lg text-on-surface/60 hover:text-on-surface hover:border-primary/30 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  >
+                    Siguiente
+                  </button>
+                </div>
+              )}
+            </main>
+
+            {/* RIGHT SIDEBAR: Saved searches + History (desktop only) */}
+            <aside className="hidden lg:block w-60 shrink-0 space-y-4">
+              {/* Save current search */}
+              {isLoggedIn && query.trim() && searched && (
+                <button
+                  onClick={() => setSaveModalOpen(true)}
+                  className="w-full flex items-center justify-center gap-2 text-sm border border-dashed border-[rgba(79,70,51,0.15)] hover:border-primary/40 text-on-surface/40 hover:text-primary rounded-lg py-2.5 transition-colors"
+                >
+                  <Bookmark className="w-4 h-4" />
+                  Guardar esta busqueda
+                </button>
+              )}
+
+              {/* Saved searches */}
+              {isLoggedIn && savedSearches.length > 0 && (
+                <div className="bg-surface-container-low border border-[rgba(79,70,51,0.15)] rounded-lg p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <BookmarkCheck className="w-3.5 h-3.5 text-primary" />
+                    <h3 className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">
+                      Busquedas guardadas
+                    </h3>
+                  </div>
+                  <div className="space-y-0.5">
+                    {savedSearches.slice(0, 8).map((s) => (
+                      <div key={s.id} className="flex items-center gap-1 group">
+                        <button
+                          onClick={() => applySaved(s)}
+                          className="flex-1 text-left text-sm text-on-surface hover:text-white truncate py-1 px-2 rounded-lg hover:bg-surface-container transition-colors"
+                          title={s.query}
+                        >
+                          {s.name}
+                        </button>
+                        <button
+                          onClick={() => handleDeleteSaved(s.id)}
+                          className="opacity-0 group-hover:opacity-100 p-1 text-on-surface/30 hover:text-[#ffb4ab] transition-all"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
                       </div>
-                    </Link>
-                  );
-                })}
-              </div>
-            )}
-
-            {/* Pagination */}
-            {!loading && totalPages > 1 && (
-              <div className="flex items-center justify-center gap-2 mt-8">
-                <button
-                  onClick={() => handlePageChange(page - 1)}
-                  disabled={page <= 1}
-                  className="px-3 py-1.5 text-sm border border-[#2A2A35] rounded-xl text-[#9CA3AF] hover:text-[#F5F5F5] hover:border-[#EAB308]/40 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                >
-                  Anterior
-                </button>
-
-                {/* Page numbers — show window of 5 around current */}
-                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                  let pageNum: number;
-                  if (totalPages <= 5) {
-                    pageNum = i + 1;
-                  } else if (page <= 3) {
-                    pageNum = i + 1;
-                  } else if (page >= totalPages - 2) {
-                    pageNum = totalPages - 4 + i;
-                  } else {
-                    pageNum = page - 2 + i;
-                  }
-                  return (
-                    <button
-                      key={pageNum}
-                      onClick={() => handlePageChange(pageNum)}
-                      className={`w-9 h-9 text-sm rounded-xl transition-colors ${
-                        pageNum === page
-                          ? "bg-[#EAB308] text-[#0A0A0F] font-semibold border border-[#EAB308]"
-                          : "border border-[#2A2A35] text-[#9CA3AF] hover:text-[#F5F5F5] hover:border-[#EAB308]/40"
-                      }`}
-                    >
-                      {pageNum}
-                    </button>
-                  );
-                })}
-
-                <button
-                  onClick={() => handlePageChange(page + 1)}
-                  disabled={page >= totalPages}
-                  className="px-3 py-1.5 text-sm border border-[#2A2A35] rounded-xl text-[#9CA3AF] hover:text-[#F5F5F5] hover:border-[#EAB308]/40 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                >
-                  Siguiente
-                </button>
-              </div>
-            )}
-          </main>
-
-          {/* ================================================================ */}
-          {/* RIGHT SIDEBAR: Saved searches + History (desktop only)           */}
-          {/* ================================================================ */}
-          <aside className="hidden lg:block w-64 shrink-0 space-y-5">
-            {/* Save current search */}
-            {isLoggedIn && query.trim() && searched && (
-              <button
-                onClick={() => setSaveModalOpen(true)}
-                className="w-full flex items-center justify-center gap-2 text-sm border border-dashed border-[#2A2A35] hover:border-[#EAB308]/50 text-[#9CA3AF] hover:text-[#EAB308] rounded-xl py-2.5 transition-colors"
-              >
-                <Bookmark className="w-4 h-4" />
-                Guardar esta busqueda
-              </button>
-            )}
-
-            {/* Saved searches */}
-            {isLoggedIn && savedSearches.length > 0 && (
-              <div className="bg-[#111116] border border-[#1E1E2A] rounded-xl p-4">
-                <div className="flex items-center gap-2 mb-3">
-                  <BookmarkCheck className="w-4 h-4 text-[#EAB308]" />
-                  <h3 className="text-xs font-semibold text-[#9CA3AF] uppercase tracking-wider">
-                    Busquedas guardadas
-                  </h3>
+                    ))}
+                  </div>
                 </div>
-                <div className="space-y-1">
-                  {savedSearches.slice(0, 8).map((s) => (
-                    <div key={s.id} className="flex items-center gap-1 group">
+              )}
+
+              {/* Search history */}
+              {isLoggedIn && history.length > 0 && (
+                <div className="bg-surface-container-low border border-[rgba(79,70,51,0.15)] rounded-lg p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Clock className="w-3.5 h-3.5 text-on-surface/30" />
+                    <h3 className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">
+                      Busquedas recientes
+                    </h3>
+                  </div>
+                  <div className="space-y-0.5">
+                    {history.slice(0, 10).map((h) => (
                       <button
-                        onClick={() => applySaved(s)}
-                        className="flex-1 text-left text-sm text-[#F5F5F5] hover:text-white truncate py-1 px-2 rounded-xl hover:bg-[#1A1A22] transition-colors"
-                        title={s.query}
+                        key={h.id}
+                        onClick={() => applyHistory(h)}
+                        className="w-full text-left text-sm text-on-surface/60 hover:text-on-surface py-1.5 px-2 rounded-lg hover:bg-surface-container transition-colors truncate flex items-center gap-2"
+                        title={h.query}
                       >
-                        {s.name}
+                        <Search className="w-3 h-3 shrink-0 text-on-surface/30" />
+                        <span className="truncate">{h.query}</span>
+                        {h.results_count > 0 && (
+                          <span className="text-xs text-on-surface/30 shrink-0 ml-auto">
+                            {h.results_count}
+                          </span>
+                        )}
                       </button>
-                      <button
-                        onClick={() => handleDeleteSaved(s.id)}
-                        className="opacity-0 group-hover:opacity-100 p-1 text-[#6B7280] hover:text-red-400 transition-all"
-                      >
-                        <X className="w-3 h-3" />
-                      </button>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
 
-            {/* Search history */}
-            {isLoggedIn && history.length > 0 && (
-              <div className="bg-[#111116] border border-[#1E1E2A] rounded-xl p-4">
-                <div className="flex items-center gap-2 mb-3">
-                  <Clock className="w-4 h-4 text-[#6B7280]" />
-                  <h3 className="text-xs font-semibold text-[#9CA3AF] uppercase tracking-wider">
-                    Busquedas recientes
-                  </h3>
+              {/* Not logged in hint */}
+              {!isLoggedIn && (
+                <div className="bg-surface-container-low border border-[rgba(79,70,51,0.15)] rounded-lg p-4 text-center">
+                  <Filter className="w-8 h-8 mx-auto mb-2 text-on-surface/10" />
+                  <p className="text-xs text-on-surface/30 mb-3">
+                    Inicia sesion para guardar busquedas y ver tu historial
+                  </p>
+                  <Link
+                    href="/auth/login"
+                    className="text-xs text-primary hover:text-primary-container transition-colors"
+                  >
+                    Iniciar sesion
+                  </Link>
                 </div>
-                <div className="space-y-0.5">
-                  {history.slice(0, 10).map((h) => (
-                    <button
-                      key={h.id}
-                      onClick={() => applyHistory(h)}
-                      className="w-full text-left text-sm text-[#9CA3AF] hover:text-[#F5F5F5] py-1.5 px-2 rounded-xl hover:bg-[#1A1A22] transition-colors truncate flex items-center gap-2"
-                      title={h.query}
-                    >
-                      <Search className="w-3 h-3 shrink-0 text-[#6B7280]" />
-                      <span className="truncate">{h.query}</span>
-                      {h.results_count > 0 && (
-                        <span className="text-xs text-[#6B7280] shrink-0 ml-auto">
-                          {h.results_count}
-                        </span>
-                      )}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Not logged in hint */}
-            {!isLoggedIn && (
-              <div className="bg-[#111116] border border-[#1E1E2A] rounded-xl p-4 text-center">
-                <Filter className="w-8 h-8 mx-auto mb-2 text-[#2A2A35]" />
-                <p className="text-xs text-[#6B7280] mb-3">
-                  Inicia sesion para guardar busquedas y ver tu historial
-                </p>
-                <Link
-                  href="/auth/login"
-                  className="text-xs text-[#EAB308] hover:text-[#CA9E00] transition-colors"
-                >
-                  Iniciar sesion
-                </Link>
-              </div>
-            )}
-          </aside>
-        </div>
-      </div>
-
-      {/* -------------------------------------------------------------------- */}
-      {/* Save search modal                                                     */}
-      {/* -------------------------------------------------------------------- */}
-      {saveModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
-          <div
-            className="absolute inset-0 bg-black/70"
-            onClick={() => setSaveModalOpen(false)}
-          />
-          <div className="relative bg-[#111116] border border-[#2A2A35] rounded-2xl p-6 w-full max-w-sm shadow-2xl">
-            <h2 className="font-bold text-base mb-1 text-[#F5F5F5]">Guardar busqueda</h2>
-            <p className="text-sm text-[#9CA3AF] mb-4 truncate">
-              &ldquo;{query}&rdquo;
-            </p>
-            <input
-              type="text"
-              value={saveName}
-              onChange={(e) => setSaveName(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleSaveSearch()}
-              placeholder="Nombre para esta busqueda..."
-              className="w-full bg-[#111116] border border-[#2A2A35] rounded-xl px-3 h-12 text-sm placeholder-[#6B7280] text-[#F5F5F5] focus:outline-none focus:border-[#EAB308] mb-4"
-              autoFocus
-            />
-            <div className="flex gap-3">
-              <button
-                onClick={() => setSaveModalOpen(false)}
-                className="flex-1 border border-[#2A2A35] rounded-xl py-2 text-sm text-[#9CA3AF] hover:text-[#F5F5F5] transition-colors"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={handleSaveSearch}
-                disabled={saving || !saveName.trim()}
-                className="flex-1 bg-[#EAB308] hover:bg-[#CA9E00] disabled:bg-[#2A2A35] disabled:text-[#6B7280] text-[#0A0A0F] rounded-xl py-2 text-sm font-semibold transition-colors"
-              >
-                {saving ? "Guardando..." : "Guardar"}
-              </button>
-            </div>
+              )}
+            </aside>
           </div>
         </div>
-      )}
+
+        {/* Save search modal */}
+        {saveModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+            <div
+              className="absolute inset-0 bg-black/70"
+              onClick={() => setSaveModalOpen(false)}
+            />
+            <div className="relative bg-surface-container-low border border-[rgba(79,70,51,0.15)] rounded-lg p-6 w-full max-w-sm shadow-2xl">
+              <h2 className="font-['Newsreader'] text-xl font-bold text-on-surface mb-1">Guardar busqueda</h2>
+              <p className="text-sm text-on-surface/40 mb-4 truncate">
+                &ldquo;{query}&rdquo;
+              </p>
+              <input
+                type="text"
+                value={saveName}
+                onChange={(e) => setSaveName(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleSaveSearch()}
+                placeholder="Nombre para esta busqueda..."
+                className="w-full bg-[#35343a] border border-transparent rounded-lg px-3 py-3 text-sm placeholder-on-surface/30 text-on-surface focus:outline-none focus:border-primary mb-4 transition-colors"
+                autoFocus
+              />
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setSaveModalOpen(false)}
+                  className="flex-1 border border-[rgba(79,70,51,0.15)] rounded-lg py-2.5 text-sm text-on-surface/60 hover:text-on-surface transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleSaveSearch}
+                  disabled={saving || !saveName.trim()}
+                  className="flex-1 bg-gradient-to-br from-primary to-primary-container disabled:opacity-40 text-on-primary rounded-lg py-2.5 text-sm font-bold transition-opacity"
+                >
+                  {saving ? "Guardando..." : "Guardar"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </AppLayout>
   );

@@ -147,28 +147,29 @@ export default function MarcadoresPage() {
 
   return (
     <AppLayout>
-      <div className="min-h-full text-[#F5F5F5]">
-        {/* Page title */}
-        <div className="border-b border-[#1E1E2A] px-6 py-4 flex items-center gap-2">
-          <Bookmark className="w-5 h-5 text-[#EAB308]" fill="currentColor" />
-          <h1 className="font-semibold text-base">Marcadores</h1>
+      <div className="min-h-full text-on-surface">
+        {/* Header */}
+        <div className="border-b border-[rgba(79,70,51,0.15)] px-4 sm:px-6 py-5 flex items-center gap-3 sticky top-0 z-10 bg-[#0e0e14]">
+          <Bookmark className="w-4 h-4 text-primary" fill="currentColor" />
+          <span className="text-primary text-xs uppercase tracking-[0.2em] font-bold">Guardados</span>
+          <span className="text-on-surface/20 mx-1">·</span>
+          <h1 className="font-['Newsreader'] text-xl font-bold text-on-surface">Marcadores</h1>
         </div>
 
-        {/* Content */}
-        <main className="max-w-4xl mx-auto px-6 py-8">
+        <main className="max-w-4xl mx-auto px-4 sm:px-6 py-8">
           {isLoading && (
             <div className="flex items-center justify-center py-20">
-              <Loader2 className="w-6 h-6 text-[#EAB308] animate-spin mr-2" />
-              <span className="text-[#9CA3AF] text-sm">Cargando marcadores...</span>
+              <Loader2 className="w-6 h-6 text-primary animate-spin mr-2" />
+              <span className="text-on-surface/40 text-sm">Cargando marcadores...</span>
             </div>
           )}
 
           {error && (
-            <div className="bg-red-950/30 border border-red-800/50 rounded-xl p-6 text-center">
-              <p className="text-red-400 text-sm">{error}</p>
+            <div className="bg-[#93000a]/20 border border-[#ffb4ab]/30 rounded-lg p-6 text-center">
+              <p className="text-[#ffb4ab] text-sm">{error}</p>
               <a
                 href="/auth/login"
-                className="mt-3 inline-block text-[#EAB308] hover:text-[#D4A00A] text-sm underline"
+                className="mt-3 inline-block text-primary hover:text-primary-container text-sm transition-colors"
               >
                 Iniciar sesion
               </a>
@@ -179,18 +180,18 @@ export default function MarcadoresPage() {
             <div className="flex flex-col items-center justify-center py-20 text-center">
               <img
                 src="/brand/logo-full.png"
-                className="w-24 mx-auto mb-4 opacity-40"
+                className="w-24 mx-auto mb-4 opacity-20"
                 alt="Agente Derecho"
               />
-              <h2 className="text-lg font-semibold text-[#F5F5F5] mb-2">
+              <h2 className="font-['Newsreader'] text-2xl font-bold text-on-surface mb-2">
                 No hay marcadores guardados
               </h2>
-              <p className="text-[#6B7280] text-sm max-w-sm">
+              <p className="text-on-surface/40 text-sm max-w-sm">
                 Guarda las respuestas mas utiles haciendo clic en el icono de marcador en cualquier mensaje del asistente.
               </p>
               <a
                 href="/"
-                className="mt-6 inline-flex items-center gap-2 bg-[#EAB308] hover:bg-[#D4A00A] text-black text-sm font-medium px-4 py-2 rounded-xl transition-colors"
+                className="mt-6 inline-flex items-center gap-2 bg-gradient-to-br from-primary to-primary-container text-on-primary text-sm font-bold px-5 py-2.5 rounded-lg transition-opacity"
               >
                 <Scale className="w-4 h-4" />
                 Ir al chat
@@ -202,14 +203,17 @@ export default function MarcadoresPage() {
             <div className="space-y-6">
               {/* Header + search */}
               <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-                <h1 className="text-lg font-bold flex-1">
-                  Mis marcadores
-                  <span className="ml-2 text-sm font-normal text-[#6B7280]">
-                    ({bookmarks.length} {bookmarks.length === 1 ? "guardado" : "guardados"})
-                  </span>
-                </h1>
+                <div className="flex-1">
+                  <p className="text-primary text-xs uppercase tracking-[0.2em] font-bold mb-1">Guardados</p>
+                  <h1 className="font-['Newsreader'] text-3xl font-bold text-on-surface">
+                    Mis marcadores
+                    <span className="ml-3 text-base font-normal text-on-surface/40">
+                      {bookmarks.length} {bookmarks.length === 1 ? "guardado" : "guardados"}
+                    </span>
+                  </h1>
+                </div>
                 <div className="relative w-full sm:w-64">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#6B7280]" />
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-on-surface/30" />
                   <input
                     value={searchFilter}
                     onChange={(e) => {
@@ -217,13 +221,13 @@ export default function MarcadoresPage() {
                       setCurrentPage(1);
                     }}
                     placeholder="Filtrar marcadores..."
-                    className="w-full pl-9 pr-3 h-12 bg-[#111116] border border-[#2A2A35] rounded-xl text-sm text-[#F5F5F5] placeholder-[#6B7280] focus:outline-none focus:border-[#EAB308]/50 transition-colors"
+                    className="w-full pl-9 pr-3 h-11 bg-surface-container-low border border-[rgba(79,70,51,0.15)] rounded-lg text-sm text-on-surface placeholder-on-surface/30 focus:outline-none focus:border-primary transition-colors"
                   />
                 </div>
               </div>
 
               {filteredBookmarks.length === 0 && searchFilter && (
-                <p className="text-sm text-[#6B7280] py-4">
+                <p className="text-sm text-on-surface/40 py-4">
                   No se encontraron marcadores para &ldquo;{searchFilter}&rdquo;
                 </p>
               )}
@@ -231,42 +235,43 @@ export default function MarcadoresPage() {
               {groupKeys.map((areaKey) => {
                 const meta = AREA_META[areaKey];
                 const Icon = meta?.icon ?? BookOpen;
-                // Only show items that fall within the current page slice
                 const items = grouped[areaKey].filter((bm) => paginatedIds.has(bm.id));
                 if (items.length === 0) return null;
 
                 return (
                   <section key={areaKey}>
                     {/* Area header */}
-                    <div className="flex items-center gap-2 mb-3">
-                      <Icon className={`w-4 h-4 ${meta?.color ?? "text-[#9CA3AF]"}`} />
-                      <h2 className="text-sm font-semibold uppercase tracking-wider text-[#9CA3AF]">
+                    <div className="flex items-center gap-2 mb-4">
+                      <Icon className={`w-4 h-4 ${meta?.color ?? "text-on-surface/40"}`} />
+                      <h2 className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">
                         {meta?.label ?? areaKey}
                       </h2>
-                      <span className="text-xs text-[#6B7280]">
+                      <span className="text-xs text-on-surface/30">
                         ({grouped[areaKey].length})
                       </span>
                     </div>
 
                     {/* Bookmark cards */}
-                    <div className="space-y-3">
-                      {items.map((bm) => (
+                    <div className="space-y-0">
+                      {items.map((bm, idx) => (
                         <article
                           key={bm.id}
-                          className="bg-[#111116] border border-[#1E1E2A] rounded-xl p-5 hover:border-[#2A2A35] transition-colors"
+                          className={`p-5 transition-colors ${
+                            idx % 2 === 0 ? "bg-surface" : "bg-surface-container-low"
+                          } hover:bg-surface-container`}
                         >
                           {/* Card header */}
-                          <div className="flex items-start justify-between gap-3 mb-2">
+                          <div className="flex items-start justify-between gap-3 mb-3">
                             <div className="flex items-center gap-2">
-                              <div className="w-6 h-6 rounded-md bg-[#EAB308]/10 flex items-center justify-center shrink-0">
-                                <Bot className="w-3.5 h-3.5 text-[#EAB308]" />
+                              <div className="w-6 h-6 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                                <Bot className="w-3.5 h-3.5 text-primary" />
                               </div>
                               <div>
-                                <p className="text-xs text-[#6B7280]">
+                                <p className="text-xs text-on-surface/30">
                                   {bm.agent_used ?? "TukiJuris"}
                                 </p>
                                 {bm.conversation_title && (
-                                  <p className="text-xs text-[#9CA3AF] line-clamp-1">
+                                  <p className="text-xs text-on-surface/50 line-clamp-1">
                                     {bm.conversation_title}
                                   </p>
                                 )}
@@ -274,17 +279,17 @@ export default function MarcadoresPage() {
                             </div>
                             <div className="flex items-center gap-2 shrink-0">
                               {bm.legal_area && (
-                                <span className="bg-[#2C3E50]/30 text-[#9CA3AF] rounded-full text-xs px-2 py-0.5">
+                                <span className="bg-secondary-container text-secondary text-[10px] uppercase tracking-widest rounded px-2 py-0.5">
                                   {AREA_META[bm.legal_area]?.label ?? bm.legal_area}
                                 </span>
                               )}
-                              <span className="text-[10px] text-[#6B7280]">
+                              <span className="text-[10px] text-on-surface/30">
                                 {formatDate(bm.created_at)}
                               </span>
                               <button
                                 onClick={() => handleRemove(bm.id)}
                                 disabled={removingId === bm.id}
-                                className="p-1 rounded text-[#6B7280] hover:text-[#F87171] hover:bg-[#1A1A22] transition-colors"
+                                className="p-1 rounded text-on-surface/30 hover:text-[#ffb4ab] hover:bg-[#93000a]/20 transition-colors"
                                 title="Quitar marcador"
                               >
                                 {removingId === bm.id ? (
@@ -301,15 +306,15 @@ export default function MarcadoresPage() {
 
                           {/* Content preview */}
                           <div
-                            className="text-sm text-[#F5F5F5] leading-relaxed prose prose-invert max-w-none"
+                            className="text-sm text-on-surface leading-relaxed prose prose-invert max-w-none"
                             dangerouslySetInnerHTML={{ __html: renderMarkdown(truncate(bm.content)) }}
                           />
 
                           {/* Footer link */}
-                          <div className="mt-3 pt-2 border-t border-[#1E1E2A]/50">
+                          <div className="mt-3 pt-2 border-t border-[rgba(79,70,51,0.08)]">
                             <a
                               href={`/?conversation=${bm.conversation_id}`}
-                              className="text-xs text-[#EAB308] hover:text-[#D4A00A] transition-colors"
+                              className="text-xs text-primary hover:text-primary-container transition-colors"
                             >
                               Ver conversacion completa
                             </a>
@@ -327,17 +332,17 @@ export default function MarcadoresPage() {
                   <button
                     onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                     disabled={currentPage === 1}
-                    className="px-3 py-1.5 text-sm rounded-xl bg-[#111116] border border-[#2A2A35] text-[#9CA3AF] hover:bg-[#1A1A22] disabled:opacity-30 transition-colors"
+                    className="px-4 py-2 text-sm rounded-lg bg-surface-container-low border border-[rgba(79,70,51,0.15)] text-on-surface/60 hover:bg-surface-container hover:text-on-surface disabled:opacity-30 transition-colors"
                   >
                     Anterior
                   </button>
-                  <span className="text-sm text-[#6B7280]">
+                  <span className="text-sm text-on-surface/40">
                     {currentPage} de {totalPages}
                   </span>
                   <button
                     onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
                     disabled={currentPage === totalPages}
-                    className="px-3 py-1.5 text-sm rounded-xl bg-[#111116] border border-[#2A2A35] text-[#9CA3AF] hover:bg-[#1A1A22] disabled:opacity-30 transition-colors"
+                    className="px-4 py-2 text-sm rounded-lg bg-surface-container-low border border-[rgba(79,70,51,0.15)] text-on-surface/60 hover:bg-surface-container hover:text-on-surface disabled:opacity-30 transition-colors"
                   >
                     Siguiente
                   </button>

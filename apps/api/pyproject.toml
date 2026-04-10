@@ -28,6 +28,9 @@ dependencies = [
     "langchain-openai>=0.2.14",
     # Embeddings & Vector
     "tiktoken>=0.8.0",
+    "google-generativeai>=0.8.0",
+    # Monitoring
+    "sentry-sdk[fastapi]>=2.0.0",
     # Config
     "pydantic[email]>=2.10.0",
     "pydantic-settings>=2.7.0",

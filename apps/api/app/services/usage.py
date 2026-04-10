@@ -30,12 +30,12 @@ _DB_URL = settings.database_url.replace("postgresql+asyncpg://", "postgresql://"
 # areas:         all 11 legal areas available on all plans
 PLAN_LIMITS: dict[str, dict] = {
     "free": {
-        "queries_day": 0,         # Beta: unlimited for 3 months, then 0 (no access on free)
+        "queries_day": 10,        # 10 consultas/día con modelos gratuitos de la plataforma
         "queries_month": -1,      # Kept for backward compat
-        "models": ["*"],
+        "models": ["gemini/gemini-2.5-flash", "groq/llama-3.3-70b-versatile", "groq/llama-3.1-8b-instant"],
         "areas": 11,
         "multi_user": False,
-        "description": "Acceso básico durante la beta. 3 meses gratis.",
+        "description": "Acceso gratuito. 10 consultas/día con modelos incluidos.",
     },
     "base": {
         "queries_day": 100,
@@ -232,12 +232,6 @@ class UsageService:
 
         # Unlimited plans
         if daily_limit == -1:
-            return {"allowed": True, "used_today": 0, "daily_limit": -1, "remaining": -1}
-
-        # Beta free plan: check if within 3-month beta window
-        if plan == "free" and daily_limit == 0:
-            # During beta, free users have unlimited access
-            # TODO: After beta launch date, enforce daily_limit = 0
             return {"allowed": True, "used_today": 0, "daily_limit": -1, "remaining": -1}
 
         today = datetime.now(UTC).strftime("%Y-%m-%d")

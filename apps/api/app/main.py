@@ -54,6 +54,13 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application startup and shutdown events."""
+    # --- Safety: refuse to start in production with default secrets ---
+    if settings.app_env == "production":
+        if "dev-only" in settings.jwt_secret or "change" in settings.jwt_secret:
+            raise RuntimeError(
+                "FATAL: JWT_SECRET is still the default placeholder. "
+                "Set a strong random secret in .env.production before starting in production."
+            )
     init_sentry()
     logger.info(f"Starting {settings.app_name} API...")
     logger.info(f"Environment: {settings.app_env}")
@@ -158,6 +165,10 @@ app.add_middleware(
     allow_headers=["*"],
     max_age=settings.cors_max_age,
 )
+
+# Global exception handlers — consistent JSON errors, no raw 500 HTML
+from app.core.exception_handlers import register_exception_handlers
+register_exception_handlers(app)
 
 # Routes
 app.include_router(health.router, prefix="/api")

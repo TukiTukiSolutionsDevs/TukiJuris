@@ -22,6 +22,8 @@ import {
   X,
 } from "lucide-react";
 import { getToken, logout } from "@/lib/auth";
+import { useTheme } from "./ThemeProvider";
+import { ThemeToggle } from "./ThemeToggle";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -106,8 +108,8 @@ function NavLink({
         title={item.label}
         className={`flex items-center justify-center py-2.5 mx-2 rounded-lg transition-all duration-200 ${
           isActive
-            ? "bg-[#EAB308]/10 text-[#EAB308]"
-            : "text-[#9CA3AF] hover:text-[#F5F5F5] hover:bg-[#1A1A22]"
+            ? "bg-surface-container-low text-primary"
+            : "text-on-surface/80 hover:text-primary hover:bg-surface-container-low"
         }`}
       >
         <Icon className="w-[18px] h-[18px] flex-shrink-0" aria-hidden="true" />
@@ -119,10 +121,10 @@ function NavLink({
     <a
       href={item.href}
       onClick={onClick}
-      className={`flex items-center gap-3 px-5 py-2.5 mx-2 rounded-lg text-sm transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-[#EAB308]/30 ${
+      className={`flex items-center gap-3 px-5 py-2.5 mx-2 rounded-lg text-sm transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary/30 ${
         isActive
-          ? "bg-[#EAB308]/10 text-[#EAB308] font-medium"
-          : "text-[#9CA3AF] hover:text-[#F5F5F5] hover:bg-[#1A1A22]"
+          ? "bg-surface-container-low text-primary font-medium"
+          : "text-on-surface/80 hover:text-primary hover:bg-surface-container-low"
       }`}
     >
       <Icon className="w-[18px] h-[18px] flex-shrink-0" aria-hidden="true" />
@@ -137,7 +139,7 @@ function NavLink({
 
 function SectionLabel({ label }: { label: string }) {
   return (
-    <p className="text-[10px] uppercase tracking-widest text-[#6B7280] px-5 pt-4 pb-2 font-medium">
+    <p className="text-[10px] uppercase tracking-[0.2em] text-on-surface/40 px-5 pt-4 pb-2 font-bold">
       {label}
     </p>
   );
@@ -149,10 +151,10 @@ function SectionLabel({ label }: { label: string }) {
 
 function getPlanBadgeClasses(plan?: string | null): string {
   if (plan === "enterprise")
-    return "text-[10px] font-bold uppercase bg-[#A78BFA]/20 text-[#A78BFA] px-2 py-0.5 rounded-full";
+    return "text-[10px] uppercase tracking-widest font-bold bg-[#A78BFA]/20 text-[#A78BFA] px-2 py-0.5 rounded-lg";
   if (plan === "base")
-    return "text-[10px] font-bold uppercase bg-[#EAB308]/20 text-[#EAB308] px-2 py-0.5 rounded-full";
-  return "text-[10px] font-bold uppercase bg-[#6B7280]/20 text-[#9CA3AF] px-2 py-0.5 rounded-full";
+    return "text-[10px] uppercase tracking-widest font-bold bg-primary/20 text-primary px-2 py-0.5 rounded-lg";
+  return "text-[10px] uppercase tracking-widest font-bold bg-surface-container-high text-on-surface/60 px-2 py-0.5 rounded-lg";
 }
 
 function getPlanLabel(plan?: string | null): string {
@@ -169,6 +171,8 @@ export function AppSidebar({ currentPath, children }: AppSidebarProps) {
   const [expanded, setExpanded] = useState(true);
   const [user, setUser] = useState<UserInfo | null>(null);
   const [unreadCount, setUnreadCount] = useState(0);
+  const { theme } = useTheme();
+  const logoSrc = theme === "dark" ? "/brand/logo-full.png" : "/brand/logo-negro.png";
 
   // Fetch user info on mount
   useEffect(() => {
@@ -211,7 +215,7 @@ export function AppSidebar({ currentPath, children }: AppSidebarProps) {
     <aside
       role="navigation"
       aria-label="Menu principal"
-      className={`bg-[#111116] border-r border-[#1E1E2A] flex flex-col h-full transition-all duration-300 ease-in-out ${
+      className={`bg-surface flex flex-col h-full transition-all duration-300 ease-in-out ${
         isMobile ? "w-72" : expanded ? "w-64" : "w-20"
       }`}
     >
@@ -219,18 +223,18 @@ export function AppSidebar({ currentPath, children }: AppSidebarProps) {
       {/* Logo area                                                            */}
       {/* ------------------------------------------------------------------- */}
       {expanded || isMobile ? (
-        <div className="px-5 py-5 border-b border-[#1E1E2A]">
+        <div className="px-5 py-5">
           <a href="/" className="flex items-center gap-3">
-            <img src="/brand/logo-full.png" alt="TukiJuris" className="h-9 w-9 rounded-lg object-contain flex-shrink-0" />
-            <span className="font-semibold text-[#F5F5F5] text-base tracking-tight">
+            <img src={logoSrc} alt="TukiJuris" className="h-9 w-9 rounded-lg object-contain flex-shrink-0" />
+            <span className="font-['Newsreader'] text-2xl font-bold text-primary tracking-tight">
               TukiJuris
             </span>
           </a>
         </div>
       ) : (
-        <div className="px-3 py-5 border-b border-[#1E1E2A] flex justify-center">
+        <div className="px-3 py-5 flex justify-center">
           <a href="/" title="TukiJuris">
-            <img src="/brand/logo-full.png" alt="TukiJuris" className="h-9 w-9 rounded-lg object-contain" />
+            <img src={logoSrc} alt="TukiJuris" className="h-9 w-9 rounded-lg object-contain" />
           </a>
         </div>
       )}
@@ -240,7 +244,7 @@ export function AppSidebar({ currentPath, children }: AppSidebarProps) {
       {/* ------------------------------------------------------------------- */}
       <div className="flex-1 overflow-y-auto py-3">
         {/* PRINCIPAL */}
-        <div className={expanded || isMobile ? "border-b border-[#1E1E2A] pb-3" : "pb-3"}>
+        <div className="pb-3">
           {(expanded || isMobile) && <SectionLabel label="Principal" />}
           {NAV_PRINCIPAL.map((item) => (
             <NavLink
@@ -253,8 +257,8 @@ export function AppSidebar({ currentPath, children }: AppSidebarProps) {
           ))}
         </div>
 
-        {/* ORGANIZACIÓN */}
-        <div className={expanded || isMobile ? "border-b border-[#1E1E2A] pb-3" : "pb-3"}>
+        {/* ORGANIZACIÓN — subtle bg shift instead of border */}
+        <div className="bg-surface-container-low py-3">
           {(expanded || isMobile) && <SectionLabel label="Organización" />}
           {NAV_ORGANIZACION.map((item) => (
             <NavLink
@@ -268,7 +272,7 @@ export function AppSidebar({ currentPath, children }: AppSidebarProps) {
         </div>
 
         {/* GESTIÓN */}
-        <div className={expanded || isMobile ? "border-b border-[#1E1E2A] pb-3" : "pb-3"}>
+        <div className="pb-3">
           {(expanded || isMobile) && <SectionLabel label="Gestión" />}
           {NAV_GESTION.map((item) => (
             <NavLink
@@ -281,8 +285,8 @@ export function AppSidebar({ currentPath, children }: AppSidebarProps) {
           ))}
         </div>
 
-        {/* CONFIGURACIÓN */}
-        <div className={expanded || isMobile ? "border-b border-[#1E1E2A] pb-3" : "pb-3"}>
+        {/* CONFIGURACIÓN — subtle bg shift */}
+        <div className="bg-surface-container-low py-3">
           {(expanded || isMobile) && <SectionLabel label="Configuración" />}
           {NAV_EXTRA.map((item) => (
             <NavLink
@@ -313,7 +317,7 @@ export function AppSidebar({ currentPath, children }: AppSidebarProps) {
 
         {/* Page-specific children (chat history, etc.) */}
         {children && (expanded || isMobile) && (
-          <div className="border-t border-[#1E1E2A] mt-2 pt-2">
+          <div className="bg-surface-container-low mt-2 pt-2">
             {children}
           </div>
         )}
@@ -322,23 +326,23 @@ export function AppSidebar({ currentPath, children }: AppSidebarProps) {
       {/* ------------------------------------------------------------------- */}
       {/* User section (bottom)                                                */}
       {/* ------------------------------------------------------------------- */}
-      <div className="mt-auto border-t border-[#1E1E2A] px-4 py-4">
+      <div className="mt-auto bg-surface-container-low px-4 py-4">
         {expanded || isMobile ? (
           <>
             {/* User info row */}
             <div className="flex items-center gap-3">
               {/* Avatar */}
-              <div className="w-9 h-9 rounded-full bg-[#2C3E50] flex items-center justify-center text-sm font-medium text-[#F5F5F5] shrink-0">
+              <div className="w-9 h-9 rounded-lg bg-secondary-container flex items-center justify-center text-sm font-medium text-secondary shrink-0">
                 {user?.name?.[0]?.toUpperCase() ||
                   user?.email?.[0]?.toUpperCase() ||
                   "U"}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-[#F5F5F5] truncate">
+                <p className="text-sm font-medium text-on-surface truncate">
                   {user?.name || user?.email || "Usuario"}
                 </p>
                 {user?.name && (
-                  <p className="text-xs text-[#6B7280] truncate">{user.email}</p>
+                  <p className="text-xs text-on-surface/40 truncate">{user.email}</p>
                 )}
               </div>
               {/* Plan badge */}
@@ -356,11 +360,14 @@ export function AppSidebar({ currentPath, children }: AppSidebarProps) {
                 <button
                   onClick={toggleCollapse}
                   title="Colapsar sidebar"
-                  className="p-2 rounded-lg text-[#6B7280] hover:text-[#F5F5F5] hover:bg-[#1A1A22] transition"
+                  className="p-2 rounded-lg text-on-surface/40 hover:text-on-surface hover:bg-surface-container-high transition"
                 >
                   <PanelLeftClose className="w-4 h-4" />
                 </button>
               )}
+
+              {/* Theme toggle */}
+              <ThemeToggle />
 
               <div className="flex-1" />
 
@@ -368,11 +375,11 @@ export function AppSidebar({ currentPath, children }: AppSidebarProps) {
               <a
                 href="/configuracion"
                 title="Notificaciones"
-                className="relative p-2 rounded-lg text-[#9CA3AF] hover:text-[#EAB308] hover:bg-[#1A1A22] transition"
+                className="relative p-2 rounded-lg text-on-surface/60 hover:text-primary hover:bg-surface-container-high transition"
               >
                 <Bell className="w-4 h-4" />
                 {unreadCount > 0 && (
-                  <span className="absolute top-1 right-1 w-3.5 h-3.5 bg-[#EAB308] text-[8px] font-bold text-black rounded-full flex items-center justify-center">
+                  <span className="absolute top-1 right-1 w-3.5 h-3.5 bg-primary-container text-[8px] font-bold text-black rounded-full flex items-center justify-center">
                     {unreadCount > 9 ? "9+" : unreadCount}
                   </span>
                 )}
@@ -382,7 +389,7 @@ export function AppSidebar({ currentPath, children }: AppSidebarProps) {
               <button
                 onClick={logout}
                 title="Cerrar sesión"
-                className="p-2 rounded-lg text-[#6B7280] hover:text-[#F87171] hover:bg-[#F87171]/10 transition"
+                className="p-2 rounded-lg text-on-surface/40 hover:text-[#F87171] hover:bg-[#F87171]/10 transition"
               >
                 <LogOut className="w-4 h-4" />
               </button>
@@ -392,7 +399,7 @@ export function AppSidebar({ currentPath, children }: AppSidebarProps) {
           // Collapsed state
           <div className="flex flex-col items-center gap-3">
             {/* Avatar */}
-            <div className="w-9 h-9 rounded-full bg-[#2C3E50] flex items-center justify-center text-sm font-medium text-[#F5F5F5]">
+            <div className="w-9 h-9 rounded-lg bg-secondary-container flex items-center justify-center text-sm font-medium text-secondary">
               {user?.name?.[0]?.toUpperCase() ||
                 user?.email?.[0]?.toUpperCase() ||
                 "U"}
@@ -402,21 +409,24 @@ export function AppSidebar({ currentPath, children }: AppSidebarProps) {
             <a
               href="/configuracion"
               title="Notificaciones"
-              className="relative p-2 rounded-lg text-[#9CA3AF] hover:text-[#EAB308] hover:bg-[#1A1A22] transition"
+              className="relative p-2 rounded-lg text-on-surface/60 hover:text-primary hover:bg-surface-container-high transition"
             >
               <Bell className="w-4 h-4" />
               {unreadCount > 0 && (
-                <span className="absolute top-1 right-1 w-3.5 h-3.5 bg-[#EAB308] text-[8px] font-bold text-black rounded-full flex items-center justify-center">
+                <span className="absolute top-1 right-1 w-3.5 h-3.5 bg-primary-container text-[8px] font-bold text-black rounded-full flex items-center justify-center">
                   {unreadCount > 9 ? "9+" : unreadCount}
                 </span>
               )}
             </a>
 
+            {/* Theme toggle */}
+            <ThemeToggle />
+
             {/* Expand toggle */}
             <button
               onClick={toggleCollapse}
               title="Expandir sidebar"
-              className="p-2 rounded-lg text-[#6B7280] hover:text-[#F5F5F5] hover:bg-[#1A1A22] transition"
+              className="p-2 rounded-lg text-on-surface/40 hover:text-on-surface hover:bg-surface-container-high transition"
             >
               <PanelLeftOpen className="w-4 h-4" />
             </button>
@@ -432,7 +442,7 @@ export function AppSidebar({ currentPath, children }: AppSidebarProps) {
       <button
         onClick={() => setMobileOpen(true)}
         aria-label="Abrir menu"
-        className="fixed top-3 left-3 z-50 p-2 rounded-lg bg-[#111116] border border-[#1E1E2A] text-[#9CA3AF] hover:text-[#F5F5F5] transition-colors md:hidden"
+        className="fixed top-3 left-3 z-50 p-2 rounded-lg bg-surface text-on-surface/60 hover:text-on-surface transition-colors md:hidden"
       >
         <Menu className="w-5 h-5" />
       </button>
@@ -452,7 +462,7 @@ export function AppSidebar({ currentPath, children }: AppSidebarProps) {
             <button
               onClick={closeMobile}
               aria-label="Cerrar menu"
-              className="absolute top-4 right-4 p-1.5 rounded-lg text-[#6B7280] hover:text-[#F5F5F5] transition-colors"
+              className="absolute top-4 right-4 p-1.5 rounded-lg text-on-surface/40 hover:text-on-surface transition-colors"
             >
               <X className="w-4 h-4" />
             </button>

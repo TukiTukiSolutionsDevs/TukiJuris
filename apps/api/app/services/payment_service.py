@@ -16,8 +16,8 @@ logger = logging.getLogger(__name__)
 PLAN_PRICING = {
     "base": {
         "name": "Plan Base",
-        "price": 70.00,       # S/70 per month
-        "price_cents": 7000,  # Culqi uses cents
+        "price": 39.00,       # S/39 per month
+        "price_cents": 3900,  # Culqi uses cents
         "currency": "PEN",
         "daily_limit": 100,
         "interval": "months",
@@ -25,9 +25,10 @@ PLAN_PRICING = {
     },
     "enterprise": {
         "name": "Plan Enterprise",
-        "price": None,  # Contact sales
+        "price": 99.00,       # S/99 per month
+        "price_cents": 9900,  # Culqi uses cents
         "currency": "PEN",
-        "daily_limit": -1,  # unlimited
+        "daily_limit": -1,    # unlimited
         "interval": "months",
         "interval_count": 1,
     },
@@ -134,18 +135,73 @@ class MercadoPagoProvider(PaymentProvider):
         return checkout_url
 
     async def verify_webhook(self, payload: bytes, headers: dict) -> dict | None:
-        """Verify MercadoPago webhook — MP sends data_id + type as query params or JSON body."""
+        """
+        Verify MercadoPago webhook signature (HMAC-SHA256).
+
+        MP sends x-signature header with format: "ts=<ts>,v1=<hash>"
+        The hash is HMAC-SHA256 of: "id:<data_id>;request-id:<x-request-id>;ts:<ts>;"
+        signed with the webhook secret (mp_webhook_secret).
+
+        If no webhook secret is configured, falls back to parse-only (dev mode).
+        """
         import json
+        import hashlib
+        import hmac
+
         try:
             data = json.loads(payload)
-            return {
-                "type": data.get("type", data.get("topic", "")),
-                "data_id": data.get("data", {}).get("id", data.get("id", "")),
-                "raw": data,
-            }
         except Exception as exc:
             logger.warning("MP webhook parse error: %s", exc)
             return None
+
+        # If webhook secret is configured, verify HMAC signature
+        webhook_secret = settings.mp_webhook_secret
+        if webhook_secret:
+            x_signature = headers.get("x-signature", "")
+            x_request_id = headers.get("x-request-id", "")
+
+            if not x_signature:
+                logger.warning("MP webhook: missing x-signature header")
+                return None
+
+            # Parse ts and v1 from x-signature
+            parts = {}
+            for part in x_signature.split(","):
+                key_val = part.strip().split("=", 1)
+                if len(key_val) == 2:
+                    parts[key_val[0]] = key_val[1]
+
+            ts = parts.get("ts", "")
+            received_hash = parts.get("v1", "")
+
+            if not ts or not received_hash:
+                logger.warning("MP webhook: malformed x-signature: %s", x_signature)
+                return None
+
+            # Build the signed message
+            data_id = data.get("data", {}).get("id", data.get("id", ""))
+            manifest = f"id:{data_id};request-id:{x_request_id};ts:{ts};"
+
+            # Compute expected HMAC-SHA256
+            expected_hash = hmac.new(
+                webhook_secret.encode("utf-8"),
+                manifest.encode("utf-8"),
+                hashlib.sha256,
+            ).hexdigest()
+
+            if not hmac.compare_digest(expected_hash, received_hash):
+                logger.warning("MP webhook: HMAC mismatch — rejecting")
+                return None
+
+            logger.debug("MP webhook: HMAC verified OK")
+        else:
+            logger.warning("MP webhook: no mp_webhook_secret configured — skipping signature verification (DEV MODE)")
+
+        return {
+            "type": data.get("type", data.get("topic", "")),
+            "data_id": data.get("data", {}).get("id", data.get("id", "")),
+            "raw": data,
+        }
 
     async def cancel_subscription(self, subscription_id: str) -> dict:
         import mercadopago
@@ -232,19 +288,50 @@ class CulqiProvider(PaymentProvider):
         return checkout_url
 
     async def verify_webhook(self, payload: bytes, headers: dict) -> dict | None:
-        """Verify Culqi webhook signature."""
+        """
+        Verify Culqi webhook signature (HMAC-SHA256).
+
+        Culqi sends a x-culqi-signature header with the HMAC-SHA256
+        of the raw body, signed with the merchant's webhook secret.
+
+        If no webhook secret is configured, falls back to parse-only (dev mode).
+        """
         import json
+        import hashlib
+        import hmac
+
         try:
             data = json.loads(payload)
-            # Culqi sends events with type and data
-            return {
-                "type": data.get("type", ""),
-                "data_id": data.get("data", {}).get("id", ""),
-                "raw": data,
-            }
         except Exception as exc:
             logger.warning("Culqi webhook parse error: %s", exc)
             return None
+
+        webhook_secret = settings.culqi_webhook_secret
+        if webhook_secret:
+            received_sig = headers.get("x-culqi-signature", "")
+            if not received_sig:
+                logger.warning("Culqi webhook: missing x-culqi-signature header")
+                return None
+
+            expected_sig = hmac.new(
+                webhook_secret.encode("utf-8"),
+                payload,
+                hashlib.sha256,
+            ).hexdigest()
+
+            if not hmac.compare_digest(expected_sig, received_sig):
+                logger.warning("Culqi webhook: HMAC mismatch — rejecting")
+                return None
+
+            logger.debug("Culqi webhook: HMAC verified OK")
+        else:
+            logger.warning("Culqi webhook: no culqi_webhook_secret configured — skipping verification (DEV MODE)")
+
+        return {
+            "type": data.get("type", ""),
+            "data_id": data.get("data", {}).get("id", ""),
+            "raw": data,
+        }
 
     async def cancel_subscription(self, subscription_id: str) -> dict:
         import httpx

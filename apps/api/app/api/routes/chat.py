@@ -231,6 +231,55 @@ async def list_models():
     return AvailableModelsResponse(models=models)
 
 
+@router.post("/models/ping")
+async def ping_model(
+    body: dict,
+    current_user: User | None = Depends(get_optional_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Ping a model to check if it's reachable with the user's API key.
+
+    Sends a minimal completion request ("ping") and returns latency + status.
+    """
+    model_id = body.get("model")
+    if not model_id:
+        raise HTTPException(status_code=400, detail="model is required")
+
+    # Resolve BYOK key
+    user_api_key: str | None = None
+    if current_user is not None:
+        user_api_key = await get_user_keys_for_model(current_user.id, model_id, db)
+
+    start = time.time()
+    try:
+        result = await llm_service.completion(
+            messages=[{"role": "user", "content": "Responde SOLO 'pong'."}],
+            model=model_id,
+            max_tokens=5,
+            temperature=0.0,
+            stream=False,
+            user_api_key=user_api_key,
+        )
+        latency_ms = int((time.time() - start) * 1000)
+        content = result.get("content", "").strip()
+        return {
+            "model": model_id,
+            "status": "active",
+            "latency_ms": latency_ms,
+            "response": content[:20],
+        }
+    except Exception as e:
+        latency_ms = int((time.time() - start) * 1000)
+        error_msg = str(e)[:200]
+        logger.warning(f"Ping failed for {model_id}: {error_msg}")
+        return {
+            "model": model_id,
+            "status": "error",
+            "latency_ms": latency_ms,
+            "error": error_msg,
+        }
+
+
 @router.get("/agents")
 async def list_agents():
     """List available legal domain agents."""

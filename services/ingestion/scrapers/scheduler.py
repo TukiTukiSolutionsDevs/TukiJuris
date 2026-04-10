@@ -21,7 +21,12 @@ from services.ingestion.scrapers.tc_enhanced import TCEnhancedScraper
 
 logger = logging.getLogger("scraper.scheduler")
 
-DB_URL = "postgresql://postgres:postgres@localhost:5432/agente_derecho"
+import os
+
+DB_URL = os.environ.get(
+    "DATABASE_URL_SYNC",
+    "postgresql://postgres:postgres@localhost:5432/agente_derecho",
+)
 
 # Scraper schedule configuration
 # interval_hours: how often to run each scraper

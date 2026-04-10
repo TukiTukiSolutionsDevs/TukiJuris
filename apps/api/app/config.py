@@ -21,9 +21,9 @@ class Settings(BaseSettings):
     redis_url: str = "redis://redis:6379/0"
 
     # Auth
-    jwt_secret: str = "change-this-in-production"
+    jwt_secret: str = "dev-only-secret-change-in-production"
     jwt_algorithm: str = "HS256"
-    access_token_expire_minutes: int = 60
+    access_token_expire_minutes: int = 1440  # 24 hours (was 60min — too aggressive for UX)
 
     # LLM
     openai_api_key: str = ""
@@ -31,8 +31,19 @@ class Settings(BaseSettings):
     google_api_key: str = ""
     deepseek_api_key: str = ""
     groq_api_key: str = ""
-    default_llm_provider: str = "openai"
-    default_llm_model: str = "gpt-4o-mini"
+    xai_api_key: str = ""
+    openrouter_api_key: str = ""
+    default_llm_provider: str = "google"
+    default_llm_model: str = "gemini/gemini-2.5-flash"
+
+    # Free Tier — platform-provided models for users without BYOK keys
+    free_tier_enabled: bool = True
+    free_tier_model: str = "gemini/gemini-2.5-flash"
+    free_tier_fallback_models: list[str] = [
+        "groq/llama-3.3-70b-versatile",
+        "openrouter/z-ai/glm-4.5-air:free",
+    ]
+    free_tier_daily_limit: int = 10
 
     # Embeddings
     embedding_model: str = "text-embedding-004"          # Google model (primary)
@@ -76,6 +87,7 @@ class Settings(BaseSettings):
     # Payment — Culqi
     culqi_public_key: str = ""           # pk_test_xxx or pk_live_xxx
     culqi_secret_key: str = ""           # sk_test_xxx or sk_live_xxx
+    culqi_webhook_secret: str = ""       # for webhook signature verification
 
     # Payment — General
     payment_portal_return_url: str = "http://localhost:3000/billing"

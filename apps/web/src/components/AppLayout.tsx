@@ -22,11 +22,11 @@ export function AppLayout({ children, sidebarContent }: AppLayoutProps) {
   }, []);
 
   return (
-    <div className="flex h-screen bg-[#0a0a0f] overflow-hidden">
+    <div className="flex h-screen bg-background overflow-hidden">
       <AppSidebar currentPath={pathname ?? "/"}>
         {sidebarContent}
       </AppSidebar>
-      <main className="flex-1 overflow-hidden bg-[#12121a] flex flex-col">
+      <main className="flex-1 min-h-0 overflow-y-auto bg-surface-container-lowest flex flex-col">
         {children}
       </main>
     </div>

@@ -319,3 +319,87 @@ async def list_llm_providers() -> list[dict]:
     from app.services.llm_key_service import get_available_providers
 
     return get_available_providers()
+
+
+@router.get("/free-models", summary="List platform-provided free tier models")
+async def list_free_models() -> dict:
+    """
+    Return models available for free tier users (no BYOK key required).
+
+    These models are provided by the platform at zero cost.
+    Used by the frontend to populate the model selector for free plan users.
+    """
+    from app.services.llm_adapter import llm_service
+    from app.services.usage import PLAN_LIMITS
+
+    models = llm_service.get_free_tier_models()
+    limits = PLAN_LIMITS.get("free", {})
+    return {
+        "models": models,
+        "daily_limit": limits.get("queries_day", 10),
+        "enabled": settings.free_tier_enabled,
+    }
+
+
+class TestKeyBody(BaseModel):
+    provider: str
+
+
+@router.post("/llm-keys/test", summary="Test LLM provider key connectivity")
+async def test_llm_key(
+    body: TestKeyBody,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """
+    Test connectivity for the user's configured API key of a given provider.
+
+    Sends a minimal completion request (1 token) to verify the key works.
+    Returns ``{"ok": true, "latency_ms": N}`` on success or
+    ``{"ok": false, "error": "..."}`` on failure.
+
+    Use this to show a green/red dot next to each provider in the settings UI.
+    """
+    import time
+
+    from app.services.llm_key_service import get_user_key_for_provider
+
+    # Resolve the user's key for this provider
+    api_key = await get_user_key_for_provider(current_user.id, body.provider, db)
+    if not api_key:
+        return {"ok": False, "error": "No tenés una API key configurada para este proveedor."}
+
+    # Pick a minimal model for each provider to test connectivity cheaply
+    _test_models: dict[str, str] = {
+        "google": "gemini/gemini-2.5-flash",
+        "groq": "groq/llama-3.1-8b-instant",
+        "deepseek": "deepseek/deepseek-chat",
+        "openai": "openai/gpt-5.4-nano",
+        "anthropic": "anthropic/claude-haiku-4-5",
+        "xai": "xai/grok-3-mini-fast-latest",
+    }
+    test_model = _test_models.get(body.provider)
+    if not test_model:
+        return {"ok": False, "error": f"Proveedor '{body.provider}' no soportado para test."}
+
+    import litellm
+
+    start = time.time()
+    try:
+        response = await litellm.acompletion(
+            model=test_model,
+            messages=[{"role": "user", "content": "Responde solo 'OK'."}],
+            max_tokens=5,
+            temperature=0.0,
+            api_key=api_key,
+        )
+        latency_ms = int((time.time() - start) * 1000)
+        content = response.choices[0].message.content or ""
+        return {"ok": True, "latency_ms": latency_ms, "response": content[:50]}
+    except Exception as e:
+        latency_ms = int((time.time() - start) * 1000)
+        error_msg = str(e)
+        # Trim long error messages
+        if len(error_msg) > 200:
+            error_msg = error_msg[:200] + "..."
+        return {"ok": False, "error": error_msg, "latency_ms": latency_ms}

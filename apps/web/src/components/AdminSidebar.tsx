@@ -72,7 +72,6 @@ function NavLink({
   onClick?: () => void;
 }) {
   const Icon = item.icon;
-  // For admin section links that include query params, match only the base path
   const isActive =
     item.href === "/admin"
       ? currentPath === "/admin"
@@ -82,10 +81,10 @@ function NavLink({
     <a
       href={item.href}
       onClick={onClick}
-      className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-violet-500/50 ${
+      className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors focus:outline-none ${
         isActive
-          ? "bg-white/10 text-white"
-          : "text-gray-400 hover:text-gray-200 hover:bg-white/5"
+          ? "bg-surface-container-low text-primary"
+          : "text-on-surface/60 hover:text-on-surface hover:bg-surface-container-low/60"
       }`}
     >
       <Icon className="w-4 h-4 shrink-0" aria-hidden="true" />
@@ -100,7 +99,7 @@ function NavLink({
 
 function SectionHeader({ label }: { label: string }) {
   return (
-    <p className="text-[10px] uppercase tracking-wider text-gray-600 mb-1 mt-3 px-1 first:mt-0">
+    <p className="text-[10px] uppercase tracking-[0.2em] text-on-surface/40 mb-1 mt-3 px-1 first:mt-0">
       {label}
     </p>
   );
@@ -140,19 +139,19 @@ export function AdminSidebar({ currentPath }: AdminSidebarProps) {
     <aside
       role="navigation"
       aria-label="Menu de administración"
-      className="w-72 bg-[#0a0a0f] border-r border-violet-900/30 flex flex-col h-full"
+      className="w-72 bg-surface border-r border-[rgba(79,70,51,0.15)] flex flex-col h-full"
     >
       {/* Logo + Admin badge */}
-      <div className="p-4 border-b border-violet-900/30">
+      <div className="p-4 border-b border-[rgba(79,70,51,0.15)]">
         <a href="/admin" className="flex items-center gap-2.5 mb-1">
-          <div className="w-9 h-9 bg-gradient-to-br from-violet-600 to-purple-700 rounded-xl flex items-center justify-center shrink-0">
-            <Scale className="w-5 h-5 text-white" />
+          <div className="w-9 h-9 bg-primary/10 border border-primary/20 rounded-lg flex items-center justify-center shrink-0">
+            <Scale className="w-5 h-5 text-primary" />
           </div>
           <div>
-            <h1 className="font-bold text-base text-gray-100">TukiJuris</h1>
-            <p className="text-[10px] text-gray-500">Panel de Administración</p>
+            <h1 className="font-['Newsreader'] font-bold text-base text-on-surface">TukiJuris</h1>
+            <p className="text-[10px] text-on-surface/40">Panel de Administración</p>
           </div>
-          <span className="ml-auto text-[9px] font-bold tracking-widest uppercase px-1.5 py-0.5 rounded bg-violet-500/20 text-violet-400 border border-violet-500/30">
+          <span className="ml-auto text-[9px] font-bold tracking-widest uppercase px-1.5 py-0.5 rounded-lg bg-primary/10 text-primary border border-primary/20">
             ADMIN
           </span>
         </a>
@@ -183,11 +182,11 @@ export function AdminSidebar({ currentPath }: AdminSidebarProps) {
         ))}
 
         {/* Separator + Volver al App */}
-        <div className="border-t border-[#1E1E2A] my-2" />
+        <div className="border-t border-[rgba(79,70,51,0.15)] my-2" />
         <a
           href="/"
           onClick={closeMobile}
-          className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-gray-500 hover:text-gray-200 hover:bg-white/5 transition-colors"
+          className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-primary hover:text-primary/80 hover:bg-surface-container-low transition-colors"
         >
           <ArrowLeft className="w-4 h-4 shrink-0" aria-hidden="true" />
           <span>Volver al App</span>
@@ -195,24 +194,24 @@ export function AdminSidebar({ currentPath }: AdminSidebarProps) {
       </div>
 
       {/* Footer: user info + logout */}
-      <div className="p-3 border-t border-violet-900/30 space-y-1">
+      <div className="p-3 border-t border-[rgba(79,70,51,0.15)] space-y-1">
         {user && (
           <div className="flex items-center gap-2 px-3 py-2">
-            <div className="w-7 h-7 rounded-full bg-violet-500/20 border border-violet-500/30 flex items-center justify-center shrink-0">
-              <ShieldCheck className="w-3.5 h-3.5 text-violet-400" />
+            <div className="w-7 h-7 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+              <ShieldCheck className="w-3.5 h-3.5 text-primary" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-xs font-medium text-gray-200 truncate">
+              <p className="text-xs font-medium text-on-surface truncate">
                 {user.name || user.email}
               </p>
               {user.name && (
-                <p className="text-[10px] text-gray-500 truncate">{user.email}</p>
+                <p className="text-[10px] text-on-surface/40 truncate">{user.email}</p>
               )}
             </div>
             <button
               onClick={logout}
               title="Cerrar sesión"
-              className="p-1.5 rounded-lg text-gray-600 hover:text-red-400 hover:bg-red-400/10 transition-colors shrink-0"
+              className="p-1.5 rounded-lg text-on-surface/30 hover:text-red-400 hover:bg-red-400/10 transition-colors shrink-0"
             >
               <LogOut className="w-3.5 h-3.5" />
             </button>
@@ -228,7 +227,7 @@ export function AdminSidebar({ currentPath }: AdminSidebarProps) {
       <button
         onClick={() => setMobileOpen(true)}
         aria-label="Abrir menu"
-        className="fixed top-3 left-3 z-50 p-2 rounded-lg bg-[#0a0a0f] border border-violet-900/30 text-gray-400 hover:text-white transition-colors lg:hidden"
+        className="fixed top-3 left-3 z-50 p-2 rounded-lg bg-surface border border-[rgba(79,70,51,0.15)] text-on-surface/50 hover:text-on-surface transition-colors lg:hidden"
       >
         <Menu className="w-5 h-5" />
       </button>
@@ -253,7 +252,7 @@ export function AdminSidebar({ currentPath }: AdminSidebarProps) {
           <button
             onClick={closeMobile}
             aria-label="Cerrar menu"
-            className="absolute top-3 right-3 p-1.5 rounded-lg text-gray-400 hover:text-white transition-colors"
+            className="absolute top-3 right-3 p-1.5 rounded-lg text-on-surface/40 hover:text-on-surface transition-colors"
           >
             <X className="w-4 h-4" />
           </button>

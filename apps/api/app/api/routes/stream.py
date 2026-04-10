@@ -1,4 +1,14 @@
-"""Streaming chat endpoint — Server-Sent Events (SSE) with deliberative orchestration."""
+"""Streaming chat endpoint — Server-Sent Events (SSE) with deliberative orchestration.
+
+ARCHITECTURE (v2 — single final stream):
+The entire orchestration pipeline runs INTERNALLY (no tokens sent to user).
+The user only sees narrative status events in the orchestrator panel.
+Once ALL agents finish, ONE final response is streamed token-by-token.
+
+Pipeline: classify → RAG → primary_agent (internal) → evaluate →
+          [secondary_agents (internal) → synthesize (internal)] →
+          final_stream_start → stream final response
+"""
 
 import json
 import logging
@@ -43,6 +53,7 @@ class StreamRequest(BaseModel):
     conversation_id: str | None = None
     model: str | None = None
     legal_area: str | None = None
+    reasoning_effort: str | None = None  # "low", "medium", "high" — controls thinking depth
 
 
 async def _generate_stream(
@@ -51,7 +62,13 @@ async def _generate_stream(
     db: AsyncSession,
     user_api_key: str | None = None,
 ) -> AsyncGenerator[str, None]:
-    """Generate SSE events for a legal query — full deliberative orchestration loop."""
+    """Generate SSE events for a legal query — full deliberative orchestration loop.
+
+    KEY DESIGN: All agent work is INTERNAL (non-streaming).  The user only
+    sees narrative status events.  After all processing completes, a single
+    ``final_stream_start`` event is emitted, followed by the actual response
+    tokens streamed via ``final_token`` events.
+    """
     start = time.time()
     model = body.model or settings.default_llm_model
 
@@ -68,11 +85,16 @@ async def _generate_stream(
                     for m in sorted_msgs[-20:]  # Last 20 messages max
                 ]
         except Exception:
-            # History load failure must not block streaming
-            pass
+            pass  # History load failure must not block streaming
 
     # ── Step 2: Classify WITH history ────────────────────────────────────────
-    yield _sse({"type": "status", "content": "Analizando tu consulta..."})
+    yield _sse({
+        "type": "status",
+        "step": "classify",
+        "content": "🧠 Analizando tu consulta para determinar qué especialistas necesitás...",
+    })
+
+    reasoning = body.reasoning_effort  # "low", "medium", "high", or None
 
     classify_state = {
         "query": body.message,
@@ -81,22 +103,61 @@ async def _generate_stream(
         "primary_area": "",
         "secondary_areas": [],
         "classification_confidence": 0.0,
-        "conversation_history": conversation_history,  # ← NOW includes history
+        "conversation_history": conversation_history,
+        "user_api_key": user_api_key,
+        "reasoning_effort": reasoning,
     }
-    classification = await classify_query(classify_state)
+    try:
+        classification = await classify_query(classify_state)
+    except Exception as classify_err:
+        logger.exception("Classification failed")
+        yield _sse({"type": "error", "message": f"Error al clasificar la consulta: {classify_err}"})
+        return
     area = classification["primary_area"]
+    confidence = classification["classification_confidence"]
+
     yield _sse({
         "type": "classification",
         "legal_area": area,
-        "confidence": classification["classification_confidence"],
+        "confidence": confidence,
+    })
+    yield _sse({
+        "type": "status",
+        "step": "classify_done",
+        "content": f"🎯 Área identificada: {area.capitalize()} ({int(confidence * 100)}% confianza)",
     })
 
     # ── Step 3: RAG Retrieve ──────────────────────────────────────────────────
-    yield _sse({"type": "status", "content": f"Consultando normativa de {area}..."})
+    agent_preview = get_agent(area)
+    agent_label = agent_preview.name if agent_preview else area
+
+    yield _sse({
+        "type": "status",
+        "step": "rag",
+        "content": "📚 Buscando normativa peruana relevante en la base de conocimiento...",
+    })
 
     retrieve_state = {**classify_state, **classification}
-    retrieval = await retrieve_context(retrieve_state)
+    try:
+        retrieval = await retrieve_context(retrieve_state)
+    except Exception as rag_err:
+        logger.warning(f"RAG retrieval failed: {rag_err}")
+        retrieval = {"retrieved_context": ""}
     context = retrieval.get("retrieved_context", "")
+    rag_found = bool(context and len(context) > 50)
+
+    if rag_found:
+        yield _sse({
+            "type": "status",
+            "step": "rag_done",
+            "content": "📖 Normativa encontrada. Preparando análisis especializado...",
+        })
+    else:
+        yield _sse({
+            "type": "status",
+            "step": "rag_done",
+            "content": "📖 Sin normativa específica. Se usará conocimiento especializado del agente.",
+        })
 
     # ── Step 4: Resolve agent ─────────────────────────────────────────────────
     agent = get_agent(area)
@@ -126,36 +187,45 @@ async def _generate_stream(
 
     messages.append({"role": "user", "content": body.message})
 
-    yield _sse({"type": "status", "content": f"El especialista en {area} está analizando tu caso..."})
+    yield _sse({
+        "type": "status",
+        "step": "primary_working",
+        "content": f"⚖️ El {agent.name} está analizando tu caso...",
+    })
     yield _sse({"type": "agent", "agent_used": agent.name, "legal_area": area})
 
-    # ── Step 7: Stream primary LLM response ───────────────────────────────────
-    # BYOK: Use the user's own provider key for the main response generation.
-    # Classification, evaluation, and RAG retrieval use platform keys internally.
+    # ── Step 7: PRIMARY AGENT — INTERNAL (non-streaming) ──────────────────────
+    # The key architectural change: completion WITHOUT streaming.
+    # The user does NOT see tokens yet — only narrative status events.
     full_text = ""
     citations: list[dict] = []
     agent_name = agent.name
 
     try:
-        response = await llm_service.completion(
+        primary_result = await llm_service.completion(
             messages=messages,
             model=model,
-            stream=True,
-            user_api_key=user_api_key,  # BYOK
+            stream=False,  # ← INTERNAL — no tokens to user
+            user_api_key=user_api_key,
+            reasoning_effort=reasoning,
         )
-        stream = response["stream"]
-
-        async for chunk in stream:
-            delta = chunk.choices[0].delta.content
-            if delta:
-                full_text += delta
-                yield _sse({"type": "token", "content": delta})
+        full_text = primary_result.get("content", "")
 
         # Extract citations from primary response
         citations = agent._extract_citations(full_text)
 
+        yield _sse({
+            "type": "status",
+            "step": "primary_done",
+            "content": f"✅ El {agent.name} completó su análisis.",
+        })
+
         # ── Step 8: META-REASONING — Evaluate primary response ─────────────
-        yield _sse({"type": "status", "content": "Evaluando si se necesitan más especialistas..."})
+        yield _sse({
+            "type": "status",
+            "step": "evaluating",
+            "content": "🔍 El orquestador está verificando si tu consulta necesita más especialistas...",
+        })
 
         eval_state = {
             "query": body.message,
@@ -163,6 +233,7 @@ async def _generate_stream(
             "primary_area": area,
             "model": model,
             "user_api_key": user_api_key,
+            "reasoning_effort": reasoning,
         }
         evaluation = await evaluate_response(eval_state)
 
@@ -171,25 +242,36 @@ async def _generate_stream(
             secondary_areas = evaluation["secondary_areas"]
             reason = evaluation.get("evaluation_reason", "")
 
-            # Status message: let the user know we're consulting more specialists
-            areas_names = ", ".join(secondary_areas)
+            # Narrative status: the "meeting of lawyers" moment
+            sec_agent_names = []
+            for sa in secondary_areas:
+                sec_a = get_agent(sa)
+                sec_agent_names.append(sec_a.name if sec_a else sa)
+            areas_display = " y ".join(sec_agent_names)
+
             yield _sse({
                 "type": "orchestrator_thinking",
                 "content": (
-                    f"He notado que tu consulta también involucra {areas_names}. "
-                    f"Estoy consultando con más especialistas para darte una respuesta completa. "
-                    f"Un momento por favor..."
+                    f"📋 Reunión de especialistas convocada. "
+                    f"El {agent.name} detectó que tu caso también involucra a {areas_display}. "
+                    f"Motivo: {reason}"
                 ),
                 "reason": reason,
+                "secondary_areas": secondary_areas,
             })
 
             secondary_responses = []
             for sec_area in secondary_areas:
-                yield _sse({"type": "status", "content": f"Consultando al especialista en {sec_area}..."})
-
                 sec_agent = get_agent(sec_area)
                 if not sec_agent:
                     continue
+
+                sec_name = sec_agent.name
+                yield _sse({
+                    "type": "status",
+                    "step": "secondary_working",
+                    "content": f"👨‍⚖️ El {sec_name} está revisando tu caso y complementando el análisis del {agent.name}...",
+                })
 
                 # Retrieve RAG for secondary area
                 sec_context = ""
@@ -202,22 +284,40 @@ async def _generate_stream(
                 except Exception as exc:
                     logger.warning(f"RAG failed for secondary area={sec_area}: {exc}")
 
-                # Secondary agent processes (non-streaming for speed)
+                # ── KEY CHANGE: Secondary agents receive the primary response ──
+                # They don't work blind — they COMPLEMENT the primary analysis.
                 sec_result = await sec_agent.process(
                     query=(
-                        f"En relación a esta consulta, proporciona tu análisis desde la perspectiva "
-                        f"del {sec_agent.name}. Sé específico con la normativa aplicable.\n\n"
-                        f"Consulta: {body.message}"
+                        f"Otro especialista ({agent.name}) ya analizó esta consulta. "
+                        f"Tu rol es COMPLEMENTAR su análisis desde tu perspectiva como {sec_name}. "
+                        f"NO repitas lo que ya dijo — enfocate en lo que falta o difiere.\n\n"
+                        f"CONSULTA ORIGINAL: {body.message}\n\n"
+                        f"ANÁLISIS PREVIO DEL {agent.name.upper()}:\n"
+                        f"{full_text[:2500]}\n\n"
+                        f"Ahora da tu análisis complementario desde {sec_name}. "
+                        f"Sé específico con normativa y artículos aplicables."
                     ),
                     context=sec_context,
                     model=model,
                     conversation_history=conversation_history,
                     user_api_key=user_api_key,
+                    reasoning_effort=reasoning,
                 )
                 secondary_responses.append(sec_result)
 
+                yield _sse({
+                    "type": "status",
+                    "step": "secondary_done",
+                    "content": f"✅ El {sec_name} completó su análisis complementario.",
+                })
+
             # ── Step 10: SYNTHESIZE all responses ──────────────────────────
-            yield _sse({"type": "status", "content": "Integrando análisis de todos los especialistas..."})
+            all_agent_names = [agent.name] + sec_agent_names
+            yield _sse({
+                "type": "status",
+                "step": "synthesizing",
+                "content": f"🔄 Integrando los análisis de {', '.join(all_agent_names)} en una respuesta unificada...",
+            })
 
             synth_state = {
                 "query": body.message,
@@ -229,26 +329,97 @@ async def _generate_stream(
                 "citations": citations,
                 "model": model,
                 "user_api_key": user_api_key,
+                "reasoning_effort": reasoning,
             }
             synthesis = await synthesize_response(synth_state)
 
-            # Signal the frontend to REPLACE the streamed content with the synthesis
-            yield _sse({
-                "type": "synthesis",
-                "content": synthesis["response"],
-                "agent_used": synthesis.get("agent_used", ""),
-                "is_multi_area": True,
-            })
-
-            # Update for persistence
+            # Update for final streaming
             full_text = synthesis["response"]
             agent_name = synthesis.get("agent_used", agent.name)
             citations = synthesis.get("citations", citations)
 
-        # ── Step 11: Extract and compute final metadata ───────────────────
+            yield _sse({
+                "type": "status",
+                "step": "synthesis_done",
+                "content": "✅ Síntesis integrada. Preparando respuesta final...",
+            })
+        else:
+            # Single-agent: evaluation passed, no enrichment needed
+            yield _sse({
+                "type": "status",
+                "step": "eval_pass",
+                "content": f"✅ La respuesta del {agent.name} cubre completamente tu consulta.",
+            })
+
+        # ── Step 11: FINAL STREAM — The ONLY response the user sees ──────────
+        # Signal the frontend: "now show tokens"
+        yield _sse({
+            "type": "final_stream_start",
+            "agent_used": agent_name,
+            "legal_area": area,
+            "is_multi_area": bool(evaluation.get("needs_enrichment")),
+        })
+        yield _sse({
+            "type": "status",
+            "step": "streaming",
+            "content": "✨ Respuesta lista — mostrando resultado final...",
+        })
+
+        # Now stream the final response (already computed) token-by-token
+        # We re-call the LLM with stream=True to get natural token-by-token delivery
+        # OR if we already have the complete text, we simulate streaming with chunks.
+        # Using real re-streaming for the best UX:
+        try:
+            final_stream = await llm_service.completion(
+                messages=[
+                    {"role": "system", "content": (
+                        "Eres un asistente legal peruano. "
+                        "Reproduce EXACTAMENTE el siguiente análisis legal, sin modificar NADA — "
+                        "ni agregar, ni quitar, ni reformular. Cópialo textualmente:"
+                    )},
+                    {"role": "user", "content": full_text},
+                ],
+                model=model,
+                stream=True,
+                user_api_key=user_api_key,
+                reasoning_effort="low",  # Re-stream is just copying — no thinking needed
+            )
+            stream = final_stream["stream"]
+            streamed_text = ""
+            async for chunk in stream:
+                delta = chunk.choices[0].delta.content
+                if delta:
+                    streamed_text += delta
+                    yield _sse({"type": "final_token", "content": delta})
+
+            # If the re-stream produced something reasonable, use it
+            # Otherwise fall back to the original computed response
+            if len(streamed_text) < len(full_text) * 0.5:
+                # Re-stream was too short — fall back to chunk-based simulation
+                logger.warning(
+                    "Re-stream produced truncated output (%d vs %d chars). "
+                    "Falling back to simulated streaming.",
+                    len(streamed_text),
+                    len(full_text),
+                )
+                # Send the missing part as chunks
+                remaining = full_text[len(streamed_text):]
+                for i in range(0, len(remaining), 12):
+                    yield _sse({"type": "final_token", "content": remaining[i:i + 12]})
+            else:
+                # Re-stream was complete; use its output as the persisted response
+                full_text = streamed_text
+
+        except Exception as stream_err:
+            # Fallback: simulate streaming by chunking the pre-computed text
+            logger.warning(f"Final re-stream failed ({stream_err}). Using simulated streaming.")
+            for i in range(0, len(full_text), 12):
+                yield _sse({"type": "final_token", "content": full_text[i:i + 12]})
+
+        # ── Step 12: Extract and compute final metadata ───────────────────
         latency_ms = int((time.time() - start) * 1000)
 
-        # ── Step 12: Persist via ORM ──────────────────────────────────────
+        # ── Step 13: Persist via ORM ──────────────────────────────────────
         conv = None
         msg_id: uuid.UUID | None = None
 
@@ -297,13 +468,12 @@ async def _generate_stream(
                 except Exception:
                     pass
 
-        # ── Step 13: Extract and save memories (non-blocking) ─────────────
+        # ── Step 14: Extract and save memories (non-blocking) ─────────────
         if current_user and conv is not None:
             try:
-                # Pass both user message AND assistant response for richer extraction
                 extraction_msgs = [
                     {"role": "user", "content": body.message},
-                    {"role": "assistant", "content": full_text[:1000]},  # cap to avoid huge prompts
+                    {"role": "assistant", "content": full_text[:1000]},
                 ]
                 new_mems = await memory_service.extract_memories(
                     current_user.id,
@@ -318,7 +488,7 @@ async def _generate_stream(
             except Exception:
                 pass  # Non-blocking
 
-        # ── Step 14: Send "done" event ─────────────────────────────────────
+        # ── Step 15: Send "done" event ─────────────────────────────────────
         conv_id_out = str(conv.id) if conv else (body.conversation_id or str(uuid.uuid4()))
         yield _sse({
             "type": "done",
@@ -348,33 +518,49 @@ async def chat_stream(
     """
     Stream a legal query response via Server-Sent Events.
 
-    The endpoint implements a full deliberative orchestration loop:
-    classify → retrieve → primary_agent (streaming) → evaluate → [enrich → synthesize]
+    Architecture (v2 — single final stream):
+    The entire pipeline runs INTERNALLY — the user only sees status events
+    in the orchestrator panel.  After all agents complete, a single
+    ``final_stream_start`` event is emitted, followed by ``final_token``
+    events with the actual response.
 
     Events:
-    - status: Processing step info (shown in status bar)
+    - status: Processing step info (shown in orchestrator timeline panel)
     - classification: Legal area detected
-    - agent: Which primary agent is responding
-    - token: Incremental text token (primary response streaming)
-    - orchestrator_thinking: Meta-reasoning message ("consulting more specialists")
-    - synthesis: REPLACES streamed content with multi-area integrated response
+    - agent: Which primary agent is working
+    - orchestrator_thinking: Meta-reasoning ("consulting more specialists")
+    - final_stream_start: Signals frontend to start showing tokens
+    - final_token: Incremental text token (the ONLY response the user sees)
     - done: Final metadata (citations, latency, conversation_id)
     - error: Error message
     """
     # BYOK: Resolve the user's API key before streaming starts.
-    # We do this here (outside the generator) so we can raise HTTP 400
-    # before the SSE stream is opened — cleaner error handling.
+    # Free tier: if user has no BYOK key, use platform-provided free model.
     user_api_key: str | None = None
+    free_tier_active = False
     if current_user is not None and body.model:
         user_api_key = await get_user_keys_for_model(current_user.id, body.model, db)
         if not user_api_key:
-            raise HTTPException(
-                status_code=400,
-                detail=(
-                    f"No tienes una API key configurada para el modelo '{body.model}'. "
-                    "Ve a Configuración → Mis API Keys para agregar tu clave del proveedor."
-                ),
-            )
+            # No BYOK key — try free tier if enabled and user is on free plan
+            if settings.free_tier_enabled and current_user.plan == "free":
+                resolved = llm_service.resolve_free_tier(body.model)
+                if resolved:
+                    body.model, user_api_key = resolved
+                    free_tier_active = True
+                    logger.info(f"Free tier activated for user {current_user.id}: {body.model}")
+                else:
+                    raise HTTPException(
+                        status_code=503,
+                        detail="El servicio gratuito no está disponible en este momento. Intenta más tarde.",
+                    )
+            else:
+                raise HTTPException(
+                    status_code=400,
+                    detail=(
+                        f"No tienes una API key configurada para el modelo '{body.model}'. "
+                        "Ve a Configuración → Mis API Keys para agregar tu clave del proveedor."
+                    ),
+                )
 
     # Daily query limit enforcement — checked before opening the stream
     if current_user is not None:

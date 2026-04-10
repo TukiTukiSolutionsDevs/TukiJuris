@@ -66,7 +66,7 @@ function GoogleCallbackInner() {
 
   if (error) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#0A0A0F] px-4">
+      <div className="min-h-screen flex items-center justify-center bg-background px-4">
         <div className="w-full max-w-sm text-center">
           <div className="w-14 h-14 bg-red-500/10 border border-red-500/30 rounded-2xl flex items-center justify-center mx-auto mb-4">
             <AlertCircle className="w-8 h-8 text-red-400" />
@@ -85,7 +85,7 @@ function GoogleCallbackInner() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#0A0A0F] px-4">
+    <div className="min-h-screen flex items-center justify-center bg-background px-4">
       <div className="text-center">
         <div className="w-14 h-14 bg-gradient-to-br from-amber-500 to-orange-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
           <Scale className="w-8 h-8 text-white" />
@@ -102,7 +102,7 @@ function GoogleCallbackInner() {
 export default function GoogleCallbackPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center bg-[#0A0A0F]">
+      <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="w-6 h-6 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
       </div>
     }>

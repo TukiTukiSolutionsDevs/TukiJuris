@@ -16,6 +16,13 @@ import {
   TrendingUp,
   Zap,
   ArrowLeft,
+  HardDrive,
+  CheckCircle2,
+  XCircle,
+  FileText,
+  Layers,
+  Cpu,
+  Server,
 } from "lucide-react";
 import Link from "next/link";
 import { getToken } from "@/lib/auth";
@@ -64,10 +71,27 @@ interface HealthData {
   };
 }
 
+interface KBHealthData {
+  status: string;
+  total_documents: number;
+  total_chunks: number;
+  embedded_chunks: number;
+  embedding_coverage: number;
+  chunks_by_area: Record<string, number>;
+}
+
+interface ReadyData {
+  status: string;
+  checks: {
+    database: string;
+    pgvector: string;
+  };
+}
+
 const PLAN_COLORS: Record<string, string> = {
-  free: "bg-[#2A2A35] text-[#9CA3AF]",
-  base: "bg-[#EAB308]/20 text-[#EAB308]",
-  enterprise: "bg-purple-500/20 text-purple-400",
+  free: "bg-surface-container-low text-on-surface/50",
+  base: "bg-primary/10 text-primary",
+  enterprise: "bg-[#a78bfa]/10 text-[#a78bfa]",
 };
 
 const AREA_COLORS: Record<string, string> = {
@@ -81,7 +105,7 @@ const AREA_COLORS: Record<string, string> = {
   registral: "text-pink-400",
   comercio_exterior: "text-teal-400",
   compliance: "text-indigo-400",
-  competencia: "text-[#EAB308]",
+  competencia: "text-primary",
 };
 
 function StatCard({
@@ -89,26 +113,35 @@ function StatCard({
   label,
   value,
   sub,
-  color,
+  iconBg,
+  iconColor,
 }: {
   icon: React.ElementType;
   label: string;
   value: string | number;
   sub?: string;
-  color?: string;
+  iconBg?: string;
+  iconColor?: string;
 }) {
   return (
-    <div className="bg-[#111116] border border-[#1E1E2A] rounded-xl p-4 sm:p-5">
+    <div
+      className="bg-surface-container-low rounded-lg p-4 sm:p-5"
+      style={{ border: "1px solid rgba(79,70,51,0.15)" }}
+    >
       <div className="flex items-center justify-between mb-2 sm:mb-3">
-        <span className="text-[10px] sm:text-xs text-[#6B7280] font-medium leading-tight">{label}</span>
-        <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center shrink-0 ${color || "bg-[#EAB308]/10"}`}>
-          <Icon className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${color ? "" : "text-[#EAB308]"}`} />
+        <span className="text-[10px] sm:text-xs text-on-surface/40 font-medium leading-tight uppercase tracking-[0.1em]">
+          {label}
+        </span>
+        <div
+          className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center shrink-0 ${iconBg || "bg-primary/10"}`}
+        >
+          <Icon className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${iconColor || "text-primary"}`} />
         </div>
       </div>
-      <p className="text-2xl sm:text-3xl font-bold text-[#EAB308]">
+      <p className="font-['Newsreader'] text-3xl font-bold text-primary">
         {typeof value === "number" ? value.toLocaleString("es-PE") : value}
       </p>
-      {sub && <p className="text-xs text-[#6B7280] mt-1">{sub}</p>}
+      {sub && <p className="text-xs text-on-surface/40 mt-1">{sub}</p>}
     </div>
   );
 }
@@ -119,6 +152,8 @@ export default function AdminPage() {
   const [kbStats, setKbStats] = useState<KBStats[]>([]);
   const [recentQueries, setRecentQueries] = useState<RecentQuery[]>([]);
   const [health, setHealth] = useState<HealthData | null>(null);
+  const [kbHealth, setKbHealth] = useState<KBHealthData | null>(null);
+  const [readyData, setReadyData] = useState<ReadyData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [isAdmin, setIsAdmin] = useState(false);
@@ -145,23 +180,23 @@ export default function AdminPage() {
       setIsAdmin(true);
 
       // Load all data in parallel
-      const [healthRes, usersRes, statsRes, queriesRes] = await Promise.allSettled([
+      const [healthRes, usersRes, statsRes, queriesRes, kbHealthRes, readyRes] = await Promise.allSettled([
         fetch(`${API_URL}/api/health`, { headers: authHeaders() }),
         fetch(`${API_URL}/api/admin/users`, { headers: authHeaders() }),
         fetch(`${API_URL}/api/admin/stats`, { headers: authHeaders() }),
         fetch(`${API_URL}/api/admin/activity`, { headers: authHeaders() }),
+        fetch(`${API_URL}/api/health/knowledge`),
+        fetch(`${API_URL}/api/health/ready`),
       ]);
 
       if (healthRes.status === "fulfilled" && healthRes.value.ok) {
         const hd: HealthData = await healthRes.value.json();
         setHealth(hd);
 
-        // Build KB stats from health data
         if (hd.knowledge_base?.areas) {
-          const kb = Object.entries(hd.knowledge_base.areas).map(([area, chunks]) => ({
-            area,
-            chunks: chunks as number,
-          })).sort((a, b) => b.chunks - a.chunks);
+          const kb = Object.entries(hd.knowledge_base.areas)
+            .map(([area, chunks]) => ({ area, chunks: chunks as number }))
+            .sort((a, b) => b.chunks - a.chunks);
           setKbStats(kb);
         }
       }
@@ -175,7 +210,6 @@ export default function AdminPage() {
         const sd = await statsRes.value.json();
         setStats(sd);
       } else {
-        // Build stats from available data
         setStats({
           total_users: 0,
           total_organizations: 0,
@@ -186,7 +220,25 @@ export default function AdminPage() {
 
       if (queriesRes.status === "fulfilled" && queriesRes.value.ok) {
         const qd = await queriesRes.value.json();
-        setRecentQueries(Array.isArray(qd) ? qd.slice(0, 20) : (qd.queries || []).slice(0, 20));
+        setRecentQueries(
+          Array.isArray(qd) ? qd.slice(0, 20) : (qd.queries || []).slice(0, 20)
+        );
+      }
+
+      if (kbHealthRes.status === "fulfilled" && kbHealthRes.value.ok) {
+        const kbd: KBHealthData = await kbHealthRes.value.json();
+        setKbHealth(kbd);
+        // Also populate kbStats from this more complete endpoint
+        if (kbd.chunks_by_area) {
+          const kb = Object.entries(kbd.chunks_by_area)
+            .map(([area, chunks]) => ({ area, chunks }))
+            .sort((a, b) => b.chunks - a.chunks);
+          setKbStats(kb);
+        }
+      }
+
+      if (readyRes.status === "fulfilled" && readyRes.value.ok) {
+        setReadyData(await readyRes.value.json());
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error al cargar datos");
@@ -210,14 +262,19 @@ export default function AdminPage() {
 
   return (
     <AdminLayout>
-      <div className="min-h-full text-[#F5F5F5]">
-        <div className="border-b border-[#1E1E2A] px-4 lg:px-6 py-4 flex items-center gap-3">
-          <ShieldCheck className="w-5 h-5 text-[#EAB308]" />
-          <h1 className="font-bold text-base">Panel de Administración</h1>
+      <div className="min-h-full text-on-surface">
+        {/* Top bar */}
+        <div
+          className="px-4 lg:px-6 py-4 flex items-center gap-3 sticky top-0 z-10 bg-surface-container-lowest"
+          style={{ borderBottom: "1px solid rgba(79,70,51,0.15)" }}
+        >
+          <ShieldCheck className="w-5 h-5 text-primary" />
+          <h1 className="font-['Newsreader'] font-bold text-base">Panel de Administración</h1>
           <button
             onClick={handleRefresh}
             disabled={refreshing}
-            className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-[#2A2A35] text-sm text-[#F5F5F5] hover:text-white hover:border-[#EAB308]/30 transition-colors disabled:opacity-50"
+            className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm text-on-surface hover:text-white transition-colors disabled:opacity-50"
+            style={{ border: "1px solid rgba(79,70,51,0.15)" }}
           >
             <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? "animate-spin" : ""}`} />
             <span className="hidden sm:inline">Actualizar</span>
@@ -225,270 +282,555 @@ export default function AdminPage() {
         </div>
 
         <div className="max-w-7xl mx-auto px-4 lg:px-6 py-6 sm:py-8">
-        {/* Error */}
-        {error && (
-          <div className="flex items-center gap-3 bg-red-500/10 border border-red-500/30 text-red-400 rounded-xl px-4 py-3 mb-6 text-sm">
-            <AlertTriangle className="w-4 h-4 shrink-0" />
-            <span>{error}</span>
-          </div>
-        )}
-
-        {loading ? (
-          <div className="flex flex-col items-center justify-center py-24 gap-3">
-            <Loader2 className="w-8 h-8 text-[#EAB308] animate-spin" />
-            <p className="text-sm text-[#6B7280]">Cargando panel de administracion...</p>
-          </div>
-        ) : !isAdmin ? (
-          /* Access Denied */
-          <div className="flex flex-col items-center justify-center py-24 text-center">
-            <div className="w-16 h-16 bg-red-500/10 border border-red-500/20 rounded-2xl flex items-center justify-center mb-4">
-              <ShieldCheck className="w-8 h-8 text-red-400" />
+          {/* Error */}
+          {error && (
+            <div className="flex items-center gap-3 bg-red-500/10 text-red-400 rounded-lg px-4 py-3 mb-6 text-sm" style={{ border: "1px solid rgba(239,68,68,0.3)" }}>
+              <AlertTriangle className="w-4 h-4 shrink-0" />
+              <span>{error}</span>
             </div>
-            <h2 className="text-xl font-bold mb-2 text-[#F5F5F5]">Acceso restringido</h2>
-            <p className="text-sm text-[#9CA3AF] max-w-sm">
-              Esta seccion es exclusiva para administradores del sistema. Si crees que deberia tener acceso, contacta al equipo.
-            </p>
-            <Link href="/" className="mt-6 text-sm text-[#EAB308] hover:text-[#ca9a07] flex items-center gap-2">
-              <ArrowLeft className="w-4 h-4" />
-              Volver al chat
-            </Link>
-          </div>
-        ) : (
-          <div className="space-y-8">
-            {/* System Stats */}
-            <div>
-              <h2 className="text-xs uppercase tracking-wider text-[#6B7280] mb-4 flex items-center gap-2">
-                <TrendingUp className="w-3.5 h-3.5" />
-                Estadisticas del sistema
-              </h2>
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-                <StatCard
-                  icon={Users}
-                  label="Usuarios totales"
-                  value={stats?.total_users ?? users.length}
-                  sub="Registrados en la plataforma"
-                  color="bg-blue-500/10 text-blue-400"
-                />
-                <StatCard
-                  icon={Building2}
-                  label="Organizaciones"
-                  value={stats?.total_organizations ?? 0}
-                  sub="Orgs activas"
-                  color="bg-purple-500/10 text-purple-400"
-                />
-                <StatCard
-                  icon={Zap}
-                  label="Consultas hoy"
-                  value={stats?.queries_today ?? 0}
-                  sub="En las ultimas 24 horas"
-                  color="bg-[#EAB308]/10 text-[#EAB308]"
-                />
-                <StatCard
-                  icon={MessageSquare}
-                  label="Conversaciones"
-                  value={stats?.total_conversations ?? 0}
-                  sub="Total acumulado"
-                  color="bg-green-500/10 text-green-400"
-                />
+          )}
+
+          {loading ? (
+            <div className="flex flex-col items-center justify-center py-24 gap-3">
+              <Loader2 className="w-8 h-8 text-primary animate-spin" />
+              <p className="text-sm text-on-surface/40">Cargando panel de administración...</p>
+            </div>
+          ) : !isAdmin ? (
+            /* Access Denied */
+            <div className="flex flex-col items-center justify-center py-24 text-center">
+              <div className="w-16 h-16 bg-red-500/10 rounded-lg flex items-center justify-center mb-4" style={{ border: "1px solid rgba(239,68,68,0.2)" }}>
+                <ShieldCheck className="w-8 h-8 text-red-400" />
               </div>
+              <h2 className="font-['Newsreader'] text-xl font-bold mb-2 text-on-surface">
+                Acceso restringido
+              </h2>
+              <p className="text-sm text-on-surface/50 max-w-sm">
+                Esta sección es exclusiva para administradores del sistema. Si creés que deberías tener acceso, contactá al equipo.
+              </p>
+              <Link
+                href="/"
+                className="mt-6 text-sm text-primary hover:text-primary/80 flex items-center gap-2"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                Volver al chat
+              </Link>
             </div>
+          ) : (
+            <div className="space-y-8">
+              {/* System Stats */}
+              <div>
+                <h2 className="text-[10px] uppercase tracking-[0.2em] text-on-surface/40 mb-4 flex items-center gap-2">
+                  <TrendingUp className="w-3.5 h-3.5" />
+                  Estadísticas del sistema
+                </h2>
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+                  <StatCard
+                    icon={Users}
+                    label="Usuarios totales"
+                    value={stats?.total_users ?? users.length}
+                    sub="Registrados en la plataforma"
+                    iconBg="bg-blue-500/10"
+                    iconColor="text-blue-400"
+                  />
+                  <StatCard
+                    icon={Building2}
+                    label="Organizaciones"
+                    value={stats?.total_organizations ?? 0}
+                    sub="Orgs activas"
+                    iconBg="bg-purple-500/10"
+                    iconColor="text-purple-400"
+                  />
+                  <StatCard
+                    icon={Zap}
+                    label="Consultas hoy"
+                    value={stats?.queries_today ?? 0}
+                    sub="En las últimas 24 horas"
+                  />
+                  <StatCard
+                    icon={MessageSquare}
+                    label="Conversaciones"
+                    value={stats?.total_conversations ?? 0}
+                    sub="Total acumulado"
+                    iconBg="bg-green-500/10"
+                    iconColor="text-green-400"
+                  />
+                </div>
+              </div>
 
-            {/* Health + KB Stats */}
-            <div className="grid lg:grid-cols-2 gap-6">
-              {/* System Health */}
-              {health && (
-                <div className="bg-[#111116] border border-[#1E1E2A] rounded-xl p-5">
-                  <h2 className="text-xs uppercase tracking-wider text-[#6B7280] mb-4 flex items-center gap-2">
-                    <Activity className="w-3.5 h-3.5" />
-                    Estado del sistema
+              {/* ═══ Respaldo & Base de Conocimiento ═══ */}
+              {kbHealth && (
+                <div>
+                  <h2 className="text-[10px] uppercase tracking-[0.2em] text-on-surface/40 mb-4 flex items-center gap-2">
+                    <HardDrive className="w-3.5 h-3.5" />
+                    Respaldo &amp; Base de conocimiento
                   </h2>
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between py-2 border-b border-[#1E1E2A]">
-                      <span className="text-sm text-[#9CA3AF]">Estado API</span>
-                      <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
-                        health.status === "ok" || health.status === "healthy"
-                          ? "bg-green-500/20 text-green-400"
-                          : "bg-red-500/20 text-red-400"
-                      }`}>
-                        {health.status === "ok" || health.status === "healthy" ? "Operativo" : health.status}
-                      </span>
-                    </div>
-                    {health.models_available !== undefined && (
-                      <div className="flex items-center justify-between py-2 border-b border-[#1E1E2A]">
-                        <span className="text-sm text-[#9CA3AF]">Modelos disponibles</span>
-                        <span className="text-sm font-semibold text-[#F5F5F5]">{health.models_available}</span>
+
+                  {/* Infrastructure health row */}
+                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-4">
+                    {/* DB Status */}
+                    <div
+                      className="bg-surface-container-low rounded-lg p-4"
+                      style={{ border: "1px solid rgba(79,70,51,0.15)" }}
+                    >
+                      <div className="flex items-center gap-2 mb-2">
+                        <Server className="w-3.5 h-3.5 text-on-surface/40" />
+                        <span className="text-[10px] uppercase tracking-[0.1em] text-on-surface/40">PostgreSQL</span>
                       </div>
-                    )}
-                    {health.knowledge_base?.total_chunks !== undefined && (
-                      <div className="flex items-center justify-between py-2">
-                        <span className="text-sm text-[#9CA3AF]">Chunks en base de conocimiento</span>
-                        <span className="text-sm font-semibold text-[#F5F5F5]">
-                          {health.knowledge_base.total_chunks.toLocaleString("es-PE")}
+                      <div className="flex items-center gap-2">
+                        {readyData?.checks?.database === "ok" ? (
+                          <CheckCircle2 className="w-4 h-4 text-[#10B981]" />
+                        ) : (
+                          <XCircle className="w-4 h-4 text-red-400" />
+                        )}
+                        <span className={`text-sm font-semibold ${readyData?.checks?.database === "ok" ? "text-[#10B981]" : "text-red-400"}`}>
+                          {readyData?.checks?.database === "ok" ? "Operativo" : "Sin conexión"}
                         </span>
                       </div>
-                    )}
+                    </div>
+
+                    {/* pgvector Status */}
+                    <div
+                      className="bg-surface-container-low rounded-lg p-4"
+                      style={{ border: "1px solid rgba(79,70,51,0.15)" }}
+                    >
+                      <div className="flex items-center gap-2 mb-2">
+                        <Cpu className="w-3.5 h-3.5 text-on-surface/40" />
+                        <span className="text-[10px] uppercase tracking-[0.1em] text-on-surface/40">pgvector</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {readyData?.checks?.pgvector?.includes("ok") ? (
+                          <CheckCircle2 className="w-4 h-4 text-[#10B981]" />
+                        ) : (
+                          <XCircle className="w-4 h-4 text-red-400" />
+                        )}
+                        <span className={`text-sm font-semibold ${readyData?.checks?.pgvector?.includes("ok") ? "text-[#10B981]" : "text-red-400"}`}>
+                          {readyData?.checks?.pgvector || "—"}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Embedding Coverage */}
+                    <div
+                      className="bg-surface-container-low rounded-lg p-4"
+                      style={{ border: "1px solid rgba(79,70,51,0.15)" }}
+                    >
+                      <div className="flex items-center gap-2 mb-2">
+                        <Layers className="w-3.5 h-3.5 text-on-surface/40" />
+                        <span className="text-[10px] uppercase tracking-[0.1em] text-on-surface/40">Embeddings</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {kbHealth.embedding_coverage === 100 ? (
+                          <CheckCircle2 className="w-4 h-4 text-[#10B981]" />
+                        ) : kbHealth.embedding_coverage > 0 ? (
+                          <AlertTriangle className="w-4 h-4 text-primary" />
+                        ) : (
+                          <XCircle className="w-4 h-4 text-red-400" />
+                        )}
+                        <span className={`text-sm font-semibold ${
+                          kbHealth.embedding_coverage === 100 ? "text-[#10B981]" :
+                          kbHealth.embedding_coverage > 0 ? "text-primary" : "text-red-400"
+                        }`}>
+                          {kbHealth.embedding_coverage}% cobertura
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Total Data */}
+                    <div
+                      className="bg-surface-container-low rounded-lg p-4"
+                      style={{ border: "1px solid rgba(79,70,51,0.15)" }}
+                    >
+                      <div className="flex items-center gap-2 mb-2">
+                        <Database className="w-3.5 h-3.5 text-on-surface/40" />
+                        <span className="text-[10px] uppercase tracking-[0.1em] text-on-surface/40">Datos totales</span>
+                      </div>
+                      <p className="font-['Newsreader'] text-2xl font-bold text-primary">
+                        {kbHealth.total_chunks.toLocaleString("es-PE")}
+                      </p>
+                      <p className="text-[10px] text-on-surface/40">chunks indexados</p>
+                    </div>
+                  </div>
+
+                  {/* Data inventory card */}
+                  <div className="grid lg:grid-cols-3 gap-4">
+                    {/* Documents / Chunks / Embeddings summary */}
+                    <div
+                      className="bg-surface-container-low rounded-lg p-5"
+                      style={{ border: "1px solid rgba(79,70,51,0.15)" }}
+                    >
+                      <h3 className="text-[10px] uppercase tracking-[0.2em] text-on-surface/40 mb-4 flex items-center gap-2">
+                        <FileText className="w-3.5 h-3.5" />
+                        Inventario
+                      </h3>
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-on-surface/50">Documentos legales</span>
+                          <span className="font-['Newsreader'] text-lg font-bold text-on-surface">
+                            {kbHealth.total_documents}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-on-surface/50">Chunks de texto</span>
+                          <span className="font-['Newsreader'] text-lg font-bold text-on-surface">
+                            {kbHealth.total_chunks}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-on-surface/50">Con embedding (768-dim)</span>
+                          <span className="font-['Newsreader'] text-lg font-bold text-on-surface">
+                            {kbHealth.embedded_chunks}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-on-surface/50">Áreas del derecho</span>
+                          <span className="font-['Newsreader'] text-lg font-bold text-on-surface">
+                            {Object.keys(kbHealth.chunks_by_area).length}
+                          </span>
+                        </div>
+                        {/* Embedding progress bar */}
+                        <div className="pt-2">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-[10px] uppercase tracking-widest text-on-surface-variant">Cobertura embeddings</span>
+                            <span className="text-xs text-primary font-bold">{kbHealth.embedding_coverage}%</span>
+                          </div>
+                          <div className="w-full bg-surface rounded-full h-2">
+                            <div
+                              className="h-2 rounded-full bg-gradient-to-r from-primary to-primary-container transition-all duration-500"
+                              style={{ width: `${kbHealth.embedding_coverage}%` }}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Full area breakdown */}
+                    <div
+                      className="lg:col-span-2 bg-surface-container-low rounded-lg p-5"
+                      style={{ border: "1px solid rgba(79,70,51,0.15)" }}
+                    >
+                      <h3 className="text-[10px] uppercase tracking-[0.2em] text-on-surface/40 mb-4 flex items-center gap-2">
+                        <Database className="w-3.5 h-3.5" />
+                        Distribución por área ({kbStats.length} áreas)
+                      </h3>
+                      <div className="grid sm:grid-cols-2 gap-x-6 gap-y-2">
+                        {kbStats.map((kb) => (
+                          <div key={kb.area}>
+                            <div className="flex items-center justify-between mb-0.5">
+                              <span className={`text-xs capitalize ${AREA_COLORS[kb.area] || "text-on-surface/50"}`}>
+                                {kb.area.replace("_", " ")}
+                              </span>
+                              <span className="text-xs text-on-surface/30 font-mono">
+                                {kb.chunks}
+                              </span>
+                            </div>
+                            <div className="w-full bg-surface rounded-full h-1.5">
+                              <div
+                                className="h-1.5 rounded-full bg-gradient-to-r from-primary to-primary-container"
+                                style={{ width: `${Math.round((kb.chunks / maxKbChunks) * 100)}%` }}
+                              />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Backup instructions */}
+                  <div
+                    className="mt-4 bg-surface rounded-lg p-4 flex items-start gap-3"
+                    style={{ border: "1px solid rgba(79,70,51,0.15)" }}
+                  >
+                    <HardDrive className="w-4 h-4 text-primary mt-0.5 shrink-0" />
+                    <div>
+                      <p className="text-sm text-on-surface/70 mb-1">
+                        <span className="text-primary font-bold">Respaldo local:</span> La base completa pesa ~1.6 MB comprimida.
+                      </p>
+                      <div className="flex flex-wrap gap-3 mt-2">
+                        <code className="text-xs bg-surface-container-lowest text-primary px-2.5 py-1.5 rounded-lg font-mono">
+                          make db-backup
+                        </code>
+                        <code className="text-xs bg-surface-container-lowest text-on-surface/60 px-2.5 py-1.5 rounded-lg font-mono">
+                          make db-restore FILE=backups/xxx.dump
+                        </code>
+                        <code className="text-xs bg-surface-container-lowest text-on-surface/60 px-2.5 py-1.5 rounded-lg font-mono">
+                          make db-seed-full
+                        </code>
+                      </div>
+                    </div>
                   </div>
                 </div>
               )}
 
-              {/* KB Stats by area */}
-              {kbStats.length > 0 && (
-                <div className="bg-[#111116] border border-[#1E1E2A] rounded-xl p-5">
-                  <h2 className="text-xs uppercase tracking-wider text-[#6B7280] mb-4 flex items-center gap-2">
-                    <Database className="w-3.5 h-3.5" />
-                    Base de conocimiento por area
-                  </h2>
-                  <div className="space-y-2.5">
-                    {kbStats.slice(0, 8).map((kb) => (
-                      <div key={kb.area}>
-                        <div className="flex items-center justify-between mb-1">
-                          <span className={`text-xs capitalize ${AREA_COLORS[kb.area] || "text-[#9CA3AF]"}`}>
-                            {kb.area.replace("_", " ")}
-                          </span>
-                          <span className="text-xs text-[#6B7280]">
-                            {kb.chunks.toLocaleString("es-PE")} chunks
-                          </span>
-                        </div>
-                        <div className="w-full bg-[#1A1A22] rounded-full h-1.5">
-                          <div
-                            className={`h-1.5 rounded-full ${AREA_COLORS[kb.area]?.replace("text-", "bg-") || "bg-[#EAB308]"}`}
-                            style={{ width: `${Math.round((kb.chunks / maxKbChunks) * 100)}%` }}
-                          />
-                        </div>
+              {/* Health + KB Stats */}
+              <div className="grid lg:grid-cols-2 gap-6">
+                {/* System Health */}
+                {health && (
+                  <div
+                    className="bg-surface-container-low rounded-lg p-5"
+                    style={{ border: "1px solid rgba(79,70,51,0.15)" }}
+                  >
+                    <h2 className="text-[10px] uppercase tracking-[0.2em] text-on-surface/40 mb-4 flex items-center gap-2">
+                      <Activity className="w-3.5 h-3.5" />
+                      Estado del sistema
+                    </h2>
+                    <div className="space-y-0">
+                      <div className="flex items-center justify-between py-3" style={{ borderBottom: "1px solid rgba(79,70,51,0.15)" }}>
+                        <span className="text-sm text-on-surface/50">Estado API</span>
+                        <span
+                          className={`text-xs font-semibold px-2 py-0.5 rounded-lg ${
+                            health.status === "ok" || health.status === "healthy"
+                              ? "bg-[#10B981]/10 text-[#10B981]"
+                              : "bg-red-500/10 text-red-400"
+                          }`}
+                        >
+                          {health.status === "ok" || health.status === "healthy"
+                            ? "Operativo"
+                            : health.status}
+                        </span>
                       </div>
-                    ))}
+                      {health.models_available !== undefined && (
+                        <div className="flex items-center justify-between py-3" style={{ borderBottom: "1px solid rgba(79,70,51,0.15)" }}>
+                          <span className="text-sm text-on-surface/50">Modelos disponibles</span>
+                          <span className="text-sm font-semibold text-on-surface">
+                            {health.models_available}
+                          </span>
+                        </div>
+                      )}
+                      {health.knowledge_base?.total_chunks !== undefined && (
+                        <div className="flex items-center justify-between py-3">
+                          <span className="text-sm text-on-surface/50">Chunks en base de conocimiento</span>
+                          <span className="text-sm font-semibold text-on-surface">
+                            {health.knowledge_base.total_chunks.toLocaleString("es-PE")}
+                          </span>
+                        </div>
+                      )}
+                    </div>
                   </div>
+                )}
+
+                {/* KB Stats by area */}
+                {kbStats.length > 0 && (
+                  <div
+                    className="bg-surface-container-low rounded-lg p-5"
+                    style={{ border: "1px solid rgba(79,70,51,0.15)" }}
+                  >
+                    <h2 className="text-[10px] uppercase tracking-[0.2em] text-on-surface/40 mb-4 flex items-center gap-2">
+                      <Database className="w-3.5 h-3.5" />
+                      Base de conocimiento por área
+                    </h2>
+                    <div className="space-y-2.5">
+                      {kbStats.slice(0, 8).map((kb) => (
+                        <div key={kb.area}>
+                          <div className="flex items-center justify-between mb-1">
+                            <span className={`text-xs capitalize ${AREA_COLORS[kb.area] || "text-on-surface/50"}`}>
+                              {kb.area.replace("_", " ")}
+                            </span>
+                            <span className="text-xs text-on-surface/30">
+                              {kb.chunks.toLocaleString("es-PE")} chunks
+                            </span>
+                          </div>
+                          <div className="w-full bg-surface rounded-full h-1.5">
+                            <div
+                              className={`h-1.5 rounded-full ${AREA_COLORS[kb.area]?.replace("text-", "bg-") || "bg-primary"}`}
+                              style={{ width: `${Math.round((kb.chunks / maxKbChunks) * 100)}%` }}
+                            />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Users Table */}
+              {users.length > 0 && (
+                <div
+                  className="bg-surface-container-low rounded-lg overflow-hidden"
+                  style={{ border: "1px solid rgba(79,70,51,0.15)" }}
+                >
+                  <div
+                    className="p-5 flex items-center gap-2 bg-surface-container-low rounded-t-lg"
+                    style={{ borderBottom: "1px solid rgba(79,70,51,0.15)" }}
+                  >
+                    <Users className="w-4 h-4 text-primary" />
+                    <h2 className="font-semibold text-sm text-on-surface">Usuarios</h2>
+                    <span className="ml-auto text-xs text-on-surface/30">{users.length} usuarios</span>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full min-w-[480px] text-sm">
+                      <thead>
+                        <tr className="bg-surface-container-low">
+                          <th className="text-left text-[10px] uppercase tracking-[0.1em] text-on-surface/40 px-4 sm:px-5 py-3">
+                            Usuario
+                          </th>
+                          <th className="text-left text-[10px] uppercase tracking-[0.1em] text-on-surface/40 px-4 sm:px-5 py-3 hidden sm:table-cell">
+                            Plan
+                          </th>
+                          <th className="text-left text-[10px] uppercase tracking-[0.1em] text-on-surface/40 px-4 sm:px-5 py-3 hidden md:table-cell">
+                            Organización
+                          </th>
+                          <th className="text-right text-[10px] uppercase tracking-[0.1em] text-on-surface/40 px-4 sm:px-5 py-3 hidden lg:table-cell">
+                            Consultas/mes
+                          </th>
+                          <th className="text-right text-[10px] uppercase tracking-[0.1em] text-on-surface/40 px-4 sm:px-5 py-3 hidden xl:table-cell">
+                            Registro
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {users.map((user, idx) => (
+                          <tr
+                            key={user.id}
+                            className={`transition-colors hover:bg-surface-container-low ${
+                              idx % 2 === 0 ? "bg-surface" : "bg-surface-container-low"
+                            }`}
+                          >
+                            <td className="px-5 py-3">
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <p className="font-medium text-on-surface">
+                                    {user.full_name || "—"}
+                                  </p>
+                                  {user.is_admin && (
+                                    <ShieldCheck className="w-3.5 h-3.5 text-primary" />
+                                  )}
+                                </div>
+                                <p className="text-xs text-on-surface/40">{user.email}</p>
+                              </div>
+                            </td>
+                            <td className="px-5 py-3 hidden sm:table-cell">
+                              <span
+                                className={`text-[10px] font-semibold px-2 py-0.5 rounded-lg capitalize ${
+                                  PLAN_COLORS[user.plan] || PLAN_COLORS.free
+                                }`}
+                              >
+                                {user.plan}
+                              </span>
+                            </td>
+                            <td className="px-5 py-3 text-xs text-on-surface/50 hidden md:table-cell">
+                              {user.org_name || (
+                                <span className="text-on-surface/30">Sin org</span>
+                              )}
+                            </td>
+                            <td className="px-5 py-3 text-right text-xs text-on-surface hidden lg:table-cell">
+                              {(user.queries_this_month || 0).toLocaleString("es-PE")}
+                            </td>
+                            <td className="px-5 py-3 text-right text-xs text-on-surface/30 hidden xl:table-cell">
+                              {user.created_at
+                                ? new Date(user.created_at).toLocaleDateString("es-PE")
+                                : "—"}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* Recent Queries Activity */}
+              {recentQueries.length > 0 && (
+                <div
+                  className="bg-surface-container-low rounded-lg overflow-hidden"
+                  style={{ border: "1px solid rgba(79,70,51,0.15)" }}
+                >
+                  <div
+                    className="p-5 flex items-center gap-2"
+                    style={{ borderBottom: "1px solid rgba(79,70,51,0.15)" }}
+                  >
+                    <Activity className="w-4 h-4 text-primary" />
+                    <h2 className="font-semibold text-sm text-on-surface">Actividad reciente</h2>
+                    <span className="ml-auto text-xs text-on-surface/30">
+                      Últimas {recentQueries.length} consultas
+                    </span>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full min-w-[400px] text-sm">
+                      <thead>
+                        <tr className="bg-surface-container-low">
+                          <th className="text-left text-[10px] uppercase tracking-[0.1em] text-on-surface/40 px-4 sm:px-5 py-3">
+                            Área
+                          </th>
+                          <th className="text-left text-[10px] uppercase tracking-[0.1em] text-on-surface/40 px-4 sm:px-5 py-3 hidden sm:table-cell">
+                            Modelo
+                          </th>
+                          <th className="text-right text-[10px] uppercase tracking-[0.1em] text-on-surface/40 px-4 sm:px-5 py-3">
+                            Latencia
+                          </th>
+                          <th className="text-right text-[10px] uppercase tracking-[0.1em] text-on-surface/40 px-4 sm:px-5 py-3 hidden md:table-cell">
+                            Hora
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {recentQueries.map((q, idx) => (
+                          <tr
+                            key={q.id}
+                            className={`transition-colors hover:bg-surface-container-low ${
+                              idx % 2 === 0 ? "bg-surface" : "bg-surface-container-low"
+                            }`}
+                          >
+                            <td className="px-5 py-3">
+                              <span
+                                className={`text-xs capitalize ${
+                                  AREA_COLORS[q.legal_area] || "text-on-surface/50"
+                                }`}
+                              >
+                                {q.legal_area?.replace("_", " ") || "General"}
+                              </span>
+                            </td>
+                            <td className="px-5 py-3 hidden sm:table-cell">
+                              <span className="text-xs text-on-surface/40 font-mono">
+                                {q.model?.split("/").pop() || q.model || "—"}
+                              </span>
+                            </td>
+                            <td className="px-5 py-3 text-right">
+                              <div className="flex items-center justify-end gap-1">
+                                <Clock className="w-3 h-3 text-on-surface/30" />
+                                <span
+                                  className={`text-xs ${
+                                    q.latency_ms > 10000
+                                      ? "text-red-400"
+                                      : q.latency_ms > 5000
+                                      ? "text-primary"
+                                      : "text-[#10B981]"
+                                  }`}
+                                >
+                                  {q.latency_ms ? `${(q.latency_ms / 1000).toFixed(1)}s` : "—"}
+                                </span>
+                              </div>
+                            </td>
+                            <td className="px-5 py-3 text-right text-xs text-on-surface/30 hidden md:table-cell">
+                              {q.created_at
+                                ? new Date(q.created_at).toLocaleTimeString("es-PE", {
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                  })
+                                : "—"}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* Empty state */}
+              {users.length === 0 && recentQueries.length === 0 && kbStats.length === 0 && (
+                <div
+                  className="bg-surface-container-low rounded-lg p-10 text-center"
+                  style={{ border: "1px solid rgba(79,70,51,0.15)" }}
+                >
+                  <BarChart3 className="w-10 h-10 text-on-surface/10 mx-auto mb-3" />
+                  <p className="text-sm text-on-surface/50 mb-1">Sin datos disponibles</p>
+                  <p className="text-xs text-on-surface/30">
+                    Los endpoints de administración podrían no estar implementados aún
+                  </p>
                 </div>
               )}
             </div>
-
-            {/* Users Table */}
-            {users.length > 0 && (
-              <div className="bg-[#111116] border border-[#1E1E2A] rounded-xl">
-                <div className="p-5 border-b border-[#1E1E2A] flex items-center gap-2 bg-[#1A1A22] rounded-t-xl">
-                  <Users className="w-4 h-4 text-[#EAB308]" />
-                  <h2 className="font-semibold text-sm text-[#F5F5F5]">Usuarios</h2>
-                  <span className="ml-auto text-xs text-[#6B7280]">{users.length} usuarios</span>
-                </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full min-w-[480px] text-sm">
-                    <thead>
-                      <tr className="border-b border-[#1E1E2A]">
-                        <th className="text-left text-[10px] uppercase tracking-wider text-[#6B7280] px-4 sm:px-5 py-3">Usuario</th>
-                        <th className="text-left text-[10px] uppercase tracking-wider text-[#6B7280] px-4 sm:px-5 py-3 hidden sm:table-cell">Plan</th>
-                        <th className="text-left text-[10px] uppercase tracking-wider text-[#6B7280] px-4 sm:px-5 py-3 hidden md:table-cell">Organizacion</th>
-                        <th className="text-right text-[10px] uppercase tracking-wider text-[#6B7280] px-4 sm:px-5 py-3 hidden lg:table-cell">Consultas/mes</th>
-                        <th className="text-right text-[10px] uppercase tracking-wider text-[#6B7280] px-4 sm:px-5 py-3 hidden xl:table-cell">Registro</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-[#1E1E2A]/50">
-                      {users.map((user) => (
-                        <tr key={user.id} className="hover:bg-[#1A1A22] transition-colors">
-                          <td className="px-5 py-3">
-                            <div>
-                              <div className="flex items-center gap-2">
-                                <p className="font-medium text-[#F5F5F5]">{user.full_name || "—"}</p>
-                                {user.is_admin && (
-                                  <ShieldCheck className="w-3.5 h-3.5 text-[#EAB308]" />
-                                )}
-                              </div>
-                              <p className="text-xs text-[#6B7280]">{user.email}</p>
-                            </div>
-                          </td>
-                          <td className="px-5 py-3 hidden sm:table-cell">
-                            <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full capitalize ${PLAN_COLORS[user.plan] || PLAN_COLORS.free}`}>
-                              {user.plan}
-                            </span>
-                          </td>
-                          <td className="px-5 py-3 text-xs text-[#9CA3AF] hidden md:table-cell">
-                            {user.org_name || <span className="text-[#6B7280]">Sin org</span>}
-                          </td>
-                          <td className="px-5 py-3 text-right text-xs text-[#F5F5F5] hidden lg:table-cell">
-                            {(user.queries_this_month || 0).toLocaleString("es-PE")}
-                          </td>
-                          <td className="px-5 py-3 text-right text-xs text-[#6B7280] hidden xl:table-cell">
-                            {user.created_at
-                              ? new Date(user.created_at).toLocaleDateString("es-PE")
-                              : "—"}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
-
-            {/* Recent Queries Activity */}
-            {recentQueries.length > 0 && (
-              <div className="bg-[#111116] border border-[#1E1E2A] rounded-xl">
-                <div className="p-5 border-b border-[#1E1E2A] flex items-center gap-2 bg-[#1A1A22] rounded-t-xl">
-                  <Activity className="w-4 h-4 text-[#EAB308]" />
-                  <h2 className="font-semibold text-sm text-[#F5F5F5]">Actividad reciente</h2>
-                  <span className="ml-auto text-xs text-[#6B7280]">Ultimas {recentQueries.length} consultas</span>
-                </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full min-w-[400px] text-sm">
-                    <thead>
-                      <tr className="border-b border-[#1E1E2A]">
-                        <th className="text-left text-[10px] uppercase tracking-wider text-[#6B7280] px-4 sm:px-5 py-3">Area</th>
-                        <th className="text-left text-[10px] uppercase tracking-wider text-[#6B7280] px-4 sm:px-5 py-3 hidden sm:table-cell">Modelo</th>
-                        <th className="text-right text-[10px] uppercase tracking-wider text-[#6B7280] px-4 sm:px-5 py-3">Latencia</th>
-                        <th className="text-right text-[10px] uppercase tracking-wider text-[#6B7280] px-4 sm:px-5 py-3 hidden md:table-cell">Hora</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-[#1E1E2A]/50">
-                      {recentQueries.map((q) => (
-                        <tr key={q.id} className="hover:bg-[#1A1A22] transition-colors">
-                          <td className="px-5 py-3">
-                            <span className={`text-xs capitalize ${AREA_COLORS[q.legal_area] || "text-[#9CA3AF]"}`}>
-                              {q.legal_area?.replace("_", " ") || "General"}
-                            </span>
-                          </td>
-                          <td className="px-5 py-3 hidden sm:table-cell">
-                             <span className="text-xs text-[#9CA3AF] font-mono">
-                              {q.model?.split("/").pop() || q.model || "—"}
-                            </span>
-                          </td>
-                          <td className="px-5 py-3 text-right">
-                            <div className="flex items-center justify-end gap-1">
-                              <Clock className="w-3 h-3 text-[#6B7280]" />
-                              <span className={`text-xs ${
-                                q.latency_ms > 10000
-                                  ? "text-red-400"
-                                  : q.latency_ms > 5000
-                                  ? "text-[#EAB308]"
-                                  : "text-green-400"
-                              }`}>
-                                {q.latency_ms ? `${(q.latency_ms / 1000).toFixed(1)}s` : "—"}
-                              </span>
-                            </div>
-                          </td>
-                          <td className="px-5 py-3 text-right text-xs text-[#6B7280] hidden md:table-cell">
-                            {q.created_at
-                              ? new Date(q.created_at).toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit" })
-                              : "—"}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
-
-            {/* Empty state if no data at all */}
-            {users.length === 0 && recentQueries.length === 0 && kbStats.length === 0 && (
-              <div className="bg-[#111116] border border-[#1E1E2A] rounded-xl p-10 text-center">
-                <BarChart3 className="w-10 h-10 text-[#2A2A35] mx-auto mb-3" />
-                <p className="text-sm text-[#9CA3AF] mb-1">Sin datos disponibles</p>
-                <p className="text-xs text-[#6B7280]">
-                  Los endpoints de administracion podrian no estar implementados aun
-                </p>
-              </div>
-            )}
-          </div>
-        )}
+          )}
         </div>
       </div>
     </AdminLayout>

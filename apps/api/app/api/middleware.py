@@ -108,15 +108,22 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             result = await rate_limiter.check_rate_limit(key, max_requests, _WINDOW_SECONDS)
             if not result["allowed"]:
                 retry_after = max(1, result["reset_at"] - int(time.time()))
+                # Build CORS-aware 429 response so browsers don't silently block it
+                headers = {
+                    "X-RateLimit-Limit": str(result["limit"]),
+                    "X-RateLimit-Remaining": "0",
+                    "X-RateLimit-Reset": str(result["reset_at"]),
+                    "Retry-After": str(retry_after),
+                }
+                origin = request.headers.get("origin", "")
+                if origin and origin in settings.cors_origins:
+                    headers["Access-Control-Allow-Origin"] = origin
+                    headers["Access-Control-Allow-Credentials"] = "true"
+                    headers["Vary"] = "Origin"
                 return JSONResponse(
                     status_code=429,
-                    content={"detail": "Too many requests"},
-                    headers={
-                        "X-RateLimit-Limit": str(result["limit"]),
-                        "X-RateLimit-Remaining": "0",
-                        "X-RateLimit-Reset": str(result["reset_at"]),
-                        "Retry-After": str(retry_after),
-                    },
+                    content={"detail": "Too many requests. Try again later.", "retry_after": retry_after},
+                    headers=headers,
                 )
         except Exception as exc:
             logger.warning("Rate limiter error (allowing request): %s", exc)

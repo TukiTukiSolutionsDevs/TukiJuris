@@ -34,6 +34,7 @@ import {
 import Link from "next/link";
 import { getToken, logout } from "@/lib/auth";
 import { AppLayout } from "@/components/AppLayout";
+import { MODEL_CATALOG } from "@/lib/models";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -65,24 +66,6 @@ const LEGAL_AREAS = [
   { id: "comercio_exterior", name: "Comercio Exterior" },
   { id: "compliance", name: "Compliance" },
   { id: "competencia", name: "Competencia/PI" },
-];
-
-const MODELS = [
-  // --- Gratis / Ultra económicos ---
-  { id: "gemini/gemini-2.0-flash", name: "⚡ Gemini 2.0 Flash (gratis)", group: "Gratis" },
-  { id: "deepseek/deepseek-chat", name: "⚡ DeepSeek V3 (ultra barato)", group: "Gratis" },
-  { id: "groq/llama-3.1-8b-instant", name: "⚡ Llama 3.1 8B — Groq (gratis)", group: "Gratis" },
-  { id: "groq/llama-3.3-70b-versatile", name: "⚡ Llama 3.3 70B — Groq (rápido)", group: "Gratis" },
-  // --- Estándar ---
-  { id: "gpt-4o-mini", name: "GPT-4o Mini (rápido)", group: "Estándar" },
-  { id: "claude-3-5-haiku-20241022", name: "Claude 3.5 Haiku (rápido)", group: "Estándar" },
-  { id: "deepseek/deepseek-reasoner", name: "DeepSeek Reasoner (análisis)", group: "Estándar" },
-  { id: "groq/qwen-qwq-32b", name: "Qwen QwQ 32B — Groq (potente)", group: "Estándar" },
-  // --- Avanzados ---
-  { id: "gpt-4o", name: "GPT-4o (avanzado)", group: "Avanzado" },
-  { id: "claude-sonnet-4-20250514", name: "Claude Sonnet 4 (avanzado)", group: "Avanzado" },
-  { id: "gemini/gemini-2.5-pro", name: "Gemini 2.5 Pro (contexto largo)", group: "Avanzado" },
-  { id: "groq/moonshotai/kimi-k2-instruct", name: "Kimi K2 — Groq (avanzado)", group: "Avanzado" },
 ];
 
 type ActiveTab = "perfil" | "organizacion" | "preferencias" | "apikeys" | "memoria";
@@ -118,11 +101,11 @@ interface MemoriesData {
 }
 
 const CATEGORY_COLORS: Record<string, string> = {
-  profession: "bg-blue-500/10 text-blue-400 border-blue-500/20",
-  interests: "bg-green-500/10 text-green-400 border-green-500/20",
-  cases: "bg-[#EAB308]/10 text-[#EAB308] border-[#EAB308]/20",
-  preferences: "bg-purple-500/10 text-purple-400 border-purple-500/20",
-  context: "bg-cyan-500/10 text-cyan-400 border-cyan-500/20",
+  profession: "bg-secondary-container text-secondary",
+  interests: "bg-[#1a3a2a] text-[#6ee7b7]",
+  cases: "bg-[#4f3700]/40 text-primary",
+  preferences: "bg-[#2d1f4a] text-[#c4b5fd]",
+  context: "bg-[#0f2d35] text-[#67e8f9]",
 };
 
 // LLM Key types
@@ -130,101 +113,93 @@ interface LLMKey {
   id: string;
   provider: string;
   label?: string;
-  hint: string; // e.g. "sk-...3kF2"
+  hint: string;
+  is_active?: boolean;
   created_at?: string;
 }
 
 interface LLMProvider {
   id: string;
   name: string;
+  description: string;
   accent: string;
   accentBg: string;
   accentBorder: string;
   docsUrl: string;
   docsLabel: string;
   models: string[];
+  recommended?: boolean;
+  note?: string;
 }
 
 const LLM_PROVIDERS: LLMProvider[] = [
   {
     id: "google",
     name: "Google AI (Gemini)",
+    description: "Gemini Flash es gratuito. Gemini 3.1 Pro es el flagship con Deep Think y 1M contexto.",
     accent: "text-blue-400",
     accentBg: "bg-blue-500/10",
     accentBorder: "border-blue-500/30",
     docsUrl: "https://aistudio.google.com/apikey",
     docsLabel: "aistudio.google.com/apikey",
-    models: ["gemini-2.0-flash (gratis)", "gemini-2.5-pro"],
+    models: ["Gemini 2.5 Flash (gratis)", "Gemini 2.5 Pro", "Gemini 3.1 Flash-Lite", "Gemini 3.1 Pro"],
+    recommended: true,
   },
   {
     id: "groq",
     name: "Groq (Ultra Rápido)",
+    description: "Inferencia hasta 1000 t/s. Ideal para respuestas instantáneas con modelos open-source.",
     accent: "text-orange-400",
     accentBg: "bg-orange-500/10",
     accentBorder: "border-orange-500/30",
     docsUrl: "https://console.groq.com/keys",
     docsLabel: "console.groq.com/keys",
-    models: ["Llama 3.1/3.3", "Qwen QwQ", "Kimi K2"],
+    models: ["Llama 3.1 8B", "Llama 3.3 70B", "Qwen3 32B", "GPT-OSS 120B"],
+    recommended: true,
   },
   {
     id: "deepseek",
     name: "DeepSeek",
+    description: "V3.2 con 128K contexto. Reasoner usa thinking mode para análisis legal profundo.",
     accent: "text-cyan-400",
     accentBg: "bg-cyan-500/10",
     accentBorder: "border-cyan-500/30",
     docsUrl: "https://platform.deepseek.com/api_keys",
     docsLabel: "platform.deepseek.com",
-    models: ["deepseek-chat", "deepseek-reasoner"],
+    models: ["DeepSeek V3.2 ($0.28/M)", "DeepSeek Reasoner"],
   },
   {
     id: "openai",
     name: "OpenAI",
+    description: "GPT-5.4 con 1M contexto y 128K output. Flagship de OpenAI para análisis legal.",
     accent: "text-green-400",
     accentBg: "bg-green-500/10",
     accentBorder: "border-green-500/30",
     docsUrl: "https://platform.openai.com/api-keys",
     docsLabel: "platform.openai.com/api-keys",
-    models: ["GPT-4o", "GPT-4o-mini"],
+    models: ["GPT-5.4 Nano ($0.20/M)", "GPT-5.4 Mini ($0.75/M)", "GPT-5.4 ($2.50/M)"],
   },
   {
     id: "anthropic",
     name: "Anthropic (Claude)",
+    description: "Claude 4.6 — el más inteligente del mercado. 1M contexto, excelente razonamiento legal.",
     accent: "text-amber-400",
     accentBg: "bg-amber-500/10",
     accentBorder: "border-amber-500/30",
     docsUrl: "https://console.anthropic.com/settings/keys",
     docsLabel: "console.anthropic.com",
-    models: ["Claude Sonnet 4", "Claude 3.5 Haiku"],
+    models: ["Haiku 4.5 ($1/M)", "Sonnet 4.6 ($3/M)", "Opus 4.6 ($5/M)"],
   },
   {
-    id: "moonshot",
-    name: "Moonshot AI (Kimi)",
-    accent: "text-violet-400",
-    accentBg: "bg-violet-500/10",
-    accentBorder: "border-violet-500/30",
-    docsUrl: "https://platform.moonshot.cn/console/api-keys",
-    docsLabel: "platform.moonshot.cn",
-    models: ["moonshot-v1-8k", "moonshot-v1-32k"],
-  },
-  {
-    id: "qwen",
-    name: "Qwen (Alibaba)",
-    accent: "text-indigo-400",
-    accentBg: "bg-indigo-500/10",
-    accentBorder: "border-indigo-500/30",
-    docsUrl: "https://dashscope.console.aliyun.com/apiKey",
-    docsLabel: "dashscope.aliyun.com",
-    models: ["qwen-turbo", "qwen-plus", "qwen-max"],
-  },
-  {
-    id: "zhipu",
-    name: "Zhipu AI (GLM)",
-    accent: "text-rose-400",
-    accentBg: "bg-rose-500/10",
-    accentBorder: "border-rose-500/30",
-    docsUrl: "https://open.bigmodel.cn/usercenter/apikeys",
-    docsLabel: "open.bigmodel.cn",
-    models: ["GLM-4 Plus", "GLM-4 Flash"],
+    id: "xai",
+    name: "xAI (Grok)",
+    description: "Grok 4.20 — menor alucinación del mercado. 2M contexto, reasoning + tool-calling.",
+    accent: "text-purple-400",
+    accentBg: "bg-purple-500/10",
+    accentBorder: "border-purple-500/30",
+    docsUrl: "https://console.x.ai",
+    docsLabel: "console.x.ai",
+    models: ["Grok 3 Mini Fast ($0.30/M)", "Grok 4.1 Fast ($0.20/M)", "Grok 4 ($3/M)", "Grok 4.20 ($2/M)"],
   },
 ];
 
@@ -259,7 +234,7 @@ export default function ConfiguracionPage() {
   const [memoryEnabled, setMemoryEnabled] = useState(true);
 
   // Preferences (stored in localStorage)
-  const [defaultModel, setDefaultModel] = useState(MODELS[0].id);
+  const [defaultModel, setDefaultModel] = useState(MODEL_CATALOG[0].id);
   const [defaultArea, setDefaultArea] = useState("");
 
   // LLM Keys state
@@ -271,6 +246,8 @@ export default function ConfiguracionPage() {
   const [savingKey, setSavingKey] = useState(false);
   const [deletingKeyId, setDeletingKeyId] = useState<string | null>(null);
   const [showApiKey, setShowApiKey] = useState(false);
+  const [testingProvider, setTestingProvider] = useState<string | null>(null);
+  const [testResults, setTestResults] = useState<Record<string, { ok: boolean; latency_ms?: number; error?: string }>>({});
 
   const authHeaders = () => ({
     "Content-Type": "application/json",
@@ -306,7 +283,6 @@ export default function ConfiguracionPage() {
         }
       }
 
-      // Load preferences from localStorage
       if (typeof window !== "undefined") {
         const savedModel = localStorage.getItem("pref_default_model");
         const savedArea = localStorage.getItem("pref_default_area");
@@ -324,8 +300,6 @@ export default function ConfiguracionPage() {
   useEffect(() => {
     loadData();
   }, [loadData]);
-
-  // NOTE: tab-specific data loading moved after loadMemories/loadLlmKeys declarations (see below)
 
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -480,12 +454,11 @@ export default function ConfiguracionPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Load tab-specific data (MUST be after loadMemories and loadLlmKeys declarations)
   useEffect(() => {
     if (activeTab === "memoria") {
       loadMemories();
     }
-    if (activeTab === "apikeys") {
+    if (activeTab === "apikeys" || activeTab === "preferencias") {
       loadLlmKeys();
     }
   }, [activeTab, loadMemories, loadLlmKeys]);
@@ -536,6 +509,27 @@ export default function ConfiguracionPage() {
     }
   };
 
+  const handleTestKey = async (providerId: string) => {
+    setTestingProvider(providerId);
+    setTestResults((prev) => ({ ...prev, [providerId]: undefined as any }));
+    try {
+      const res = await fetch(`${API_URL}/api/keys/llm-keys/test`, {
+        method: "POST",
+        headers: authHeaders(),
+        body: JSON.stringify({ provider: providerId }),
+      });
+      const data = await res.json();
+      setTestResults((prev) => ({ ...prev, [providerId]: data }));
+    } catch {
+      setTestResults((prev) => ({
+        ...prev,
+        [providerId]: { ok: false, error: "No se pudo conectar al servidor" },
+      }));
+    } finally {
+      setTestingProvider(null);
+    }
+  };
+
   const handleClearAllMemories = async () => {
     if (!confirm("Borrar TODA la memoria de contexto? Esta accion es irreversible.")) return;
     setClearingMemories(true);
@@ -561,52 +555,81 @@ export default function ConfiguracionPage() {
 
   return (
     <AppLayout>
-      <div className="min-h-full text-[#F5F5F5]">
-        <div className="border-b border-[#1E1E2A] px-4 lg:px-6 py-4 flex items-center gap-3">
-          <Settings className="w-5 h-5 text-[#EAB308]" />
-          <h1 className="font-bold text-base">Configuración</h1>
+      <div className="min-h-full text-on-surface">
+        {/* Header */}
+        <div className="border-b border-[rgba(79,70,51,0.15)] px-4 lg:px-6 py-5 flex items-center gap-3 sticky top-0 z-10 bg-[#0e0e14]">
+          <Settings className="w-4 h-4 text-primary" />
+          <span className="text-primary text-xs uppercase tracking-[0.2em] font-bold">Cuenta</span>
+          <span className="text-on-surface/20 mx-1">·</span>
+          <h1 className="font-['Newsreader'] text-xl font-bold text-on-surface">Configuración</h1>
         </div>
 
         <div className="max-w-5xl mx-auto px-4 lg:px-6 py-6 sm:py-8">
-        {/* Alerts */}
-        {error && (
-          <div className="flex items-center gap-3 bg-red-500/10 border border-red-500/30 text-red-400 rounded-xl px-4 py-3 mb-6 text-sm">
-            <AlertTriangle className="w-4 h-4 shrink-0" />
-            <span>{error}</span>
-          </div>
-        )}
-        {successMsg && (
-          <div className="flex items-center gap-3 bg-[#34D399]/10 border border-[#34D399]/30 text-[#34D399] rounded-xl px-4 py-3 mb-6 text-sm">
-            <CheckCircle2 className="w-4 h-4 shrink-0" />
-            <span>{successMsg}</span>
-          </div>
-        )}
+          {/* Alerts */}
+          {error && (
+            <div className="flex items-center gap-3 bg-[#93000a]/20 border border-[#ffb4ab]/30 text-[#ffb4ab] rounded-lg px-4 py-3 mb-6 text-sm">
+              <AlertTriangle className="w-4 h-4 shrink-0" />
+              <span>{error}</span>
+            </div>
+          )}
+          {successMsg && (
+            <div className="flex items-center gap-3 bg-[#1a3a2a]/60 border border-[#6ee7b7]/20 text-[#6ee7b7] rounded-lg px-4 py-3 mb-6 text-sm">
+              <CheckCircle2 className="w-4 h-4 shrink-0" />
+              <span>{successMsg}</span>
+            </div>
+          )}
 
-        {loading ? (
-          <div className="flex flex-col items-center justify-center py-24 gap-3">
-            <Loader2 className="w-8 h-8 text-[#EAB308] animate-spin" />
-            <p className="text-sm text-[#6B7280]">Cargando configuracion...</p>
-          </div>
-        ) : (
-          <div className="flex flex-col lg:flex-row gap-4 sm:gap-6">
-            {/* Tabs — horizontal scrollable on mobile, vertical sidebar on desktop */}
-            <aside className="lg:w-52 shrink-0">
-              {/* Mobile: horizontal scroll tabs */}
-              <div className="lg:hidden overflow-x-auto">
-                <div className="flex gap-1 bg-[#111116] border border-[#1E1E2A] rounded-xl p-1 min-w-max">
+          {loading ? (
+            <div className="flex flex-col items-center justify-center py-24 gap-3">
+              <Loader2 className="w-8 h-8 text-primary animate-spin" />
+              <p className="text-sm text-on-surface/40">Cargando configuracion...</p>
+            </div>
+          ) : (
+            <div className="flex flex-col lg:flex-row gap-4 sm:gap-6">
+              {/* Sidebar */}
+              <aside className="lg:w-52 shrink-0 lg:sticky lg:top-20 lg:self-start">
+                {/* Mobile: horizontal scroll tabs */}
+                <div className="lg:hidden overflow-x-auto">
+                  <div className="flex gap-1 bg-surface-container-low border border-[rgba(79,70,51,0.15)] rounded-lg p-1 min-w-max">
+                    {TABS.map((tab) => {
+                      const Icon = tab.icon;
+                      return (
+                        <button
+                          key={tab.id}
+                          onClick={() => { setActiveTab(tab.id); setError(""); }}
+                          className={`flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm transition-colors whitespace-nowrap ${
+                            activeTab === tab.id
+                              ? "bg-primary/10 text-primary"
+                              : "text-on-surface/60 hover:text-on-surface hover:bg-surface-container"
+                          }`}
+                        >
+                          <Icon className="w-4 h-4" />
+                          {tab.label}
+                        </button>
+                      );
+                    })}
+                    <button
+                      onClick={handleLogout}
+                      className="flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm text-[#ffb4ab]/70 hover:text-[#ffb4ab] transition-colors whitespace-nowrap"
+                    >
+                      <LogOut className="w-4 h-4" />
+                      Salir
+                    </button>
+                  </div>
+                </div>
+
+                {/* Desktop: vertical sidebar */}
+                <nav className="hidden lg:block bg-surface-container-low border border-[rgba(79,70,51,0.15)] rounded-lg overflow-hidden">
                   {TABS.map((tab) => {
                     const Icon = tab.icon;
                     return (
                       <button
                         key={tab.id}
-                        onClick={() => {
-                          setActiveTab(tab.id);
-                          setError("");
-                        }}
-                        className={`flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm transition-colors whitespace-nowrap ${
+                        onClick={() => { setActiveTab(tab.id); setError(""); }}
+                        className={`w-full flex items-center gap-3 px-4 py-3 text-sm transition-colors border-b border-[rgba(79,70,51,0.15)] last:border-0 ${
                           activeTab === tab.id
-                            ? "bg-[#EAB308]/10 text-[#EAB308]"
-                            : "text-[#9CA3AF] hover:bg-[#1A1A22] hover:text-[#F5F5F5]"
+                            ? "bg-primary/10 text-primary"
+                            : "text-on-surface/60 hover:text-on-surface hover:bg-surface-container"
                         }`}
                       >
                         <Icon className="w-4 h-4" />
@@ -614,711 +637,809 @@ export default function ConfiguracionPage() {
                       </button>
                     );
                   })}
-                  <button
-                    onClick={handleLogout}
-                    className="flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm text-red-400/70 hover:text-red-400 transition-colors whitespace-nowrap"
-                  >
-                    <LogOut className="w-4 h-4" />
-                    Salir
-                  </button>
-                </div>
-              </div>
-
-              {/* Desktop: vertical sidebar */}
-              <nav className="hidden lg:block bg-[#111116] border border-[#1E1E2A] rounded-xl overflow-hidden">
-                {TABS.map((tab) => {
-                  const Icon = tab.icon;
-                  return (
+                  <div className="border-t border-[rgba(79,70,51,0.15)]">
                     <button
-                      key={tab.id}
-                      onClick={() => {
-                        setActiveTab(tab.id);
-                        setError("");
-                      }}
-                      className={`w-full flex items-center gap-3 px-4 py-3 text-sm transition-colors border-b border-[#1E1E2A] last:border-0 ${
-                        activeTab === tab.id
-                          ? "bg-[#EAB308]/10 text-[#EAB308]"
-                          : "text-[#9CA3AF] hover:bg-[#1A1A22] hover:text-[#F5F5F5]"
-                      }`}
+                      onClick={handleLogout}
+                      className="w-full flex items-center gap-3 px-4 py-3 text-sm text-[#ffb4ab]/70 hover:text-[#ffb4ab] hover:bg-[#93000a]/20 transition-colors"
                     >
-                      <Icon className="w-4 h-4" />
-                      {tab.label}
+                      <LogOut className="w-4 h-4" />
+                      Cerrar sesion
                     </button>
-                  );
-                })}
-
-                {/* Logout */}
-                <div className="border-t border-[#1E1E2A]">
-                  <button
-                    onClick={handleLogout}
-                    className="w-full flex items-center gap-3 px-4 py-3 text-sm text-red-400/70 hover:text-red-400 hover:bg-red-400/10 transition-colors"
-                  >
-                    <LogOut className="w-4 h-4" />
-                    Cerrar sesion
-                  </button>
-                </div>
-              </nav>
-            </aside>
-
-            {/* Tab Content */}
-            <div className="flex-1 min-w-0">
-              {/* --- PERFIL TAB --- */}
-              {activeTab === "perfil" && (
-                <div className="space-y-5">
-                  {/* Profile info */}
-                  <div className="bg-[#111116] border border-[#1E1E2A] rounded-xl p-6">
-                    <h2 className="font-semibold text-sm mb-5 flex items-center gap-2">
-                      <User className="w-4 h-4 text-[#EAB308]" />
-                      Informacion del perfil
-                    </h2>
-                    <form onSubmit={handleSaveProfile} className="space-y-4">
-                      <div>
-                        <label className="block text-xs font-medium text-[#9CA3AF] mb-1.5">
-                          Correo electronico
-                        </label>
-                        <input
-                          type="email"
-                          value={profile?.email || ""}
-                          readOnly
-                          className="w-full bg-[#1A1A22]/50 border border-[#2A2A35] rounded-xl px-3 py-2.5 text-sm text-[#6B7280] cursor-not-allowed"
-                        />
-                        <p className="text-[10px] text-[#6B7280] mt-1">El email no puede ser modificado</p>
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-[#9CA3AF] mb-1.5">
-                          Nombre
-                        </label>
-                        <input
-                          type="text"
-                          value={profileName}
-                          onChange={(e) => setProfileName(e.target.value)}
-                          placeholder="Tu nombre completo"
-                          className="w-full bg-[#111116] border border-[#2A2A35] rounded-xl px-3 py-2.5 text-sm text-[#F5F5F5] placeholder-[#6B7280] focus:outline-none focus:border-[#EAB308] focus:ring-1 focus:ring-[#EAB308]/25"
-                        />
-                      </div>
-                      <div className="flex justify-end">
-                        <button
-                          type="submit"
-                          disabled={savingProfile}
-                          className="bg-[#EAB308] hover:bg-[#ca9a07] disabled:bg-[#2A2A35] disabled:text-[#6B7280] text-[#0A0A0F] rounded-xl px-4 py-2 text-sm font-medium flex items-center gap-2 transition-colors"
-                        >
-                          {savingProfile ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
-                          Guardar cambios
-                        </button>
-                      </div>
-                    </form>
                   </div>
+                </nav>
+              </aside>
 
-                  {/* Change Password */}
-                  <div className="bg-[#111116] border border-[#1E1E2A] rounded-xl p-6">
-                    <h2 className="font-semibold text-sm mb-5 flex items-center gap-2">
-                      <Lock className="w-4 h-4 text-[#EAB308]" />
-                      Cambiar contrasena
-                    </h2>
-                    <form onSubmit={handleChangePassword} className="space-y-4">
-                      <div>
-                        <label className="block text-xs font-medium text-[#9CA3AF] mb-1.5">
-                          Contrasena actual
-                        </label>
-                        <div className="relative">
+              {/* Tab Content */}
+              <div className="flex-1 min-w-0">
+                {/* --- PERFIL TAB --- */}
+                {activeTab === "perfil" && (
+                  <div className="space-y-4">
+                    <div className="bg-surface-container-low border border-[rgba(79,70,51,0.15)] rounded-lg p-6">
+                      <h2 className="font-['Newsreader'] text-lg font-bold text-on-surface mb-5 flex items-center gap-2">
+                        <User className="w-4 h-4 text-primary" />
+                        Informacion del perfil
+                      </h2>
+                      <form onSubmit={handleSaveProfile} className="space-y-4">
+                        <div>
+                          <label className="block text-xs uppercase tracking-widest text-on-surface-variant mb-1.5">
+                            Correo electronico
+                          </label>
                           <input
-                            type={showCurrentPw ? "text" : "password"}
-                            value={currentPassword}
-                            onChange={(e) => setCurrentPassword(e.target.value)}
-                            placeholder="••••••••"
-                            className="w-full bg-[#111116] border border-[#2A2A35] rounded-xl px-3 py-2.5 pr-10 text-sm text-[#F5F5F5] placeholder-[#6B7280] focus:outline-none focus:border-[#EAB308] focus:ring-1 focus:ring-[#EAB308]/25"
-                            required
+                            type="email"
+                            value={profile?.email || ""}
+                            readOnly
+                            className="w-full bg-surface border border-transparent rounded-lg px-3 py-3 text-sm text-on-surface/40 cursor-not-allowed"
                           />
+                          <p className="text-[10px] text-on-surface/30 mt-1">El email no puede ser modificado</p>
+                        </div>
+                        <div>
+                          <label className="block text-xs uppercase tracking-widest text-on-surface-variant mb-1.5">
+                            Nombre
+                          </label>
+                          <input
+                            type="text"
+                            value={profileName}
+                            onChange={(e) => setProfileName(e.target.value)}
+                            placeholder="Tu nombre completo"
+                            className="w-full bg-[#35343a] border border-transparent rounded-lg px-3 py-3 text-sm text-on-surface placeholder-on-surface/30 focus:outline-none focus:border-primary transition-colors"
+                          />
+                        </div>
+                        <div className="flex justify-end">
                           <button
-                            type="button"
-                            onClick={() => setShowCurrentPw(!showCurrentPw)}
-                            className="absolute right-3 top-1/2 -translate-y-1/2 text-[#6B7280] hover:text-[#F5F5F5]"
+                            type="submit"
+                            disabled={savingProfile}
+                            className="bg-gradient-to-br from-primary to-primary-container disabled:opacity-40 text-on-primary rounded-lg px-5 py-2.5 text-sm font-bold flex items-center gap-2 transition-opacity"
                           >
-                            {showCurrentPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                            {savingProfile ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                            Guardar cambios
                           </button>
                         </div>
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-[#9CA3AF] mb-1.5">
-                          Nueva contrasena
-                        </label>
-                        <div className="relative">
-                          <input
-                            type={showNewPw ? "text" : "password"}
-                            value={newPassword}
-                            onChange={(e) => setNewPassword(e.target.value)}
-                            placeholder="Minimo 8 caracteres"
-                            className="w-full bg-[#111116] border border-[#2A2A35] rounded-xl px-3 py-2.5 pr-10 text-sm text-[#F5F5F5] placeholder-[#6B7280] focus:outline-none focus:border-[#EAB308] focus:ring-1 focus:ring-[#EAB308]/25"
-                            required
-                            minLength={8}
-                          />
-                          <button
-                            type="button"
-                            onClick={() => setShowNewPw(!showNewPw)}
-                            className="absolute right-3 top-1/2 -translate-y-1/2 text-[#6B7280] hover:text-[#F5F5F5]"
-                          >
-                            {showNewPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                          </button>
-                        </div>
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-[#9CA3AF] mb-1.5">
-                          Confirmar nueva contrasena
-                        </label>
-                        <input
-                          type="password"
-                          value={confirmPassword}
-                          onChange={(e) => setConfirmPassword(e.target.value)}
-                          placeholder="Repite la nueva contrasena"
-                          className="w-full bg-[#111116] border border-[#2A2A35] rounded-xl px-3 py-2.5 text-sm text-[#F5F5F5] placeholder-[#6B7280] focus:outline-none focus:border-[#EAB308] focus:ring-1 focus:ring-[#EAB308]/25"
-                          required
-                        />
-                      </div>
-                      <div className="flex justify-end">
-                        <button
-                          type="submit"
-                          disabled={savingPassword || !currentPassword || !newPassword || !confirmPassword}
-                          className="bg-[#EAB308] hover:bg-[#ca9a07] disabled:bg-[#2A2A35] disabled:text-[#6B7280] text-[#0A0A0F] rounded-xl px-4 py-2 text-sm font-medium flex items-center gap-2 transition-colors"
-                        >
-                          {savingPassword ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Lock className="w-3.5 h-3.5" />}
-                          Actualizar contrasena
-                        </button>
-                      </div>
-                    </form>
-                  </div>
-                </div>
-              )}
+                      </form>
+                    </div>
 
-              {/* --- ORGANIZACION TAB --- */}
-              {activeTab === "organizacion" && (
-                <div className="space-y-5">
-                  {org ? (
-                    <>
-                      {/* Org Settings */}
-                      <div className="bg-[#111116] border border-[#1E1E2A] rounded-xl p-6">
-                        <h2 className="font-semibold text-sm mb-5 flex items-center gap-2">
-                          <Building2 className="w-4 h-4 text-[#EAB308]" />
-                          Datos de la organizacion
-                        </h2>
-                        <form onSubmit={handleSaveOrg} className="space-y-4">
-                          <div>
-                            <label className="block text-xs font-medium text-[#9CA3AF] mb-1.5">
-                              Nombre de la organizacion
-                            </label>
+                    <div className="bg-surface-container-low border border-[rgba(79,70,51,0.15)] rounded-lg p-6">
+                      <h2 className="font-['Newsreader'] text-lg font-bold text-on-surface mb-5 flex items-center gap-2">
+                        <Lock className="w-4 h-4 text-primary" />
+                        Cambiar contrasena
+                      </h2>
+                      <form onSubmit={handleChangePassword} className="space-y-4">
+                        <div>
+                          <label className="block text-xs uppercase tracking-widest text-on-surface-variant mb-1.5">
+                            Contrasena actual
+                          </label>
+                          <div className="relative">
                             <input
-                              type="text"
-                              value={orgName}
-                              onChange={(e) => setOrgName(e.target.value)}
-                              placeholder="Nombre de tu organizacion"
-                              className="w-full bg-[#111116] border border-[#2A2A35] rounded-xl px-3 py-2.5 text-sm text-[#F5F5F5] placeholder-[#6B7280] focus:outline-none focus:border-[#EAB308] focus:ring-1 focus:ring-[#EAB308]/25"
+                              type={showCurrentPw ? "text" : "password"}
+                              value={currentPassword}
+                              onChange={(e) => setCurrentPassword(e.target.value)}
+                              placeholder="••••••••"
+                              className="w-full bg-[#35343a] border border-transparent rounded-lg px-3 py-3 pr-10 text-sm text-on-surface placeholder-on-surface/30 focus:outline-none focus:border-primary transition-colors"
                               required
                             />
-                          </div>
-                          <div>
-                            <label className="block text-xs font-medium text-[#9CA3AF] mb-1.5">
-                              Identificador (slug)
-                            </label>
-                            <input
-                              type="text"
-                              value={org.slug}
-                              readOnly
-                              className="w-full bg-[#1A1A22]/50 border border-[#2A2A35] rounded-xl px-3 py-2.5 text-sm text-[#6B7280] cursor-not-allowed"
-                            />
-                            <p className="text-[10px] text-[#6B7280] mt-1">El slug no puede ser modificado</p>
-                          </div>
-                          <div>
-                            <label className="block text-xs font-medium text-[#9CA3AF] mb-1.5">Plan</label>
-                            <div className="flex items-center gap-2">
-                              <span className="text-sm text-[#F5F5F5] capitalize">{org.plan}</span>
-                              <Link href="/billing" className="text-xs text-[#EAB308] hover:text-[#ca9a07]">
-                                Cambiar plan
-                              </Link>
-                            </div>
-                          </div>
-                          <div className="flex justify-end">
                             <button
-                              type="submit"
-                              disabled={savingOrg || !orgName.trim()}
-                              className="bg-[#EAB308] hover:bg-[#ca9a07] disabled:bg-[#2A2A35] disabled:text-[#6B7280] text-[#0A0A0F] rounded-xl px-4 py-2 text-sm font-medium flex items-center gap-2 transition-colors"
+                              type="button"
+                              onClick={() => setShowCurrentPw(!showCurrentPw)}
+                              className="absolute right-3 top-1/2 -translate-y-1/2 text-on-surface/40 hover:text-on-surface transition-colors"
                             >
-                              {savingOrg ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
-                              Guardar cambios
+                              {showCurrentPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                             </button>
                           </div>
-                        </form>
-                      </div>
+                        </div>
+                        <div>
+                          <label className="block text-xs uppercase tracking-widest text-on-surface-variant mb-1.5">
+                            Nueva contrasena
+                          </label>
+                          <div className="relative">
+                            <input
+                              type={showNewPw ? "text" : "password"}
+                              value={newPassword}
+                              onChange={(e) => setNewPassword(e.target.value)}
+                              placeholder="Minimo 8 caracteres"
+                              className="w-full bg-[#35343a] border border-transparent rounded-lg px-3 py-3 pr-10 text-sm text-on-surface placeholder-on-surface/30 focus:outline-none focus:border-primary transition-colors"
+                              required
+                              minLength={8}
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setShowNewPw(!showNewPw)}
+                              className="absolute right-3 top-1/2 -translate-y-1/2 text-on-surface/40 hover:text-on-surface transition-colors"
+                            >
+                              {showNewPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                            </button>
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block text-xs uppercase tracking-widest text-on-surface-variant mb-1.5">
+                            Confirmar nueva contrasena
+                          </label>
+                          <input
+                            type="password"
+                            value={confirmPassword}
+                            onChange={(e) => setConfirmPassword(e.target.value)}
+                            placeholder="Repite la nueva contrasena"
+                            className="w-full bg-[#35343a] border border-transparent rounded-lg px-3 py-3 text-sm text-on-surface placeholder-on-surface/30 focus:outline-none focus:border-primary transition-colors"
+                            required
+                          />
+                        </div>
+                        <div className="flex justify-end">
+                          <button
+                            type="submit"
+                            disabled={savingPassword || !currentPassword || !newPassword || !confirmPassword}
+                            className="bg-gradient-to-br from-primary to-primary-container disabled:opacity-40 text-on-primary rounded-lg px-5 py-2.5 text-sm font-bold flex items-center gap-2 transition-opacity"
+                          >
+                            {savingPassword ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Lock className="w-3.5 h-3.5" />}
+                            Actualizar contrasena
+                          </button>
+                        </div>
+                      </form>
+                    </div>
+                  </div>
+                )}
 
-                      {/* Danger Zone */}
-                      <div className="bg-[#F87171]/5 border border-[#F87171]/20 rounded-xl p-6">
-                        <h2 className="font-semibold text-sm mb-2 flex items-center gap-2 text-red-400">
-                          <AlertTriangle className="w-4 h-4" />
-                          Zona de peligro
-                        </h2>
-                        <p className="text-xs text-[#6B7280] mb-4">
-                          Estas acciones son irreversibles. Procede con cuidado.
-                        </p>
-                        <button
-                          onClick={async () => {
-                            if (!org || !profile) return;
-                            if (!confirm("¿Estás seguro que querés abandonar esta organización? Esta acción no se puede deshacer.")) return;
-                            try {
-                              const res = await fetch(
-                                `${API_URL}/api/organizations/${org.id}/members/${profile.id}`,
-                                { method: "DELETE", headers: authHeaders() }
-                              );
-                              if (!res.ok) {
-                                const data = await res.json().catch(() => null);
-                                throw new Error(data?.detail || "Error al abandonar la organización");
+                {/* --- ORGANIZACION TAB --- */}
+                {activeTab === "organizacion" && (
+                  <div className="space-y-4">
+                    {org ? (
+                      <>
+                        <div className="bg-surface-container-low border border-[rgba(79,70,51,0.15)] rounded-lg p-6">
+                          <h2 className="font-['Newsreader'] text-lg font-bold text-on-surface mb-5 flex items-center gap-2">
+                            <Building2 className="w-4 h-4 text-primary" />
+                            Datos de la organizacion
+                          </h2>
+                          <form onSubmit={handleSaveOrg} className="space-y-4">
+                            <div>
+                              <label className="block text-xs uppercase tracking-widest text-on-surface-variant mb-1.5">
+                                Nombre de la organizacion
+                              </label>
+                              <input
+                                type="text"
+                                value={orgName}
+                                onChange={(e) => setOrgName(e.target.value)}
+                                placeholder="Nombre de tu organizacion"
+                                className="w-full bg-[#35343a] border border-transparent rounded-lg px-3 py-3 text-sm text-on-surface placeholder-on-surface/30 focus:outline-none focus:border-primary transition-colors"
+                                required
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs uppercase tracking-widest text-on-surface-variant mb-1.5">
+                                Identificador (slug)
+                              </label>
+                              <input
+                                type="text"
+                                value={org.slug}
+                                readOnly
+                                className="w-full bg-surface border border-transparent rounded-lg px-3 py-3 text-sm text-on-surface/40 cursor-not-allowed"
+                              />
+                              <p className="text-[10px] text-on-surface/30 mt-1">El slug no puede ser modificado</p>
+                            </div>
+                            <div>
+                              <label className="block text-xs uppercase tracking-widest text-on-surface-variant mb-1.5">Plan</label>
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm text-on-surface capitalize">{org.plan}</span>
+                                <Link href="/billing" className="text-xs text-primary hover:text-primary-container transition-colors">
+                                  Cambiar plan
+                                </Link>
+                              </div>
+                            </div>
+                            <div className="flex justify-end">
+                              <button
+                                type="submit"
+                                disabled={savingOrg || !orgName.trim()}
+                                className="bg-gradient-to-br from-primary to-primary-container disabled:opacity-40 text-on-primary rounded-lg px-5 py-2.5 text-sm font-bold flex items-center gap-2 transition-opacity"
+                              >
+                                {savingOrg ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                                Guardar cambios
+                              </button>
+                            </div>
+                          </form>
+                        </div>
+
+                        <div className="bg-[#93000a]/10 border border-[#ffb4ab]/20 rounded-lg p-6">
+                          <h2 className="font-['Newsreader'] text-base font-bold mb-2 flex items-center gap-2 text-[#ffb4ab]">
+                            <AlertTriangle className="w-4 h-4" />
+                            Zona de peligro
+                          </h2>
+                          <p className="text-xs text-on-surface/40 mb-4">
+                            Estas acciones son irreversibles. Procede con cuidado.
+                          </p>
+                          <button
+                            onClick={async () => {
+                              if (!org || !profile) return;
+                              if (!confirm("¿Estás seguro que querés abandonar esta organización? Esta acción no se puede deshacer.")) return;
+                              try {
+                                const res = await fetch(
+                                  `${API_URL}/api/organizations/${org.id}/members/${profile.id}`,
+                                  { method: "DELETE", headers: authHeaders() }
+                                );
+                                if (!res.ok) {
+                                  const data = await res.json().catch(() => null);
+                                  throw new Error(data?.detail || "Error al abandonar la organización");
+                                }
+                                window.location.reload();
+                              } catch (err: unknown) {
+                                setError(err instanceof Error ? err.message : "Error al abandonar la organización");
                               }
-                              window.location.reload();
-                            } catch (err: unknown) {
-                              setError(err instanceof Error ? err.message : "Error al abandonar la organización");
-                            }
-                          }}
-                          className="flex items-center gap-2 px-4 py-2 rounded-xl border border-red-500/30 text-red-400 hover:bg-red-500/10 text-sm transition-colors"
+                            }}
+                            className="flex items-center gap-2 px-4 py-2.5 rounded-lg border border-[#ffb4ab]/30 text-[#ffb4ab] hover:bg-[#93000a]/20 text-sm transition-colors"
+                          >
+                            <LogOut className="w-3.5 h-3.5" />
+                            Abandonar organizacion
+                          </button>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="bg-surface-container-low border border-[rgba(79,70,51,0.15)] rounded-lg p-8 text-center">
+                        <Building2 className="w-10 h-10 text-on-surface/10 mx-auto mb-3" />
+                        <p className="text-sm text-on-surface/40 mb-4">No perteneces a ninguna organizacion</p>
+                        <Link
+                          href="/organizacion"
+                          className="inline-flex items-center gap-2 bg-gradient-to-br from-primary to-primary-container text-on-primary rounded-lg px-4 py-2.5 text-sm font-bold transition-opacity"
                         >
-                          <LogOut className="w-3.5 h-3.5" />
-                          Abandonar organizacion
+                          <Building2 className="w-4 h-4" />
+                          Crear organizacion
+                        </Link>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* --- PREFERENCIAS TAB --- */}
+                {activeTab === "preferencias" && (
+                  <div className="space-y-4">
+                    <div className="bg-surface-container-low border border-[rgba(79,70,51,0.15)] rounded-lg p-6">
+                      <h2 className="font-['Newsreader'] text-lg font-bold text-on-surface mb-1 flex items-center gap-2">
+                        <Sliders className="w-4 h-4 text-primary" />
+                        Modelo de IA predeterminado
+                      </h2>
+                      <p className="text-[11px] text-on-surface/40 mb-5">
+                        Selecciona el modelo que se usará por defecto al iniciar una consulta.
+                      </p>
+
+                      <div className="space-y-4">
+                        {(() => {
+                          const providerOrder = ["google", "groq", "deepseek", "openai", "anthropic", "xai"];
+                          const providerLabels: Record<string, { name: string; color: string }> = {
+                            google: { name: "Google (Gemini)", color: "text-blue-400" },
+                            groq: { name: "Groq", color: "text-orange-400" },
+                            deepseek: { name: "DeepSeek", color: "text-cyan-400" },
+                            openai: { name: "OpenAI", color: "text-green-400" },
+                            anthropic: { name: "Anthropic (Claude)", color: "text-amber-400" },
+                          };
+                          const tierBadge = (tier: string) => {
+                            const styles: Record<string, string> = {
+                              free: "bg-[#1a3a2a] text-[#6ee7b7]",
+                              standard: "bg-secondary-container text-secondary",
+                              pro: "bg-[#2d1f4a] text-[#c4b5fd]",
+                            };
+                            const labels: Record<string, string> = {
+                              free: "Gratis",
+                              standard: "Estándar",
+                              pro: "Avanzado",
+                            };
+                            return (
+                              <span className={`text-[9px] uppercase tracking-widest font-bold px-1.5 py-0.5 rounded ${styles[tier] || ""}`}>
+                                {labels[tier] || tier}
+                              </span>
+                            );
+                          };
+
+                          const configuredProviders = new Set(llmKeys.map(k => k.provider));
+
+                          return providerOrder.map((providerId) => {
+                            const info = providerLabels[providerId];
+                            if (!info) return null;
+                            const models = MODEL_CATALOG.filter(m => m.provider === providerId);
+                            if (models.length === 0) return null;
+                            const hasKey = configuredProviders.has(providerId);
+
+                            return (
+                              <div key={providerId}>
+                                <div className="flex items-center gap-2 mb-2">
+                                  <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${hasKey ? "bg-[#6ee7b7]" : "bg-[#35343a]"}`} />
+                                  <span className={`text-xs font-bold uppercase tracking-widest ${info.color}`}>{info.name}</span>
+                                  {!hasKey && (
+                                    <span className="text-[9px] text-on-surface/20">— sin API key</span>
+                                  )}
+                                </div>
+
+                                <div className="space-y-1 pl-3.5">
+                                  {models.map((model) => {
+                                    const isSelected = defaultModel === model.id;
+                                    return (
+                                      <label
+                                        key={model.id}
+                                        className={`flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer transition-colors ${
+                                          isSelected
+                                            ? "bg-primary/10 border border-primary/20"
+                                            : "border border-transparent hover:bg-surface-container"
+                                        } ${!hasKey ? "opacity-30 cursor-not-allowed" : ""}`}
+                                      >
+                                        <input
+                                          type="radio"
+                                          name="defaultModel"
+                                          value={model.id}
+                                          checked={isSelected}
+                                          disabled={!hasKey}
+                                          onChange={(e) => setDefaultModel(e.target.value)}
+                                          className="sr-only"
+                                        />
+                                        <div className={`w-3.5 h-3.5 rounded-full border-2 shrink-0 flex items-center justify-center ${
+                                          isSelected ? "border-primary" : "border-[#35343a]"
+                                        }`}>
+                                          {isSelected && <div className="w-1.5 h-1.5 rounded-full bg-primary" />}
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                          <span className={`text-sm ${isSelected ? "text-on-surface font-medium" : "text-on-surface/60"}`}>
+                                            {model.name}
+                                          </span>
+                                        </div>
+                                        <div className="flex items-center gap-2 shrink-0">
+                                          {tierBadge(model.tier)}
+                                        </div>
+                                        <span className="text-[10px] text-on-surface/25 max-w-[140px] truncate hidden sm:block">
+                                          {model.description}
+                                        </span>
+                                      </label>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            );
+                          });
+                        })()}
+                      </div>
+                    </div>
+
+                    <div className="bg-surface-container-low border border-[rgba(79,70,51,0.15)] rounded-lg p-6">
+                      <form onSubmit={handleSavePreferences} className="space-y-5">
+                        <div>
+                          <label className="block text-xs uppercase tracking-widest text-on-surface-variant mb-1.5">
+                            Área legal predeterminada
+                          </label>
+                          <select
+                            value={defaultArea}
+                            onChange={(e) => setDefaultArea(e.target.value)}
+                            className="w-full bg-[#35343a] border border-transparent rounded-lg px-3 py-3 text-sm text-on-surface focus:outline-none focus:border-primary transition-colors"
+                          >
+                            {LEGAL_AREAS.map((a) => (
+                              <option key={a.id} value={a.id}>{a.name}</option>
+                            ))}
+                          </select>
+                          <p className="text-[10px] text-on-surface/30 mt-1">
+                            Las consultas se dirigirán a esta área por defecto
+                          </p>
+                        </div>
+
+                        <div>
+                          <label className="block text-xs uppercase tracking-widest text-on-surface-variant mb-1.5">
+                            Tema de la interfaz
+                          </label>
+                          <div className="flex items-center gap-3 py-3 px-3 bg-surface border border-transparent rounded-lg">
+                            <div className="w-4 h-4 rounded-full bg-[#0e0e14] border border-[rgba(79,70,51,0.15)]" />
+                            <span className="text-sm text-on-surface">Modo oscuro</span>
+                            <span className="ml-auto text-[10px] text-on-surface/30">Siempre activo</span>
+                          </div>
+                        </div>
+
+                        <div className="flex justify-end pt-2">
+                          <button
+                            type="submit"
+                            className="bg-gradient-to-br from-primary to-primary-container text-on-primary rounded-lg px-5 py-2.5 text-sm font-bold flex items-center gap-2 transition-opacity"
+                          >
+                            <Save className="w-3.5 h-3.5" />
+                            Guardar preferencias
+                          </button>
+                        </div>
+                      </form>
+                    </div>
+                  </div>
+                )}
+
+                {/* --- MEMORIA TAB --- */}
+                {activeTab === "memoria" && (
+                  <div className="space-y-4">
+                    <div className="bg-surface-container-low border border-[rgba(79,70,51,0.15)] rounded-lg p-6">
+                      <div className="flex items-start justify-between gap-4">
+                        <div>
+                          <h2 className="font-['Newsreader'] text-lg font-bold text-on-surface flex items-center gap-2 mb-1">
+                            <Brain className="w-4 h-4 text-primary" />
+                            Memoria de Contexto
+                          </h2>
+                          <p className="text-xs text-on-surface/40 max-w-md">
+                            TukiJuris recordara informacion relevante sobre vos entre conversaciones
+                            para dar respuestas mas personalizadas.
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => setMemoryEnabled(!memoryEnabled)}
+                          className={`shrink-0 w-10 h-6 rounded-full transition-colors relative ${
+                            memoryEnabled ? "bg-primary-container" : "bg-[#35343a]"
+                          }`}
+                        >
+                          <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white transition-transform shadow ${
+                            memoryEnabled ? "translate-x-4" : "translate-x-0.5"
+                          }`} />
                         </button>
                       </div>
-                    </>
-                  ) : (
-                    <div className="bg-[#111116] border border-[#1E1E2A] rounded-xl p-8 text-center">
-                      <Building2 className="w-10 h-10 text-[#2A2A35] mx-auto mb-3" />
-                      <p className="text-sm text-[#9CA3AF] mb-4">No perteneces a ninguna organizacion</p>
-                      <Link
-                        href="/organizacion"
-                        className="inline-flex items-center gap-2 bg-[#EAB308] hover:bg-[#ca9a07] text-[#0A0A0F] rounded-xl px-4 py-2 text-sm font-medium transition-colors"
-                      >
-                        <Building2 className="w-4 h-4" />
-                        Crear organizacion
-                      </Link>
-                    </div>
-                  )}
-                </div>
-              )}
 
-              {/* --- PREFERENCIAS TAB --- */}
-              {activeTab === "preferencias" && (
-                <div className="bg-[#111116] border border-[#1E1E2A] rounded-xl p-6">
-                  <h2 className="font-semibold text-sm mb-5 flex items-center gap-2">
-                    <Sliders className="w-4 h-4 text-[#EAB308]" />
-                    Preferencias de uso
-                  </h2>
-                  <form onSubmit={handleSavePreferences} className="space-y-5">
-                    <div>
-                      <label className="block text-xs font-medium text-[#9CA3AF] mb-1.5">
-                        Modelo de IA predeterminado
-                      </label>
-                      <select
-                        value={defaultModel}
-                        onChange={(e) => setDefaultModel(e.target.value)}
-                        className="w-full bg-[#111116] border border-[#2A2A35] rounded-xl px-3 py-2.5 text-sm text-[#F5F5F5] focus:outline-none focus:border-[#EAB308]"
-                      >
-                        {["Gratis", "Estándar", "Avanzado"].map((group) => (
-                          <optgroup key={group} label={group}>
-                            {MODELS.filter((m) => m.group === group).map((m) => (
-                              <option key={m.id} value={m.id}>{m.name}</option>
-                            ))}
-                          </optgroup>
-                        ))}
-                      </select>
-                      <p className="text-[10px] text-[#6B7280] mt-1">
-                        El modelo se usara por defecto al iniciar una consulta
-                      </p>
+                      {memoriesData && (
+                        <div className="mt-4 flex items-center gap-4 text-xs text-on-surface/40">
+                          <span>{memoriesData.active_count} memorias activas</span>
+                          <span className="text-on-surface/10">•</span>
+                          <span>{memoriesData.total} memorias en total</span>
+                        </div>
+                      )}
                     </div>
 
-                    <div>
-                      <label className="block text-xs font-medium text-[#9CA3AF] mb-1.5">
-                        Area legal predeterminada
-                      </label>
-                      <select
-                        value={defaultArea}
-                        onChange={(e) => setDefaultArea(e.target.value)}
-                        className="w-full bg-[#111116] border border-[#2A2A35] rounded-xl px-3 py-2.5 text-sm text-[#F5F5F5] focus:outline-none focus:border-[#EAB308]"
-                      >
-                        {LEGAL_AREAS.map((a) => (
-                          <option key={a.id} value={a.id}>{a.name}</option>
-                        ))}
-                      </select>
-                      <p className="text-[10px] text-[#6B7280] mt-1">
-                        Las consultas se dirigiran a esta area por defecto
-                      </p>
-                    </div>
+                    <div className="bg-surface-container-low border border-[rgba(79,70,51,0.15)] rounded-lg p-6">
+                      <h3 className="text-xs uppercase tracking-widest text-on-surface-variant mb-4">
+                        Lo que TukiJuris sabe sobre vos
+                      </h3>
 
-                    <div>
-                      <label className="block text-xs font-medium text-[#9CA3AF] mb-1.5">
-                        Tema de la interfaz
-                      </label>
-                      <div className="flex items-center gap-3 py-2.5 px-3 bg-[#111116] border border-[#2A2A35] rounded-xl">
-                        <div className="w-4 h-4 rounded-full bg-[#0A0A0F] border border-[#2A2A35]" />
-                        <span className="text-sm text-[#F5F5F5]">Modo oscuro</span>
-                        <span className="ml-auto text-[10px] text-[#6B7280]">Siempre activo</span>
-                      </div>
-                    </div>
-
-                    <div className="flex justify-end pt-2">
-                      <button
-                        type="submit"
-                        className="bg-[#EAB308] hover:bg-[#ca9a07] text-[#0A0A0F] rounded-xl px-4 py-2 text-sm font-medium flex items-center gap-2 transition-colors"
-                      >
-                        <Save className="w-3.5 h-3.5" />
-                        Guardar preferencias
-                      </button>
-                    </div>
-                  </form>
-                </div>
-              )}
-
-              {/* --- MEMORIA TAB --- */}
-              {activeTab === "memoria" && (
-                <div className="space-y-5">
-                  {/* Toggle + description */}
-                  <div className="bg-[#111116] border border-[#1E1E2A] rounded-xl p-6">
-                    <div className="flex items-start justify-between gap-4">
-                      <div>
-                        <h2 className="font-semibold text-sm flex items-center gap-2 mb-1">
-                          <Brain className="w-4 h-4 text-[#EAB308]" />
-                          Memoria de Contexto
-                        </h2>
-                        <p className="text-xs text-[#9CA3AF] max-w-md">
-                          TukiJuris recordara informacion relevante sobre vos entre conversaciones
-                          para dar respuestas mas personalizadas.
-                        </p>
-                      </div>
-                      <button
-                        onClick={() => setMemoryEnabled(!memoryEnabled)}
-                        className={`shrink-0 flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-medium transition-colors ${
-                          memoryEnabled
-                            ? "bg-[#EAB308]/10 text-[#EAB308] hover:bg-[#EAB308]/20"
-                            : "bg-[#1A1A22] text-[#6B7280] hover:bg-[#2A2A35]"
-                        }`}
-                      >
-                        {memoryEnabled ? (
-                          <ToggleRight className="w-4 h-4" />
-                        ) : (
-                          <ToggleLeft className="w-4 h-4" />
-                        )}
-                        {memoryEnabled ? "Activa" : "Inactiva"}
-                      </button>
-                    </div>
-
-                    {/* Stats */}
-                    {memoriesData && (
-                      <div className="mt-4 flex items-center gap-4 text-xs text-[#6B7280]">
-                        <span>{memoriesData.active_count} memorias activas</span>
-                        <span className="text-[#2A2A35]">•</span>
-                        <span>{memoriesData.total} memorias en total</span>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Memory list */}
-                  <div className="bg-[#111116] border border-[#1E1E2A] rounded-xl p-6">
-                    <h3 className="font-semibold text-sm mb-4 text-[#F5F5F5]">
-                      Lo que TukiJuris sabe sobre vos
-                    </h3>
-
-                    {loadingMemories ? (
-                      <div className="flex items-center justify-center py-10 gap-2">
-                        <Loader2 className="w-5 h-5 text-[#EAB308] animate-spin" />
-                        <span className="text-sm text-[#6B7280]">Cargando memorias...</span>
-                      </div>
-                    ) : !memoriesData || memoriesData.total === 0 ? (
-                      <div className="flex flex-col items-center justify-center py-10 text-center border border-dashed border-[#2A2A35] rounded-xl">
-                        <Brain className="w-10 h-10 text-[#2A2A35] mb-3" />
-                        <p className="text-sm font-medium text-[#9CA3AF] mb-1">
-                          Sin memorias todavia
-                        </p>
-                        <p className="text-xs text-[#6B7280] max-w-xs">
-                          TukiJuris aprendera sobre vos a medida que uses la plataforma.
-                        </p>
-                      </div>
-                    ) : (
-                      <div className="space-y-5">
-                        {memoriesData.groups.map((group) => (
-                          <div key={group.category}>
-                            <div className="flex items-center gap-2 mb-2">
-                              <span
-                                className={`text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded border ${
-                                  CATEGORY_COLORS[group.category] ||
-                                  "bg-[#2A2A35] text-[#9CA3AF] border-[#2A2A35]"
-                                }`}
-                              >
-                                {group.label}
-                              </span>
-                            </div>
-                            <div className="space-y-1.5">
-                              {group.memories.map((memory) => (
-                                <div
-                                  key={memory.id}
-                                  className={`flex items-center gap-3 px-3 py-2 rounded-xl border transition-colors ${
-                                    memory.is_active
-                                      ? "bg-[#1A1A22] border-[#2A2A35]"
-                                      : "bg-[#1A1A22]/30 border-[#1E1E2A] opacity-50"
+                      {loadingMemories ? (
+                        <div className="flex items-center justify-center py-10 gap-2">
+                          <Loader2 className="w-5 h-5 text-primary animate-spin" />
+                          <span className="text-sm text-on-surface/40">Cargando memorias...</span>
+                        </div>
+                      ) : !memoriesData || memoriesData.total === 0 ? (
+                        <div className="flex flex-col items-center justify-center py-10 text-center border border-dashed border-[rgba(79,70,51,0.15)] rounded-lg">
+                          <Brain className="w-10 h-10 text-on-surface/10 mb-3" />
+                          <p className="text-sm font-medium text-on-surface/40 mb-1">
+                            Sin memorias todavia
+                          </p>
+                          <p className="text-xs text-on-surface/25 max-w-xs">
+                            TukiJuris aprendera sobre vos a medida que uses la plataforma.
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="space-y-5">
+                          {memoriesData.groups.map((group) => (
+                            <div key={group.category}>
+                              <div className="flex items-center gap-2 mb-2">
+                                <span
+                                  className={`text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded ${
+                                    CATEGORY_COLORS[group.category] || "bg-[#35343a] text-on-surface/60"
                                   }`}
                                 >
-                                  <span className="flex-1 text-sm text-[#F5F5F5] truncate">
-                                    {memory.content}
-                                  </span>
-                                  <div className="flex items-center gap-1 shrink-0">
-                                    <button
-                                      onClick={() =>
-                                        handleToggleMemory(memory.id, !memory.is_active)
-                                      }
-                                      title={memory.is_active ? "Desactivar" : "Activar"}
-                                      className="p-1.5 rounded-md text-[#6B7280] hover:text-[#F5F5F5] hover:bg-[#2A2A35] transition-colors"
-                                    >
-                                      <Eye className="w-3.5 h-3.5" />
-                                    </button>
-                                    <button
-                                      onClick={() => handleDeleteMemory(memory.id)}
-                                      title="Eliminar"
-                                      className="p-1.5 rounded-md text-[#6B7280] hover:text-red-400 hover:bg-red-400/10 transition-colors"
-                                    >
-                                      <Trash2 className="w-3.5 h-3.5" />
-                                    </button>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Danger zone — clear all */}
-                  {memoriesData && memoriesData.total > 0 && (
-                    <div className="bg-[#F87171]/5 border border-[#F87171]/20 rounded-xl p-6">
-                      <h3 className="font-semibold text-sm mb-2 flex items-center gap-2 text-red-400">
-                        <AlertTriangle className="w-4 h-4" />
-                        Zona de peligro
-                      </h3>
-                      <p className="text-xs text-[#6B7280] mb-4">
-                        Borrar toda la memoria eliminara permanentemente todos los datos que
-                        TukiJuris aprendio sobre vos.
-                      </p>
-                      <button
-                        onClick={handleClearAllMemories}
-                        disabled={clearingMemories}
-                        className="flex items-center gap-2 px-4 py-2 rounded-xl border border-red-500/30 text-red-400 hover:bg-red-500/10 disabled:opacity-50 text-sm transition-colors"
-                      >
-                        {clearingMemories ? (
-                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                        ) : (
-                          <Trash2 className="w-3.5 h-3.5" />
-                        )}
-                        Borrar toda la memoria
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* --- API KEYS TAB --- */}
-              {activeTab === "apikeys" && (
-                <div className="space-y-5">
-                  {/* Header card */}
-                  <div className="bg-[#111116] border border-[#1E1E2A] rounded-xl p-6">
-                    <h2 className="font-semibold text-sm mb-2 flex items-center gap-2">
-                      <Key className="w-4 h-4 text-[#EAB308]" />
-                      Tus Claves de Proveedor de IA
-                    </h2>
-                    <p className="text-xs text-[#9CA3AF] leading-relaxed">
-                      TukiJuris no incluye modelos de IA. Conectá tu propia clave API del proveedor que prefieras.
-                      Tu consumo se cobra directamente por el proveedor, no por TukiJuris.
-                    </p>
-                  </div>
-
-                  {/* Provider cards */}
-                  {loadingLlmKeys ? (
-                    <div className="flex items-center justify-center py-10 gap-2">
-                      <Loader2 className="w-5 h-5 text-[#EAB308] animate-spin" />
-                      <span className="text-sm text-[#6B7280]">Cargando claves...</span>
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
-                      {LLM_PROVIDERS.map((provider) => {
-                        const providerKeys = llmKeys.filter((k) => k.provider === provider.id);
-                        const isAdding = addingProvider === provider.id;
-
-                        return (
-                          <div
-                            key={provider.id}
-                            className="bg-[#111116] border border-[#1E1E2A] rounded-xl overflow-hidden"
-                          >
-                            {/* Provider header */}
-                            <div className="px-5 py-3 border-b border-[#1E1E2A] flex items-center justify-between">
-                              <div className="flex items-center gap-2">
-                                <span className={`w-2 h-2 rounded-full ${providerKeys.length > 0 ? "bg-green-500" : "bg-[#2A2A35]"}`} />
-                                <span className={`text-sm font-semibold ${providerKeys.length > 0 ? provider.accent : "text-[#F5F5F5]"}`}>
-                                  {provider.name}
+                                  {group.label}
                                 </span>
                               </div>
-                              <span className="text-[10px] text-[#6B7280]">
-                                {provider.models.join(" · ")}
-                              </span>
-                            </div>
-
-                            {/* Existing keys */}
-                            {providerKeys.length > 0 && (
-                              <div className="divide-y divide-[#1E1E2A]/50">
-                                {providerKeys.map((key) => (
-                                  <div key={key.id} className="flex items-center gap-3 px-5 py-3">
-                                    <div className="w-1.5 h-1.5 rounded-full bg-green-500 shrink-0" />
-                                    <span className="text-xs font-mono text-[#F5F5F5] flex-1">
-                                      {key.hint}
+                              <div className="space-y-px">
+                                {group.memories.map((memory, idx) => (
+                                  <div
+                                    key={memory.id}
+                                    className={`flex items-center gap-3 px-3 py-2.5 transition-colors ${
+                                      idx % 2 === 0 ? "bg-surface" : "bg-surface-container-low"
+                                    } ${!memory.is_active ? "opacity-40" : ""}`}
+                                  >
+                                    <span className="flex-1 text-sm text-on-surface truncate">
+                                      {memory.content}
                                     </span>
-                                    {key.label && (
-                                      <span className="text-xs text-[#6B7280] truncate max-w-[120px]">
-                                        &ldquo;{key.label}&rdquo;
-                                      </span>
-                                    )}
-                                    <button
-                                      onClick={() => handleDeleteKey(key.id)}
-                                      disabled={deletingKeyId === key.id}
-                                      className="flex items-center gap-1 text-xs text-red-400/70 hover:text-red-400 hover:bg-red-400/10 px-2 py-1 rounded transition-colors disabled:opacity-50"
-                                    >
-                                      {deletingKeyId === key.id ? (
-                                        <Loader2 className="w-3 h-3 animate-spin" />
-                                      ) : (
-                                        <Trash2 className="w-3 h-3" />
-                                      )}
-                                      Eliminar
-                                    </button>
+                                    <div className="flex items-center gap-1 shrink-0">
+                                      <button
+                                        onClick={() => handleToggleMemory(memory.id, !memory.is_active)}
+                                        title={memory.is_active ? "Desactivar" : "Activar"}
+                                        className="p-1.5 rounded-lg text-on-surface/30 hover:text-on-surface hover:bg-[#35343a] transition-colors"
+                                      >
+                                        <Eye className="w-3.5 h-3.5" />
+                                      </button>
+                                      <button
+                                        onClick={() => handleDeleteMemory(memory.id)}
+                                        title="Eliminar"
+                                        className="p-1.5 rounded-lg text-on-surface/30 hover:text-[#ffb4ab] hover:bg-[#93000a]/20 transition-colors"
+                                      >
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                      </button>
+                                    </div>
                                   </div>
                                 ))}
                               </div>
-                            )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
 
-                            {/* No key state / Add button */}
-                            {!isAdding && (
-                              <div className="px-5 py-3 flex items-center justify-between">
-                                {providerKeys.length === 0 && (
-                                  <span className="text-xs text-[#6B7280]">Sin clave configurada</span>
-                                )}
-                                <button
-                                  onClick={() => {
-                                    setAddingProvider(provider.id);
-                                    setNewApiKey("");
-                                    setNewApiLabel("");
-                                    setShowApiKey(false);
-                                  }}
-                                  className={`ml-auto flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-xl border transition-colors ${provider.accentBorder} ${provider.accentBg} ${provider.accent}`}
+                    {memoriesData && memoriesData.total > 0 && (
+                      <div className="bg-[#93000a]/10 border border-[#ffb4ab]/20 rounded-lg p-6">
+                        <h3 className="font-['Newsreader'] text-base font-bold mb-2 flex items-center gap-2 text-[#ffb4ab]">
+                          <AlertTriangle className="w-4 h-4" />
+                          Zona de peligro
+                        </h3>
+                        <p className="text-xs text-on-surface/40 mb-4">
+                          Borrar toda la memoria eliminara permanentemente todos los datos que
+                          TukiJuris aprendio sobre vos.
+                        </p>
+                        <button
+                          onClick={handleClearAllMemories}
+                          disabled={clearingMemories}
+                          className="flex items-center gap-2 px-4 py-2.5 rounded-lg border border-[#ffb4ab]/30 text-[#ffb4ab] hover:bg-[#93000a]/20 disabled:opacity-50 text-sm transition-colors"
+                        >
+                          {clearingMemories ? (
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          ) : (
+                            <Trash2 className="w-3.5 h-3.5" />
+                          )}
+                          Borrar toda la memoria
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* --- API KEYS TAB --- */}
+                {activeTab === "apikeys" && (
+                  <div className="space-y-4">
+                    <div className="bg-surface-container-low border border-[rgba(79,70,51,0.15)] rounded-lg p-6 space-y-4">
+                      <h2 className="font-['Newsreader'] text-lg font-bold text-on-surface flex items-center gap-2">
+                        <Key className="w-4 h-4 text-primary" />
+                        Conecta tu Inteligencia Artificial
+                      </h2>
+                      <p className="text-xs text-on-surface/40 leading-relaxed">
+                        TukiJuris te permite elegir y conectar tu propio proveedor de IA. Solo necesitas
+                        una clave API de al menos un proveedor para empezar a consultar. El consumo de tokens
+                        se cobra directamente por el proveedor que elijas, no por TukiJuris.
+                      </p>
+                      <div className="flex items-center gap-3 pt-1">
+                        {(() => {
+                          const activeCount = llmKeys.length;
+                          const providerCount = new Set(llmKeys.map(k => k.provider)).size;
+                          if (activeCount === 0) return (
+                            <div className="flex items-center gap-2 text-xs text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2">
+                              <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                              <span>No tienes claves configuradas. Agrega al menos una para usar la plataforma.</span>
+                            </div>
+                          );
+                          return (
+                            <div className="flex items-center gap-2 text-xs text-[#6ee7b7] bg-[#1a3a2a]/60 border border-[#6ee7b7]/20 rounded-lg px-3 py-2">
+                              <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                              <span>{activeCount} {activeCount === 1 ? "clave activa" : "claves activas"} en {providerCount} {providerCount === 1 ? "proveedor" : "proveedores"}</span>
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    </div>
+
+                    {loadingLlmKeys ? (
+                      <div className="flex items-center justify-center py-10 gap-2">
+                        <Loader2 className="w-5 h-5 text-primary animate-spin" />
+                        <span className="text-sm text-on-surface/40">Cargando claves...</span>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {LLM_PROVIDERS.map((provider) => {
+                          const providerKeys = llmKeys.filter((k) => k.provider === provider.id);
+                          const isAdding = addingProvider === provider.id;
+                          const isActive = providerKeys.length > 0;
+
+                          return (
+                            <div
+                              key={provider.id}
+                              className={`bg-surface-container-low border rounded-lg overflow-hidden transition-colors ${
+                                isActive ? `${provider.accentBorder}` : "border-[rgba(79,70,51,0.15)]"
+                              }`}
+                            >
+                              <div className="px-5 py-4 flex items-start justify-between gap-3">
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <span className={`w-2 h-2 rounded-full shrink-0 ${isActive ? "bg-[#6ee7b7]" : "bg-[#35343a]"}`} />
+                                    <span className={`text-sm font-bold ${isActive ? provider.accent : "text-on-surface"}`}>
+                                      {provider.name}
+                                    </span>
+                                    {provider.recommended && (
+                                      <span className="text-[9px] uppercase tracking-widest font-bold bg-primary/15 text-primary px-1.5 py-0.5 rounded">
+                                        Recomendado
+                                      </span>
+                                    )}
+                                    {isActive && (
+                                      <span className="text-[9px] uppercase tracking-widest font-bold bg-[#1a3a2a] text-[#6ee7b7] px-1.5 py-0.5 rounded">
+                                        Activo
+                                      </span>
+                                    )}
+                                  </div>
+                                  <p className="text-[11px] text-on-surface/40 leading-relaxed">{provider.description}</p>
+                                  <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                                    {provider.models.map((m) => (
+                                      <span key={m} className="text-[10px] text-on-surface/40 bg-surface px-2 py-0.5 rounded">{m}</span>
+                                    ))}
+                                  </div>
+                                </div>
+                                <a
+                                  href={provider.docsUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-[10px] text-on-surface/30 hover:text-on-surface flex items-center gap-1 shrink-0 transition-colors"
                                 >
-                                  <Plus className="w-3 h-3" />
-                                  Agregar clave
-                                </button>
+                                  <ExternalLink className="w-3 h-3" />
+                                  Obtener clave
+                                </a>
                               </div>
-                            )}
 
-                            {/* Inline add form */}
-                            {isAdding && (
-                              <div className="px-5 py-4 space-y-3 border-t border-[#1E1E2A]">
-                                <div>
-                                  <label className="block text-xs text-[#9CA3AF] mb-1.5">
-                                    API Key <span className="text-red-400">*</span>
-                                  </label>
-                                  <div className="relative">
+                              {provider.note && (
+                                <div className="mx-5 mb-3 flex items-start gap-2 text-[11px] text-blue-300/80 bg-blue-500/5 border border-blue-500/10 rounded-lg px-3 py-2">
+                                  <Shield className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                                  <span>{provider.note}</span>
+                                </div>
+                              )}
+
+                              {providerKeys.length > 0 && (
+                                <div className="border-t border-[rgba(79,70,51,0.15)]">
+                                  {providerKeys.map((key) => (
+                                    <div key={key.id} className="flex items-center gap-3 px-5 py-3 border-b border-[rgba(79,70,51,0.08)] last:border-0">
+                                      <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                                        testResults[provider.id]?.ok === true ? "bg-[#6ee7b7]" :
+                                        testResults[provider.id]?.ok === false ? "bg-[#ffb4ab]" :
+                                        "bg-[#6ee7b7]"
+                                      }`} />
+                                      <div className="flex-1 min-w-0">
+                                        <span className="text-xs font-mono text-on-surface">{key.hint}</span>
+                                        {key.label && (
+                                          <span className="text-xs text-on-surface/30 ml-2">&mdash; {key.label}</span>
+                                        )}
+                                      </div>
+                                      <button
+                                        onClick={() => handleTestKey(provider.id)}
+                                        disabled={testingProvider === provider.id}
+                                        className="flex items-center gap-1 text-xs text-blue-400/70 hover:text-blue-400 hover:bg-blue-400/10 px-2 py-1 rounded-lg transition-colors disabled:opacity-50"
+                                      >
+                                        {testingProvider === provider.id ? (
+                                          <Loader2 className="w-3 h-3 animate-spin" />
+                                        ) : (
+                                          <BadgeCheck className="w-3 h-3" />
+                                        )}
+                                        Probar
+                                      </button>
+                                      <button
+                                        onClick={() => handleDeleteKey(key.id)}
+                                        disabled={deletingKeyId === key.id}
+                                        className="flex items-center gap-1 text-xs text-[#ffb4ab]/60 hover:text-[#ffb4ab] hover:bg-[#93000a]/20 px-2 py-1 rounded-lg transition-colors disabled:opacity-50"
+                                      >
+                                        {deletingKeyId === key.id ? (
+                                          <Loader2 className="w-3 h-3 animate-spin" />
+                                        ) : (
+                                          <Trash2 className="w-3 h-3" />
+                                        )}
+                                        Eliminar
+                                      </button>
+                                    </div>
+                                  ))}
+                                  {testResults[provider.id] && (
+                                    <div className={`px-5 py-2 text-xs flex items-center gap-2 ${
+                                      testResults[provider.id].ok
+                                        ? "bg-[#1a3a2a]/60 text-[#6ee7b7]"
+                                        : "bg-[#93000a]/20 text-[#ffb4ab]"
+                                    }`}>
+                                      {testResults[provider.id].ok ? (
+                                        <>
+                                          <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                                          <span>Conexión exitosa — {testResults[provider.id].latency_ms}ms</span>
+                                        </>
+                                      ) : (
+                                        <>
+                                          <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                                          <span className="truncate">{testResults[provider.id].error}</span>
+                                        </>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+
+                              {!isAdding && (
+                                <div className={`px-5 py-3 flex items-center justify-between ${providerKeys.length > 0 ? "border-t border-[rgba(79,70,51,0.15)]" : ""}`}>
+                                  {providerKeys.length === 0 && (
+                                    <span className="text-xs text-on-surface/20">Sin clave configurada</span>
+                                  )}
+                                  <button
+                                    onClick={() => {
+                                      setAddingProvider(provider.id);
+                                      setNewApiKey("");
+                                      setNewApiLabel("");
+                                      setShowApiKey(false);
+                                    }}
+                                    className={`ml-auto flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border transition-colors ${provider.accentBorder} ${provider.accentBg} ${provider.accent}`}
+                                  >
+                                    <Plus className="w-3 h-3" />
+                                    {providerKeys.length > 0 ? "Agregar otra clave" : "Agregar clave"}
+                                  </button>
+                                </div>
+                              )}
+
+                              {isAdding && (
+                                <div className="px-5 py-4 space-y-3 border-t border-[rgba(79,70,51,0.15)]">
+                                  <div>
+                                    <label className="block text-xs uppercase tracking-widest text-on-surface-variant mb-1.5">
+                                      API Key <span className="text-[#ffb4ab]">*</span>
+                                    </label>
+                                    <div className="relative">
+                                      <input
+                                        type={showApiKey ? "text" : "password"}
+                                        value={newApiKey}
+                                        onChange={(e) => setNewApiKey(e.target.value)}
+                                        placeholder="sk-... / sk-ant-... / AIza..."
+                                        autoFocus
+                                        className="w-full bg-surface border border-transparent rounded-lg px-3 py-3 pr-10 text-sm font-mono text-on-surface placeholder-on-surface/20 focus:outline-none focus:border-primary transition-colors"
+                                      />
+                                      <button
+                                        type="button"
+                                        onClick={() => setShowApiKey(!showApiKey)}
+                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-on-surface/30 hover:text-on-surface transition-colors"
+                                      >
+                                        {showApiKey ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                                      </button>
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <label className="block text-xs uppercase tracking-widest text-on-surface-variant mb-1.5">
+                                      Etiqueta <span className="text-on-surface/20">(opcional)</span>
+                                    </label>
                                     <input
-                                      type={showApiKey ? "text" : "password"}
-                                      value={newApiKey}
-                                      onChange={(e) => setNewApiKey(e.target.value)}
-                                      placeholder="sk-... / sk-ant-... / AIza..."
-                                      autoFocus
-                                      className="w-full bg-[#111116] border border-[#2A2A35] rounded-xl px-3 py-2.5 pr-10 text-sm font-mono text-[#F5F5F5] placeholder-[#6B7280] focus:outline-none focus:border-[#EAB308] focus:ring-1 focus:ring-[#EAB308]/25"
+                                      type="text"
+                                      value={newApiLabel}
+                                      onChange={(e) => setNewApiLabel(e.target.value)}
+                                      placeholder="Ej: Cuenta personal, Estudio jurídico..."
+                                      className="w-full bg-surface border border-transparent rounded-lg px-3 py-3 text-sm text-on-surface placeholder-on-surface/20 focus:outline-none focus:border-primary transition-colors"
                                     />
+                                  </div>
+                                  <div className="flex items-center gap-2 justify-end pt-1">
                                     <button
-                                      type="button"
-                                      onClick={() => setShowApiKey(!showApiKey)}
-                                      className="absolute right-3 top-1/2 -translate-y-1/2 text-[#6B7280] hover:text-[#F5F5F5]"
+                                      onClick={() => {
+                                        setAddingProvider(null);
+                                        setNewApiKey("");
+                                        setNewApiLabel("");
+                                      }}
+                                      className="px-3 py-1.5 text-xs text-on-surface/60 hover:text-on-surface border border-[rgba(79,70,51,0.15)] rounded-lg transition-colors"
                                     >
-                                      {showApiKey ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                                      Cancelar
+                                    </button>
+                                    <button
+                                      onClick={() => handleAddKey(provider.id)}
+                                      disabled={savingKey || !newApiKey.trim()}
+                                      className="flex items-center gap-1.5 px-4 py-1.5 text-xs bg-gradient-to-br from-primary to-primary-container disabled:opacity-40 text-on-primary font-bold rounded-lg transition-opacity"
+                                    >
+                                      {savingKey ? (
+                                        <Loader2 className="w-3 h-3 animate-spin" />
+                                      ) : (
+                                        <Save className="w-3 h-3" />
+                                      )}
+                                      Guardar clave
                                     </button>
                                   </div>
                                 </div>
-                                <div>
-                                  <label className="block text-xs text-[#9CA3AF] mb-1.5">
-                                    Etiqueta <span className="text-[#6B7280]">(opcional)</span>
-                                  </label>
-                                  <input
-                                    type="text"
-                                    value={newApiLabel}
-                                    onChange={(e) => setNewApiLabel(e.target.value)}
-                                    placeholder={`Mi cuenta ${provider.name}`}
-                                    className="w-full bg-[#111116] border border-[#2A2A35] rounded-xl px-3 py-2.5 text-sm text-[#F5F5F5] placeholder-[#6B7280] focus:outline-none focus:border-[#EAB308] focus:ring-1 focus:ring-[#EAB308]/25"
-                                  />
-                                </div>
-                                <div className="flex items-center gap-2 justify-end pt-1">
-                                  <button
-                                    onClick={() => {
-                                      setAddingProvider(null);
-                                      setNewApiKey("");
-                                      setNewApiLabel("");
-                                    }}
-                                    className="px-3 py-1.5 text-xs text-[#9CA3AF] hover:text-[#F5F5F5] border border-[#2A2A35] rounded-xl transition-colors"
-                                  >
-                                    Cancelar
-                                  </button>
-                                  <button
-                                    onClick={() => handleAddKey(provider.id)}
-                                    disabled={savingKey || !newApiKey.trim()}
-                                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-[#EAB308] hover:bg-[#ca9a07] disabled:bg-[#2A2A35] disabled:text-[#6B7280] text-[#0A0A0F] rounded-xl transition-colors"
-                                  >
-                                    {savingKey ? (
-                                      <Loader2 className="w-3 h-3 animate-spin" />
-                                    ) : (
-                                      <Save className="w-3 h-3" />
-                                    )}
-                                    Guardar clave
-                                  </button>
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
 
-                  {/* Info footer */}
-                  <div className="bg-[#111116] border border-[#1E1E2A] rounded-xl p-5 space-y-4">
-                    <div className="flex items-start gap-2">
-                      <span className="text-base">ℹ️</span>
-                      <p className="text-xs text-[#9CA3AF] leading-relaxed">
-                        Cada proveedor tiene sus propios modelos y precios. Tu consumo se cobra directamente
-                        por el proveedor, no por TukiJuris. Las claves se almacenan cifradas y nunca se muestran
-                        completas.
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-[#6B7280] mb-2 flex items-center gap-1.5">
-                        <BookOpen className="w-3.5 h-3.5 text-[#EAB308]" />
-                        Guías para obtener claves:
-                      </p>
-                      <div className="space-y-1.5">
-                        {LLM_PROVIDERS.map((p) => (
-                          <a
-                            key={p.id}
-                            href={p.docsUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className={`flex items-center gap-2 text-xs transition-colors ${p.accent} hover:underline`}
-                          >
-                            <ExternalLink className="w-3 h-3" />
-                            <span className="font-medium">{p.name}:</span>
-                            <span className="text-[#6B7280]">{p.docsLabel}</span>
-                          </a>
-                        ))}
+                    <div className="bg-surface-container-low border border-[rgba(79,70,51,0.15)] rounded-lg p-5 space-y-4">
+                      <div className="flex items-start gap-2.5">
+                        <Lock className="w-4 h-4 text-primary shrink-0 mt-0.5" />
+                        <div className="space-y-1">
+                          <p className="text-xs text-on-surface font-bold">Seguridad de tus claves</p>
+                          <p className="text-[11px] text-on-surface/40 leading-relaxed">
+                            Todas las claves se almacenan cifradas con encriptacion AES-256. Nunca se muestran completas
+                            despues de guardarlas. Solo vos podes usarlas a traves de TukiJuris.
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-start gap-2.5">
+                        <Shield className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" />
+                        <div className="space-y-1">
+                          <p className="text-xs text-on-surface font-bold">Tu consumo, tu control</p>
+                          <p className="text-[11px] text-on-surface/40 leading-relaxed">
+                            Cada proveedor cobra directamente a tu cuenta por los tokens usados. TukiJuris no tiene
+                            acceso a tu facturacion ni agrega recargos sobre el consumo de IA.
+                          </p>
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              )}
+                )}
+              </div>
             </div>
-          </div>
-        )}
+          )}
         </div>
       </div>
     </AppLayout>

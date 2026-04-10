@@ -43,6 +43,35 @@ export function authHeaders(): Record<string, string> {
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
+/**
+ * Authenticated fetch wrapper — auto-handles 401 by redirecting to login.
+ * Use this instead of raw fetch() for any authenticated API call.
+ */
+export async function authFetch(
+  url: string,
+  options: RequestInit = {}
+): Promise<Response> {
+  const token = getToken();
+  const headers = new Headers(options.headers);
+  if (token) headers.set("Authorization", `Bearer ${token}`);
+  if (!headers.has("Content-Type") && options.body && typeof options.body === "string") {
+    headers.set("Content-Type", "application/json");
+  }
+
+  const res = await fetch(url, { ...options, headers });
+
+  if (res.status === 401) {
+    // Token expired or invalid — clean up and redirect
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(USER_KEY);
+    if (typeof window !== "undefined" && !window.location.pathname.startsWith("/auth")) {
+      window.location.href = "/auth/login?expired=1";
+    }
+  }
+
+  return res;
+}
+
 export async function login(
   email: string,
   password: string

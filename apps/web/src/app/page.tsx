@@ -41,7 +41,6 @@ import {
   Paperclip,
   FileText,
   X,
-  Users,
   Brain,
   CheckCircle2,
   PanelRightClose,
@@ -49,6 +48,7 @@ import {
   Store,
   TreePine,
   Heart,
+  Sparkles,
 } from "lucide-react";
 import NotificationBell from "@/components/NotificationBell";
 import KeyboardShortcuts from "@/components/KeyboardShortcuts";
@@ -57,6 +57,7 @@ import { AppLayout } from "@/components/AppLayout";
 import { getToken } from "@/lib/auth";
 import { t } from "@/lib/i18n";
 import { renderMarkdown } from "@/lib/markdown";
+import { MODEL_CATALOG, FREE_TIER_MODELS, availableModelsForProviders, modelSupportsThinking } from "@/lib/models";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -111,6 +112,12 @@ const QUERY_TEMPLATES: Record<string, { label: string; query: string }[]> = {
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
+interface Citation {
+  type: string;
+  text: string;
+  reference: string;
+}
+
 interface Message {
   id: string;
   role: "user" | "assistant";
@@ -118,10 +125,10 @@ interface Message {
   agent_used?: string;
   legal_area?: string;
   latency_ms?: number;
-  citations?: string[];
+  citations?: Citation[];
+  model_used?: string;
   is_bookmarked?: boolean;
   feedback?: "thumbs_up" | "thumbs_down";
-  thinking?: string;       // Orchestrator meta-reasoning message
   is_multi_area?: boolean; // True when multiple specialists were consulted
 }
 
@@ -135,16 +142,8 @@ const LEGAL_AREAS = [
   { id: "corporativo", name: "Corporativo", label: "Derecho Comercial", icon: Store, color: "text-cyan-400" },
   { id: "registral", name: "Registral", label: "Derecho Registral", icon: FileCheck, color: "text-pink-400" },
   { id: "comercio_exterior", name: "Comercio Ext.", label: "Comercio Exterior", icon: Globe, color: "text-teal-400" },
-  { id: "compliance", name: "Compliance", label: "Derecho Ambiental", icon: TreePine, color: "text-indigo-400" },
-  { id: "competencia", name: "Competencia/PI", label: "Derecho de Familia", icon: Heart, color: "text-amber-400" },
-];
-
-const MODELS = [
-  { id: "gemini/gemini-3.1-pro-preview", name: "Gemini 3.1 Pro", tier: "pro" },
-  { id: "gemini/gemini-2.5-flash", name: "Gemini 2.5 Flash", tier: "free" },
-  { id: "gpt-4o", name: "GPT-4o", tier: "pro" },
-  { id: "gpt-4o-mini", name: "GPT-4o Mini", tier: "free" },
-  { id: "claude-sonnet-4-20250514", name: "Claude Sonnet 4", tier: "pro" },
+  { id: "compliance", name: "Compliance", label: "Compliance / Ambiental", icon: TreePine, color: "text-indigo-400" },
+  { id: "competencia", name: "Competencia/PI", label: "Competencia / Propiedad Intelectual", icon: Heart, color: "text-amber-400" },
 ];
 
 interface ChatHistory {
@@ -199,8 +198,21 @@ function ChatPage() {
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [selectedArea, setSelectedArea] = useState<string | null>(null);
-  const [selectedModel, setSelectedModel] = useState(MODELS[0].id);
+  const [selectedModel, setSelectedModel] = useState(MODEL_CATALOG[0].id);
   const [availableModels, setAvailableModels] = useState<string[]>([]);
+  const [reasoningEffort, setReasoningEffort] = useState<string | null>(null); // "low" | "medium" | "high" | null (auto)
+
+  // Hydration-safe: load user's preferred model from localStorage after mount
+  useEffect(() => {
+    const saved = localStorage.getItem("pref_default_model");
+    if (saved && saved !== selectedModel) {
+      setSelectedModel(saved);
+      // Reset reasoning if saved model doesn't support it
+      if (!modelSupportsThinking(saved)) {
+        setReasoningEffort(null);
+      }
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const [chatHistory, setChatHistory] = useState<ChatHistory[]>([]);
   const [showAreas, setShowAreas] = useState(true);
   const [authToken, setAuthToken] = useState<string | null>(null);
@@ -232,7 +244,13 @@ function ChatPage() {
     secondaryAreas: string[];
     confidence: number;
     statusText: string;
-    steps: { icon: string; text: string; time?: string; done: boolean }[];
+    steps: { icon: string; text: string; ts: number; done: boolean }[];
+    evaluationReason: string;
+    latencyMs: number;
+    citationCount: number;
+    modelUsed: string;
+    reasoningLevel: string | null;
+    startTime: number;
   }>({
     phase: 'idle',
     activeAgents: [],
@@ -241,6 +259,12 @@ function ChatPage() {
     confidence: 0,
     statusText: '',
     steps: [],
+    evaluationReason: '',
+    latencyMs: 0,
+    citationCount: 0,
+    modelUsed: '',
+    reasoningLevel: null,
+    startTime: 0,
   });
 
   // Load auth token on mount (client-side only — localStorage not available on server)
@@ -248,30 +272,40 @@ function ChatPage() {
     setAuthToken(getToken());
   }, []);
 
-  // Fetch available models from user's configured LLM keys
+  // Fetch available models from user's configured LLM keys + free tier
   useEffect(() => {
     const token = getToken();
     if (!token) return;
 
-    fetch(`${API_URL}/api/keys/llm-keys`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then((r) => (r.ok ? r.json() : []))
-      .then((keys: { provider: string }[]) => {
+    // Fetch BYOK keys and free tier models in parallel
+    Promise.all([
+      fetch(`${API_URL}/api/keys/llm-keys`, {
+        headers: { Authorization: `Bearer ${token}` },
+      }).then((r) => (r.ok ? r.json() : [])),
+      fetch(`${API_URL}/api/keys/free-models`).then((r) => (r.ok ? r.json() : { models: [], enabled: false })),
+    ])
+      .then(([keys, freeTier]: [{ provider: string }[], { models: { id: string }[]; enabled: boolean }]) => {
         const providers = keys.map((k) => k.provider);
-        const models: string[] = [];
-        if (providers.includes("openai")) models.push("gpt-4o", "gpt-4o-mini");
-        if (providers.includes("anthropic")) models.push("claude-sonnet-4-20250514", "claude-3-5-haiku-20241022");
-        if (providers.includes("google")) models.push("gemini-2.0-flash", "gemini-2.5-pro", "gemini/gemini-2.5-flash", "gemini/gemini-3.1-pro-preview");
-        if (providers.includes("deepseek")) models.push("deepseek-chat", "deepseek-reasoner");
-        setAvailableModels(models);
+        const byokModels = availableModelsForProviders(providers);
+
+        // If user has BYOK keys, show those models.
+        // If not (or additionally), include free tier models.
+        const freeModelIds = freeTier.enabled ? freeTier.models.map((m) => m.id) : [];
+        const allModels = [...new Set([...freeModelIds, ...byokModels])];
+
+        setAvailableModels(allModels);
         // Update selected model if current selection is no longer available
-        if (models.length > 0 && !models.includes(selectedModel)) {
-          setSelectedModel(models[0]);
+        if (allModels.length > 0 && !allModels.includes(selectedModel)) {
+          setSelectedModel(allModels[0]);
         }
       })
       .catch(() => {
-        // Fail silently — model selector falls back to all models
+        // Fallback: show free tier models from local catalog
+        const fallback = FREE_TIER_MODELS.map((m) => m.id);
+        setAvailableModels(fallback);
+        if (fallback.length > 0 && !fallback.includes(selectedModel)) {
+          setSelectedModel(fallback[0]);
+        }
       });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -279,6 +313,17 @@ function ChatPage() {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  // Sync model selection across tabs (e.g. when changed in Configuración)
+  useEffect(() => {
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === "pref_default_model" && e.newValue) {
+        setSelectedModel(e.newValue);
+      }
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, []);
 
   // Load a conversation by ID from API
   const loadConversation = useCallback(async (id: string) => {
@@ -593,6 +638,7 @@ function ChatPage() {
     setIsLoading(true);
 
     // Reset orchestration panel for new query
+    const reasoningLabels: Record<string, string> = { low: 'Rápida', medium: 'Moderada', high: 'Profunda' };
     setOrchState({
       phase: 'classifying',
       activeAgents: [],
@@ -600,7 +646,13 @@ function ChatPage() {
       secondaryAreas: [],
       confidence: 0,
       statusText: 'Analizando consulta...',
-      steps: [{ icon: '📝', text: 'Consulta recibida', done: true }],
+      steps: [{ icon: '📝', text: 'Consulta recibida', ts: Date.now(), done: true }],
+      evaluationReason: '',
+      latencyMs: 0,
+      citationCount: 0,
+      modelUsed: selectedModel,
+      reasoningLevel: reasoningEffort ? (reasoningLabels[reasoningEffort] || reasoningEffort) : 'Auto',
+      startTime: Date.now(),
     });
 
     // Create placeholder assistant message for streaming
@@ -625,6 +677,7 @@ function ChatPage() {
           conversation_id: currentConversationId || undefined,
           legal_area: selectedArea || undefined,
           model: selectedModel,
+          reasoning_effort: reasoningEffort || undefined,
         }),
       });
 
@@ -655,7 +708,45 @@ function ChatPage() {
             try {
               const data = JSON.parse(line.slice(6));
 
-              if (data.type === "token") {
+              if (data.type === "final_stream_start") {
+                // The backend finished ALL internal processing.
+                // Now tokens will arrive via "final_token" events.
+                agentUsed = data.agent_used || agentUsed;
+                setMessages((prev) =>
+                  prev.map((m) =>
+                    m.id === assistantId
+                      ? {
+                          ...m,
+                          agent_used: data.agent_used || m.agent_used,
+                          legal_area: data.legal_area || m.legal_area,
+                          is_multi_area: data.is_multi_area || false,
+                        }
+                      : m
+                  )
+                );
+                setOrchState(prev => ({
+                  ...prev,
+                  phase: 'done',
+                  statusText: 'Respuesta lista',
+                  steps: [
+                    ...prev.steps.map(s => ({ ...s, done: true })),
+                    { icon: '✨', text: 'Respuesta lista', ts: Date.now(), done: true },
+                  ],
+                }));
+
+              } else if (data.type === "final_token") {
+                // The ONLY token type — final verified response
+                setMessages((prev) =>
+                  prev.map((m) =>
+                    m.id === assistantId
+                      ? { ...m, content: m.content + data.content }
+                      : m
+                  )
+                );
+
+              } else if (data.type === "token") {
+                // Legacy fallback — should not occur with v2 pipeline
+                // but kept for safety during rollout
                 setMessages((prev) =>
                   prev.map((m) =>
                     m.id === assistantId
@@ -671,103 +762,82 @@ function ChatPage() {
                   activeAgents: [data.legal_area],
                   confidence: data.confidence || 0,
                   statusText: `Área detectada: ${data.legal_area} (${Math.round((data.confidence || 0) * 100)}%)`,
-                  steps: [...prev.steps, { icon: '🎯', text: `Clasificado: ${data.legal_area}`, done: true }],
+                  steps: [...prev.steps, { icon: '🎯', text: `Clasificado: ${data.legal_area}`, ts: Date.now(), done: true }],
                 }));
 
               } else if (data.type === "agent") {
                 agentUsed = data.agent_used;
-                setMessages((prev) =>
-                  prev.map((m) =>
-                    m.id === assistantId
-                      ? { ...m, agent_used: data.agent_used, legal_area: data.legal_area }
-                      : m
-                  )
-                );
+                // Don't set message content yet — wait for final_stream_start
                 setOrchState(prev => ({
                   ...prev,
                   phase: 'thinking',
                   activeAgents: data.legal_area ? [data.legal_area] : prev.activeAgents,
-                  statusText: `${data.agent_used} analizando...`,
-                  steps: [...prev.steps, { icon: '⚖️', text: `Agente: ${data.agent_used}`, done: false }],
+                  statusText: `${data.agent_used} trabajando...`,
                 }));
 
               } else if (data.type === "status") {
                 // Update the orchestrator status bar (NOT in message content)
                 setOrchestratorStatus(data.content);
+                const msg = data.content || "";
+                const step = data.step || "";
 
-                // Secondary agent activation — "Consultando al especialista en X..."
-                if (data.content?.includes("Consultando al especialista en")) {
-                  const areaMatch = data.content.match(/especialista en (.+?)\.\.\./);
-                  if (areaMatch) {
-                    setOrchState(prev => ({
-                      ...prev,
-                      phase: 'enriching',
-                      activeAgents: prev.activeAgents.includes(areaMatch[1])
-                        ? prev.activeAgents
-                        : [...prev.activeAgents, areaMatch[1]],
-                      secondaryAreas: prev.secondaryAreas.includes(areaMatch[1])
-                        ? prev.secondaryAreas
-                        : [...prev.secondaryAreas, areaMatch[1]],
-                      statusText: data.content,
-                    }));
-                  }
-                } else if (data.content?.includes("Integrando análisis")) {
+                // Map backend step names to orchestrator phases and timeline entries
+                const stepMap: Record<string, { phase: typeof orchState.phase; icon: string; text: string }> = {
+                  classify:          { phase: 'classifying',  icon: '🧠', text: 'Analizando consulta...' },
+                  classify_done:     { phase: 'classifying',  icon: '🎯', text: msg },
+                  rag:               { phase: 'retrieving',   icon: '📚', text: 'Buscando normativa peruana...' },
+                  rag_done:          { phase: 'retrieving',   icon: '📖', text: msg },
+                  primary_working:   { phase: 'thinking',     icon: '⚖️', text: msg },
+                  primary_done:      { phase: 'thinking',     icon: '✅', text: msg },
+                  evaluating:        { phase: 'evaluating',   icon: '🔍', text: 'Verificando cobertura de la respuesta...' },
+                  eval_pass:         { phase: 'evaluating',   icon: '✅', text: msg },
+                  secondary_working: { phase: 'enriching',    icon: '👨‍⚖️', text: msg },
+                  secondary_done:    { phase: 'enriching',    icon: '✅', text: msg },
+                  synthesizing:      { phase: 'synthesizing', icon: '🔄', text: 'Integrando análisis multi-agente...' },
+                  synthesis_done:    { phase: 'synthesizing', icon: '✅', text: 'Síntesis completada' },
+                  streaming:         { phase: 'done',         icon: '✨', text: 'Mostrando respuesta...' },
+                };
+
+                const mapped = step ? stepMap[step] : null;
+                if (mapped) {
                   setOrchState(prev => ({
                     ...prev,
-                    phase: 'synthesizing',
-                    statusText: 'Integrando análisis...',
+                    phase: mapped.phase,
+                    statusText: msg,
+                    steps: [...prev.steps, {
+                      icon: mapped.icon,
+                      text: mapped.text.length > 85 ? mapped.text.slice(0, 82) + '...' : mapped.text,
+                      ts: Date.now(),
+                      done: step.endsWith('_done') || step === 'eval_pass' || step === 'streaming',
+                    }],
                   }));
-                } else if (data.content?.includes("Evaluando si se necesitan")) {
+                } else {
+                  // Generic status fallback (no step field)
                   setOrchState(prev => ({
                     ...prev,
-                    phase: 'evaluating',
-                    statusText: 'Evaluando si se necesitan más especialistas...',
-                    steps: [...prev.steps, { icon: '🔍', text: 'Evaluando cobertura', done: false }],
+                    statusText: msg,
                   }));
                 }
 
               } else if (data.type === "orchestrator_thinking") {
-                // Show the "meeting" message alongside the streaming content
-                setMessages((prev) => {
-                  const newMsgs = [...prev];
-                  const idx = newMsgs.findIndex((m) => m.id === assistantId);
-                  if (idx >= 0) {
-                    newMsgs[idx] = {
-                      ...newMsgs[idx],
-                      thinking: data.content,
-                    };
-                  }
-                  return newMsgs;
-                });
+                // Show the "meeting convened" in the orchestrator panel only.
+                // Mark secondary agents as active so they appear highlighted.
+                const secAreas: string[] = data.secondary_areas || [];
                 setOrchState(prev => ({
                   ...prev,
-                  phase: 'evaluating',
-                  statusText: 'Evaluando respuesta...',
-                  steps: [...prev.steps, { icon: '🧠', text: 'Meta-razonamiento activo', done: false }],
-                }));
-
-              } else if (data.type === "synthesis") {
-                // REPLACE the streamed content with the synthesized multi-area response
-                setMessages((prev) => {
-                  const newMsgs = [...prev];
-                  const idx = newMsgs.findIndex((m) => m.id === assistantId);
-                  if (idx >= 0) {
-                    newMsgs[idx] = {
-                      ...newMsgs[idx],
-                      content: data.content,
-                      agent_used: data.agent_used || agentUsed,
-                      is_multi_area: true,
-                      thinking: undefined, // clear thinking indicator
-                    };
-                    agentUsed = data.agent_used || agentUsed;
-                  }
-                  return newMsgs;
-                });
-                setOrchState(prev => ({
-                  ...prev,
-                  phase: 'synthesizing',
-                  statusText: 'Integrando análisis de todos los especialistas...',
-                  steps: [...prev.steps, { icon: '🔄', text: 'Síntesis multi-agente', done: false }],
+                  phase: 'enriching',
+                  statusText: data.content || 'Reunión de especialistas convocada...',
+                  evaluationReason: data.reason || prev.evaluationReason,
+                  secondaryAreas: secAreas.length > 0 ? secAreas : prev.secondaryAreas,
+                  activeAgents: [...new Set([...prev.activeAgents, ...secAreas])],
+                  steps: [...prev.steps, {
+                    icon: '📋',
+                    text: data.content
+                      ? (data.content.length > 85 ? data.content.slice(0, 82) + '...' : data.content)
+                      : 'Reunión de especialistas convocada',
+                    ts: Date.now(),
+                    done: false,
+                  }],
                 }));
 
               } else if (data.type === "done") {
@@ -776,15 +846,22 @@ function ChatPage() {
                 setMessages((prev) =>
                   prev.map((m) =>
                     m.id === assistantId
-                      ? { ...m, agent_used: agentUsed, latency_ms: latencyMs }
+                      ? {
+                          ...m,
+                          agent_used: agentUsed,
+                          latency_ms: latencyMs,
+                          citations: data.citations || m.citations,
+                          model_used: data.model_used || undefined,
+                        }
                       : m
                   )
                 );
+                // Update orchState with final stats
                 setOrchState(prev => ({
                   ...prev,
-                  phase: 'done',
-                  statusText: 'Completado',
-                  steps: prev.steps.map(s => ({ ...s, done: true })),
+                  latencyMs: data.latency_ms || 0,
+                  citationCount: data.citations?.length || 0,
+                  modelUsed: data.model_used || prev.modelUsed,
                 }));
 
                 // Capture conversation_id from backend
@@ -797,6 +874,22 @@ function ChatPage() {
                 if (doneToken) {
                   fetchHistory(doneToken);
                 }
+
+              } else if (data.type === "error") {
+                // Backend error (classify failure, agent failure, API key issues)
+                const errMsg = data.message || "Error del servidor";
+                setMessages((prev) =>
+                  prev.map((m) =>
+                    m.id === assistantId
+                      ? { ...m, content: m.content || errMsg }
+                      : m
+                  )
+                );
+                setOrchState(prev => ({
+                  ...prev,
+                  statusText: `⚠️ ${errMsg.slice(0, 100)}`,
+                  steps: [...prev.steps, { icon: '❌', text: errMsg.slice(0, 80), ts: Date.now(), done: true }],
+                }));
               }
             } catch {
               // skip malformed SSE
@@ -846,9 +939,9 @@ function ChatPage() {
   const contextTokensPercent = Math.min(100, Math.round((estimatedTokens / MAX_CONTEXT_TOKENS) * 100));
   const contextPercent = Math.max(contextMessagesPercent, contextTokensPercent);
   const contextColor =
-    contextPercent >= 80 ? "bg-red-500" : contextPercent >= 50 ? "bg-amber-500" : "bg-green-500";
+    contextPercent >= 80 ? "bg-red-500" : contextPercent >= 50 ? "bg-amber-500" : "bg-primary";
   const contextTextColor =
-    contextPercent >= 80 ? "text-red-400" : contextPercent >= 50 ? "text-amber-400" : "text-green-400";
+    contextPercent >= 80 ? "text-red-400" : contextPercent >= 50 ? "text-amber-400" : "text-primary/70";
 
   // ---------------------------------------------------------------------------
   // Render
@@ -856,9 +949,9 @@ function ChatPage() {
   return (
     <AppLayout>
       {/* Skip to main content — visible on focus for keyboard/screen reader users */}
-        <a
+      <a
         href="#main-content"
-        className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-[100] focus:bg-[#EAB308] focus:text-[#0A0A0F] focus:px-4 focus:py-2 focus:rounded-lg focus:text-sm focus:font-medium"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-[100] focus:bg-primary-container focus:text-background focus:px-4 focus:py-2 focus:rounded-lg focus:text-sm focus:font-medium"
       >
         {t("skip.content")}
       </a>
@@ -880,12 +973,12 @@ function ChatPage() {
       <div className="flex h-full overflow-hidden">
 
       {/* Main Chat Area */}
-      <div id="main-content" className="flex flex-col flex-1 min-w-0 overflow-hidden bg-[#0A0A0F]">
+      <div id="main-content" className="flex flex-col flex-1 min-w-0 overflow-hidden bg-surface-container-lowest">
         {/* Header */}
-        <header className="h-14 border-b border-[#1E1E2A] flex items-center justify-between px-4 lg:px-6 bg-[#111116] shrink-0">
+        <header className="h-14 flex items-center justify-between px-4 lg:px-6 bg-surface shrink-0">
           <div className="flex items-center gap-2">
-            <Bot className="w-5 h-5 text-[#EAB308]" aria-hidden="true" />
-            <span className="text-sm font-medium text-[#F5F5F5]">
+            <Bot className="w-5 h-5 text-primary-container" aria-hidden="true" />
+            <span className="text-sm font-medium text-on-surface">
               {conversationTitle
                 ? conversationTitle
                 : selectedArea
@@ -893,7 +986,7 @@ function ChatPage() {
                 : "Consulta general — el orquestador determinara el area"}
             </span>
             {currentConversationId && (
-              <span className="hidden text-[10px] text-[#4B5563]" aria-hidden="true">
+              <span className="hidden text-[10px] text-on-surface/20" aria-hidden="true">
                 #{currentConversationId.slice(0, 8)}
               </span>
             )}
@@ -904,41 +997,99 @@ function ChatPage() {
             {availableModels.length === 0 ? (
               <a
                 href="/configuracion"
-                className="text-xs text-[#EAB308]/70 hover:text-[#EAB308] border border-[#EAB308]/20 rounded-lg px-2 py-1 transition-colors"
+                className="text-xs text-primary/70 hover:text-primary border border-primary/20 rounded-lg px-2 py-1 transition-colors"
                 title="Configurar clave de IA"
               >
-                Sin modelo
+                Cargando modelos...
               </a>
             ) : (
               <select
                 id="model-select"
                 value={selectedModel}
-                onChange={(e) => setSelectedModel(e.target.value)}
+                onChange={(e) => {
+                  const newModel = e.target.value;
+                  setSelectedModel(newModel);
+                  localStorage.setItem("pref_default_model", newModel);
+                  // Reset reasoning if new model doesn't support it
+                  if (!modelSupportsThinking(newModel) && reasoningEffort !== null) {
+                    setReasoningEffort(null);
+                  }
+                }}
                 aria-label={t("model.select")}
-                className="bg-[#1A1A22] border border-[#2A2A35] rounded-lg px-2 py-1 text-xs text-[#9CA3AF] focus:outline-none focus:border-[#EAB308]/50"
+                className="bg-surface-container-low border border-[rgba(79,70,51,0.15)] rounded-lg px-2 py-1 text-xs text-on-surface/60 focus:outline-none focus:border-primary/50"
               >
-                {MODELS.filter((m) => availableModels.includes(m.id)).map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.name}
-                  </option>
-                ))}
+                {/* Show all available models — both BYOK and free tier combined */}
+                {[...MODEL_CATALOG, ...FREE_TIER_MODELS.filter((fm) => !MODEL_CATALOG.some((mc) => mc.id === fm.id))]
+                  .filter((model) => availableModels.includes(model.id))
+                  .map((model) => {
+                    const isFree = FREE_TIER_MODELS.some((fm) => fm.id === model.id);
+                    const hasByokForThis = !isFree; // If it's not a free model, user has BYOK
+                    return (
+                      <option key={model.id} value={model.id}>
+                        {isFree && !hasByokForThis ? `${model.name} (gratis)` : model.name}
+                      </option>
+                    );
+                  })}
               </select>
             )}
+
+            {/* Thinking depth selector — how deep the AI analyzes */}
+            {(() => {
+              const hasThinking = modelSupportsThinking(selectedModel);
+              return (
+                <div
+                  className="flex items-center gap-0.5 bg-surface-container-low border border-[rgba(79,70,51,0.15)] rounded-lg p-0.5"
+                  title={hasThinking
+                    ? "Controla qué tan profundo analiza la IA tu consulta"
+                    : "Este modelo no soporta modos de razonamiento — usa velocidad estándar"
+                  }
+                >
+                  {[
+                    { value: null, label: "Auto", tooltip: "La IA decide el nivel de análisis según tu consulta" },
+                    { value: "low", label: "Rápida", tooltip: "Respuesta directa y veloz — ideal para preguntas simples" },
+                    { value: "medium", label: "Moderada", tooltip: "Análisis balanceado — buen nivel sin demoras largas" },
+                    { value: "high", label: "Profunda", tooltip: "Análisis exhaustivo — ideal para casos complejos con múltiples áreas" },
+                  ].map((opt) => {
+                    const isDisabled = !hasThinking && opt.value !== null;
+                    return (
+                      <button
+                        key={opt.label}
+                        onClick={() => !isDisabled && setReasoningEffort(opt.value)}
+                        title={isDisabled
+                          ? `${MODEL_CATALOG.find(m => m.id === selectedModel)?.name || selectedModel} no soporta modo "${opt.label}"`
+                          : opt.tooltip
+                        }
+                        disabled={isDisabled}
+                        className={`px-2 py-0.5 rounded text-[10px] font-medium transition-all ${
+                          isDisabled
+                            ? "text-surface-container-high cursor-not-allowed"
+                            : reasoningEffort === opt.value
+                              ? "bg-secondary-container text-secondary"
+                              : "bg-surface-container-low text-on-surface/60 hover:text-on-surface hover:bg-surface-container-high"
+                        }`}
+                      >
+                        {opt.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              );
+            })()}
           </div>
         </header>
 
         {/* Context usage bar — shows how loaded the conversation context is */}
         {messages.length > 0 && (
-          <div className="px-4 lg:px-6 py-1.5 bg-[#0A0A0F] border-b border-[#1E1E2A]/50 flex items-center gap-3">
+          <div className="px-4 lg:px-6 py-1.5 bg-surface-container-lowest flex items-center gap-3">
             <div className="flex items-center gap-1.5">
-              <svg className="w-3 h-3 text-[#4B5563]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <svg className="w-3 h-3 text-on-surface/20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2Zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8Z" opacity="0.3"/>
                 <path d="M12 6v6l4 2"/>
               </svg>
-              <span className="text-[10px] text-[#6B7280] uppercase tracking-wider">Contexto</span>
+              <span className="text-[10px] text-on-surface/30 uppercase tracking-wider">Contexto</span>
             </div>
             <div className="flex-1 max-w-xs">
-              <div className="w-full bg-[#1A1A22] rounded-full h-1.5">
+              <div className="w-full bg-surface-container-low rounded-full h-1.5">
                 <div
                   className={`h-1.5 rounded-full transition-all duration-500 ${contextColor}`}
                   style={{ width: `${Math.max(2, contextPercent)}%` }}
@@ -958,33 +1109,45 @@ function ChatPage() {
 
         {/* Orchestrator status bar — shows during deliberative loop */}
         {orchestratorStatus && isLoading && (
-          <div className="px-4 lg:px-6 py-2 bg-[#EAB308]/5 border-b border-[#EAB308]/10 flex items-center gap-2">
-            <Loader2 className="w-3.5 h-3.5 text-[#EAB308] animate-spin" aria-hidden="true" />
-            <span className="text-xs text-[#EAB308]/80">{orchestratorStatus}</span>
+          <div className="px-4 lg:px-6 py-2 bg-primary-container/5 flex items-center gap-2">
+            <Loader2 className="w-3.5 h-3.5 text-primary-container animate-spin" aria-hidden="true" />
+            <span className="text-xs text-primary-container/80">{orchestratorStatus}</span>
           </div>
         )}
 
-        {/* No API keys banner */}
+        {/* Free tier info banner — shown when user has no BYOK keys but free models are available */}
+        {availableModels.length > 0 && availableModels.every((m) => FREE_TIER_MODELS.some((fm) => fm.id === m)) && authToken && (
+          <div className="mx-4 mt-3 mb-0 p-4 bg-surface-container border border-[rgba(79,70,51,0.15)] rounded-lg shrink-0 flex items-center gap-3">
+            <Sparkles className="w-4 h-4 text-primary-container shrink-0" />
+            <p className="text-sm text-on-surface/60">
+              Estás usando el plan gratuito (10 consultas/día).{" "}
+              <a href="/configuracion" className="text-primary hover:text-primary/80 font-medium">
+                Conectá tu propia IA para acceso ilimitado →
+              </a>
+            </p>
+          </div>
+        )}
+        {/* No models at all — something is wrong */}
         {availableModels.length === 0 && authToken && (
-          <div className="mx-4 mt-3 mb-0 p-4 bg-[#2C3E50]/20 border border-[#2C3E50]/30 rounded-xl shrink-0 flex items-center gap-3">
-            <Lock className="w-4 h-4 text-[#EAB308] shrink-0" />
-            <p className="text-sm text-[#9CA3AF]">
-              No tenés claves de IA configuradas.{" "}
-              <a href="/configuracion" className="text-[#EAB308] hover:text-[#EAB308]/80 font-medium">
-                Configurar →
+          <div className="mx-4 mt-3 mb-0 p-4 bg-surface-container border border-[rgba(79,70,51,0.15)] rounded-lg shrink-0 flex items-center gap-3">
+            <Lock className="w-4 h-4 text-primary-container shrink-0" />
+            <p className="text-sm text-on-surface/60">
+              No hay modelos disponibles en este momento. Intentá de nuevo o{" "}
+              <a href="/configuracion" className="text-primary hover:text-primary/80 font-medium">
+                configurá tu propia clave →
               </a>
             </p>
           </div>
         )}
 
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto px-6 py-4 bg-[#0A0A0F]" aria-live="polite" aria-label="Mensajes de la consulta">
+        <div className="flex-1 overflow-y-auto px-6 py-4 bg-surface-container-lowest" aria-live="polite" aria-label="Mensajes de la consulta">
           {messages.length === 0 ? (
             // Empty state with logo
             <div className="h-full flex flex-col items-center justify-center text-center">
-              <img src="/brand/logo-full.png" className="w-32 mx-auto mb-6 opacity-50" alt="TukiJuris" />
-              <h2 className="text-2xl font-semibold mb-2 text-[#F5F5F5] tracking-tight">¿En qué puedo ayudarte?</h2>
-              <p className="text-[#9CA3AF] max-w-md mb-8 text-sm leading-relaxed">
+              <img src="/brand/logo-full.png" className="w-32 mx-auto mb-6 opacity-40" alt="TukiJuris" />
+              <h2 className="font-['Newsreader'] text-2xl font-bold mb-2 text-on-surface tracking-tight">¿En qué puedo ayudarte?</h2>
+              <p className="text-on-surface/50 max-w-md mb-8 text-sm leading-relaxed">
                 Plataforma jurídica inteligente especializada en derecho
                 peruano. Consulta normativa, jurisprudencia y recibí
                 orientación legal con agentes de IA especializados.
@@ -993,7 +1156,7 @@ function ChatPage() {
               {/* Template section */}
               <div className="w-full max-w-lg">
                 {selectedArea && QUERY_TEMPLATES[selectedArea] && (
-                  <p className="text-[10px] text-[#6B7280] mb-3 uppercase tracking-widest">
+                  <p className="text-[10px] text-on-surface/30 mb-3 uppercase tracking-[0.2em]">
                     {LEGAL_AREAS.find((a) => a.id === selectedArea)?.name} — consultas frecuentes
                   </p>
                 )}
@@ -1002,12 +1165,12 @@ function ChatPage() {
                     <button
                       key={tpl.label}
                       onClick={() => setInput(tpl.query)}
-                      className="text-left text-sm p-3 rounded-xl border border-[#2A2A35] bg-[#111116] text-[#9CA3AF] hover:border-[#EAB308]/40 hover:text-[#F5F5F5] hover:bg-[#1A1A22] transition-all duration-200"
+                      className="text-left text-sm p-3 rounded-lg border border-[rgba(79,70,51,0.15)] bg-surface-container text-on-surface/60 hover:border-primary/30 hover:text-on-surface hover:bg-surface-container-high transition-all duration-200"
                     >
-                      <span className="font-medium text-[#F5F5F5] block mb-0.5 text-xs">
+                      <span className="font-medium text-on-surface block mb-0.5 text-xs">
                         {tpl.label}
                       </span>
-                      <span className="text-xs text-[#6B7280] line-clamp-2">
+                      <span className="text-xs text-on-surface/40 line-clamp-2">
                         {tpl.query}
                       </span>
                     </button>
@@ -1017,7 +1180,7 @@ function ChatPage() {
                 {activeTemplates.length > 4 && (
                   <button
                     onClick={() => setShowAllTemplates((v) => !v)}
-                    className="mt-3 flex items-center gap-1.5 text-xs text-[#6B7280] hover:text-[#9CA3AF] transition-colors mx-auto"
+                    className="mt-3 flex items-center gap-1.5 text-xs text-on-surface/40 hover:text-on-surface/70 transition-colors mx-auto"
                   >
                     {showAllTemplates ? (
                       <>
@@ -1042,32 +1205,22 @@ function ChatPage() {
                   className={`flex gap-3 ${msg.role === "user" ? "justify-end" : ""}`}
                 >
                   {msg.role === "assistant" && (
-                    <div className="w-8 h-8 rounded-lg bg-[#EAB308]/10 flex items-center justify-center shrink-0 mt-1">
-                      <Bot className="w-4 h-4 text-[#EAB308]" />
+                    <div className="w-8 h-8 rounded-lg bg-primary-container/10 flex items-center justify-center shrink-0 mt-1">
+                      <Bot className="w-4 h-4 text-primary-container" />
                     </div>
                   )}
                   <div
                     className={`max-w-[80%] ${
                       msg.role === "user"
-                        ? "bg-[#1A1A22] border border-[#2A2A35] text-[#F5F5F5] rounded-2xl rounded-tr-sm px-4 py-3"
-                        : "bg-[#111116] border border-[#1E1E2A] rounded-2xl rounded-tl-sm px-4 py-3"
+                        ? "bg-surface-container-low text-on-surface rounded-lg rounded-tr-sm px-4 py-3"
+                        : "bg-surface border border-[rgba(79,70,51,0.15)] rounded-lg rounded-tl-sm px-4 py-3"
                     }`}
                   >
                     {msg.role === "assistant" ? (
                       <>
-                        {/* Orchestrator thinking card — shown when consulting more specialists */}
-                        {msg.thinking && (
-                          <div className="mb-3 px-3 py-2 bg-[#EAB308]/5 border border-[#EAB308]/10 rounded-lg">
-                            <div className="flex items-center gap-2 mb-1">
-                              <Users className="w-3.5 h-3.5 text-[#EAB308] animate-pulse" aria-hidden="true" />
-                              <span className="text-xs font-medium text-[#EAB308]/80">Reunión de especialistas</span>
-                            </div>
-                            <p className="text-xs text-[#9CA3AF]">{msg.thinking}</p>
-                          </div>
-                        )}
                         {/* Render markdown for assistant messages */}
                         <div
-                          className="text-sm text-[#F5F5F5] leading-relaxed"
+                          className="text-sm text-on-surface leading-relaxed"
                           dangerouslySetInnerHTML={{ __html: renderMarkdown(msg.content) }}
                         />
                       </>
@@ -1075,13 +1228,36 @@ function ChatPage() {
                       <p className="text-sm whitespace-pre-wrap leading-relaxed">{msg.content}</p>
                     )}
 
+                    {/* Citations section — collapsible list of legal references */}
+                    {msg.citations && msg.citations.length > 0 && (
+                      <details className="mt-2 pt-2">
+                        <summary className="text-[10px] text-on-surface/40 cursor-pointer hover:text-on-surface/70 transition-colors select-none">
+                          📜 {msg.citations.length} referencia{msg.citations.length > 1 ? 's' : ''} normativa{msg.citations.length > 1 ? 's' : ''}
+                        </summary>
+                        <div className="mt-1.5 flex flex-wrap gap-1">
+                          {msg.citations.slice(0, 20).map((cit, i) => (
+                            <span
+                              key={i}
+                              className="text-[9px] bg-surface-container-low text-on-surface/60 rounded-lg px-1.5 py-0.5"
+                              title={cit.text}
+                            >
+                              {cit.text.length > 40 ? cit.text.slice(0, 37) + '...' : cit.text}
+                            </span>
+                          ))}
+                        </div>
+                      </details>
+                    )}
+
                     {msg.agent_used && (
-                      <div className="mt-2 pt-2 border-t border-[#1E1E2A] flex items-center justify-between text-xs text-[#6B7280]">
-                        <div className="flex items-center gap-2">
-                          <span className="text-[10px] uppercase bg-[#2C3E50]/30 text-[#9CA3AF] rounded-full px-2 py-0.5">{msg.agent_used}</span>
-                          {msg.latency_ms && <span className="text-[#4B5563]">{msg.latency_ms}ms</span>}
+                      <div className="mt-2 pt-2 flex items-center justify-between text-xs text-on-surface/40">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-[10px] uppercase bg-surface-container-high text-on-surface/60 rounded-lg px-2 py-0.5">{msg.agent_used}</span>
+                          {msg.model_used && (
+                            <span className="text-[10px] text-on-surface/30">{msg.model_used.split('/').pop()}</span>
+                          )}
+                          {msg.latency_ms && <span className="text-on-surface/30">{(msg.latency_ms / 1000).toFixed(1)}s</span>}
                           {msg.is_multi_area && (
-                            <span className="text-[10px] bg-[#EAB308]/10 text-[#EAB308] border border-[#EAB308]/20 rounded-full px-1.5 py-0.5">
+                            <span className="text-[10px] bg-primary/10 text-primary border border-primary/20 rounded-lg px-1.5 py-0.5">
                               Multi-área
                             </span>
                           )}
@@ -1090,10 +1266,10 @@ function ChatPage() {
                           <button
                             onClick={() => handleFeedback(msg.id, "thumbs_up")}
                             aria-label={t("chat.feedback.good")}
-                            className={`p-1 rounded hover:bg-[#1A1A22] transition-colors focus:outline-none focus:ring-2 focus:ring-[#EAB308]/50 ${
+                            className={`p-1 rounded-lg hover:bg-surface-container-low transition-colors focus:outline-none focus:ring-2 focus:ring-primary/30 ${
                               msg.feedback === "thumbs_up"
                                 ? "text-green-400"
-                                : "text-[#6B7280] hover:text-[#EAB308]"
+                                : "text-on-surface/30 hover:text-primary"
                             }`}
                           >
                             <ThumbsUp className="w-3.5 h-3.5" aria-hidden="true" />
@@ -1101,20 +1277,20 @@ function ChatPage() {
                           <button
                             onClick={() => handleFeedback(msg.id, "thumbs_down")}
                             aria-label={t("chat.feedback.bad")}
-                            className={`p-1 rounded hover:bg-[#1A1A22] transition-colors focus:outline-none focus:ring-2 focus:ring-[#EAB308]/50 ${
+                            className={`p-1 rounded-lg hover:bg-surface-container-low transition-colors focus:outline-none focus:ring-2 focus:ring-primary/30 ${
                               msg.feedback === "thumbs_down"
                                 ? "text-red-400"
-                                : "text-[#6B7280] hover:text-[#F87171]"
+                                : "text-on-surface/30 hover:text-[#F87171]"
                             }`}
                           >
                             <ThumbsDown className="w-3.5 h-3.5" aria-hidden="true" />
                           </button>
                           <button
                             onClick={() => handleToggleBookmark(msg)}
-                            className={`p-1 rounded hover:bg-[#1A1A22] transition-colors ${
+                            className={`p-1 rounded-lg hover:bg-surface-container-low transition-colors ${
                               msg.is_bookmarked
-                                ? "text-[#EAB308] hover:text-[#EAB308]/80"
-                                : "text-[#6B7280] hover:text-[#EAB308]"
+                                ? "text-primary hover:text-primary/80"
+                                : "text-on-surface/30 hover:text-primary"
                             }`}
                             aria-label={msg.is_bookmarked ? "Quitar marcador" : "Guardar como marcador"}
                           >
@@ -1126,7 +1302,7 @@ function ChatPage() {
                           <button
                             onClick={() => handleDownloadPDF(msg)}
                             aria-label={t("chat.download.pdf")}
-                            className="p-1 rounded hover:bg-[#1A1A22] text-[#6B7280] hover:text-[#F5F5F5] transition-colors focus:outline-none focus:ring-2 focus:ring-[#EAB308]/50"
+                            className="p-1 rounded-lg hover:bg-surface-container-low text-on-surface/30 hover:text-on-surface transition-colors focus:outline-none focus:ring-2 focus:ring-primary/30"
                           >
                             <Download className="w-3.5 h-3.5" aria-hidden="true" />
                           </button>
@@ -1135,19 +1311,19 @@ function ChatPage() {
                     )}
                   </div>
                   {msg.role === "user" && (
-                    <div className="w-8 h-8 rounded-lg bg-[#2A2A35] flex items-center justify-center shrink-0 mt-1">
-                      <User className="w-4 h-4 text-[#9CA3AF]" />
+                    <div className="w-8 h-8 rounded-lg bg-surface-container-high flex items-center justify-center shrink-0 mt-1">
+                      <User className="w-4 h-4 text-on-surface/60" />
                     </div>
                   )}
                 </div>
               ))}
               {isLoading && (
                 <div className="flex gap-3" role="status" aria-label={t("chat.analyzing")}>
-                  <div className="w-8 h-8 rounded-lg bg-[#EAB308]/10 flex items-center justify-center shrink-0" aria-hidden="true">
-                    <Loader2 className="w-4 h-4 text-[#EAB308] animate-spin" />
+                  <div className="w-8 h-8 rounded-lg bg-primary-container/10 flex items-center justify-center shrink-0" aria-hidden="true">
+                    <Loader2 className="w-4 h-4 text-primary-container animate-spin" />
                   </div>
-                  <div className="bg-[#111116] border border-[#1E1E2A] rounded-2xl rounded-tl-sm px-4 py-3">
-                    <p className="text-sm text-[#9CA3AF] animate-pulse">{t("chat.analyzing")}</p>
+                  <div className="bg-surface border border-[rgba(79,70,51,0.15)] rounded-lg rounded-tl-sm px-4 py-3">
+                    <p className="text-sm text-on-surface/50 animate-pulse">{t("chat.analyzing")}</p>
                   </div>
                 </div>
               )}
@@ -1159,11 +1335,11 @@ function ChatPage() {
         {/* TODO: Sprint 33 — Daily usage indicator when /api/billing/daily-usage endpoint is ready */}
 
         {/* Formatting toolbar + Input */}
-        <div className="border-t border-[#1E1E2A] p-4 bg-[#111116] shrink-0">
+        <div className="p-4 bg-surface shrink-0">
           <div className="max-w-3xl mx-auto">
             {/* Formatting toolbar */}
             <div className="flex items-center gap-1 mb-2 px-1">
-              <span className="text-[10px] text-[#4B5563] mr-1 uppercase tracking-widest">Formato:</span>
+              <span className="text-[10px] text-on-surface/30 mr-1 uppercase tracking-[0.2em]">Formato:</span>
               {[
                 { icon: Bold, label: "Negrita", prefix: "**", suffix: "**", placeholder: "texto" },
                 { icon: Italic, label: "Cursiva", prefix: "*", suffix: "*", placeholder: "texto" },
@@ -1180,7 +1356,7 @@ function ChatPage() {
                     }
                   }}
                   aria-label={label}
-                  className="p-1.5 rounded text-[#4B5563] hover:text-[#9CA3AF] hover:bg-[#1A1A22] transition-colors focus:outline-none focus:ring-2 focus:ring-[#EAB308]/50"
+                  className="p-1.5 rounded-lg text-on-surface/30 hover:text-on-surface/70 hover:bg-surface-container-low transition-colors focus:outline-none focus:ring-2 focus:ring-primary/30"
                 >
                   <Icon className="w-3.5 h-3.5" aria-hidden="true" />
                 </button>
@@ -1198,7 +1374,7 @@ function ChatPage() {
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
                 disabled={uploading}
-                className="p-1.5 rounded text-[#6B7280] hover:text-[#EAB308] hover:bg-[#1A1A22] transition-colors disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-[#EAB308]/50 ml-1"
+                className="p-1.5 rounded-lg text-on-surface/40 hover:text-primary hover:bg-surface-container-low transition-colors disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-primary/30 ml-1"
                 title="Adjuntar archivo"
                 aria-label="Adjuntar archivo"
               >
@@ -1212,13 +1388,13 @@ function ChatPage() {
 
             {/* Attached file preview */}
             {attachedFile && (
-              <div className="mb-2 flex items-center gap-2 px-3 py-2 bg-[#1A1A22] border border-[#2A2A35] rounded-lg">
-                <FileText className="w-4 h-4 text-[#EAB308] flex-shrink-0" aria-hidden="true" />
-                <span className="text-xs text-[#9CA3AF] truncate flex-1">{attachedFile.name}</span>
+              <div className="mb-2 flex items-center gap-2 px-3 py-2 bg-surface-container-low border border-[rgba(79,70,51,0.15)] rounded-lg">
+                <FileText className="w-4 h-4 text-primary flex-shrink-0" aria-hidden="true" />
+                <span className="text-xs text-on-surface/60 truncate flex-1">{attachedFile.name}</span>
                 <button
                   type="button"
                   onClick={() => setAttachedFile(null)}
-                  className="text-[#6B7280] hover:text-[#9CA3AF] transition-colors focus:outline-none focus:ring-2 focus:ring-[#EAB308]/50 rounded"
+                  className="text-on-surface/40 hover:text-on-surface/70 transition-colors focus:outline-none focus:ring-2 focus:ring-primary/30 rounded-lg"
                   aria-label="Quitar archivo adjunto"
                 >
                   <X className="w-3 h-3" aria-hidden="true" />
@@ -1243,7 +1419,7 @@ function ChatPage() {
                 }}
                 placeholder={t("chat.placeholder")}
                 aria-label={t("chat.placeholder")}
-                className="flex-1 bg-[#0A0A0F] border border-[#2A2A35] rounded-2xl px-4 py-3 text-sm placeholder-[#6B7280] focus:outline-none focus:border-[#EAB308] focus:ring-1 focus:ring-[#EAB308]/25 resize-none min-h-[52px] max-h-32 overflow-y-auto text-[#F5F5F5] transition-colors"
+                className="flex-1 bg-surface-container border border-[rgba(79,70,51,0.15)] rounded-lg px-4 py-3 text-sm placeholder-on-surface/30 focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/20 resize-none min-h-[52px] max-h-32 overflow-y-auto text-on-surface transition-colors"
                 disabled={isLoading}
                 style={{ height: "auto" }}
                 onInput={(e) => {
@@ -1256,13 +1432,13 @@ function ChatPage() {
                 type="submit"
                 disabled={isLoading || !input.trim()}
                 aria-label={t("chat.send")}
-                className="bg-[#EAB308] hover:bg-[#D4A00A] disabled:bg-[#1A1A22] disabled:text-[#4B5563] text-[#0A0A0F] rounded-xl px-4 py-3 transition-colors self-end focus:outline-none focus:ring-2 focus:ring-[#EAB308]/50"
+                className="bg-gradient-to-tr from-primary to-primary-container hover:from-primary/90 hover:to-primary-container/90 disabled:from-surface-container-low disabled:to-surface-container-low disabled:text-on-surface/20 text-on-primary rounded-lg px-4 py-3 transition-all self-end focus:outline-none focus:ring-2 focus:ring-primary/40"
               >
                 <Send className="w-5 h-5" aria-hidden="true" />
               </button>
               <HelpPopover onShowShortcuts={() => setShowShortcutsModal(true)} />
             </form>
-            <p className="text-[10px] text-[#4B5563] mt-1.5 px-1">
+            <p className="text-[10px] text-on-surface/25 mt-1.5 px-1">
               Enter para enviar, Shift+Enter para nueva linea
             </p>
           </div>
@@ -1273,13 +1449,33 @@ function ChatPage() {
       {/* Orchestration Panel — Right side (lg+ only)                         */}
       {/* ------------------------------------------------------------------ */}
       {showOrchPanel && (
-        <aside className="hidden lg:flex w-72 border-l border-[#1E1E2A] bg-[#111116] flex-col overflow-hidden flex-shrink-0">
+        <aside className="hidden lg:flex w-72 bg-surface flex-col overflow-hidden flex-shrink-0">
           {/* Header */}
-          <div className="px-4 py-3 border-b border-[#1E1E2A] flex items-center justify-between shrink-0">
-            <span className="text-xs font-medium uppercase tracking-widest text-[#6B7280]">Orquestador</span>
+          <div className="px-4 py-3 bg-surface-container-low flex items-center justify-between shrink-0">
+            <div>
+              <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-on-surface/40">Orquestador</span>
+              {/* Model + Reasoning badge */}
+              {orchState.modelUsed && orchState.phase !== 'idle' && (
+                <div className="flex items-center gap-1.5 mt-1">
+                  <span className="text-[9px] bg-surface-container-high text-on-surface/60 rounded-lg px-1.5 py-0.5">
+                    {orchState.modelUsed.split('/').pop()}
+                  </span>
+                  {orchState.reasoningLevel && (
+                    <span className={`text-[9px] rounded-lg px-1.5 py-0.5 ${
+                      orchState.reasoningLevel === 'Profunda' ? 'bg-[#EF4444]/10 text-[#EF4444]' :
+                      orchState.reasoningLevel === 'Moderada' ? 'bg-[#F59E0B]/10 text-[#F59E0B]' :
+                      orchState.reasoningLevel === 'Rápida'   ? 'bg-[#34D399]/10 text-[#34D399]' :
+                      'bg-surface-container-high text-on-surface/40'
+                    }`}>
+                      {orchState.reasoningLevel}
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
             <button
               onClick={() => setShowOrchPanel(false)}
-              className="text-[#6B7280] hover:text-[#9CA3AF] transition-colors focus:outline-none focus:ring-2 focus:ring-[#EAB308]/50 rounded"
+              className="text-on-surface/40 hover:text-on-surface/70 transition-colors focus:outline-none focus:ring-2 focus:ring-primary/30 rounded-lg"
               aria-label="Cerrar panel de orquestación"
             >
               <PanelRightClose className="w-4 h-4" />
@@ -1287,34 +1483,57 @@ function ChatPage() {
           </div>
 
           {/* Brain / Orchestrator node */}
-          <div className="px-4 py-6 flex flex-col items-center border-b border-[#1E1E2A] shrink-0">
-            <div className={`w-16 h-16 rounded-full flex items-center justify-center transition-all duration-500 ${
-              orchState.phase === 'idle'       ? 'bg-[#1A1A22] text-[#6B7280]' :
+          <div className="px-4 py-5 flex flex-col items-center bg-surface shrink-0">
+            <div className={`w-14 h-14 rounded-lg flex items-center justify-center transition-all duration-500 ${
+              orchState.phase === 'idle'       ? 'bg-surface-container-low text-on-surface/30' :
               orchState.phase === 'evaluating' ? 'bg-[#A78BFA]/20 text-[#A78BFA] animate-pulse shadow-lg shadow-[#A78BFA]/20' :
               orchState.phase === 'done'       ? 'bg-[#34D399]/20 text-[#34D399]' :
-              'bg-[#EAB308]/20 text-[#EAB308] animate-pulse shadow-lg shadow-[#EAB308]/20'
+              'bg-primary/20 text-primary animate-pulse shadow-lg shadow-primary/20'
             }`}>
               {orchState.phase === 'done'
-                ? <CheckCircle2 className="w-8 h-8" />
-                : <Brain className="w-8 h-8" />
+                ? <CheckCircle2 className="w-7 h-7" />
+                : <Brain className="w-7 h-7" />
               }
             </div>
-            <p className="mt-2 text-xs text-[#9CA3AF] text-center leading-snug">
+            <p className="mt-2 text-[11px] text-on-surface/60 text-center leading-snug max-w-[220px]">
               {orchState.statusText || 'Esperando consulta...'}
             </p>
-            {orchState.confidence > 0 && (
-              <p className="text-[10px] text-[#6B7280] mt-1">
-                Confianza: {Math.round(orchState.confidence * 100)}%
-              </p>
+            {/* Stats row: confidence + latency + citations */}
+            {(orchState.confidence > 0 || orchState.latencyMs > 0) && (
+              <div className="flex items-center gap-3 mt-2">
+                {orchState.confidence > 0 && (
+                  <span className="text-[10px] text-on-surface/40">
+                    🎯 {Math.round(orchState.confidence * 100)}%
+                  </span>
+                )}
+                {orchState.latencyMs > 0 && (
+                  <span className="text-[10px] text-on-surface/40">
+                    ⏱ {(orchState.latencyMs / 1000).toFixed(1)}s
+                  </span>
+                )}
+                {orchState.citationCount > 0 && (
+                  <span className="text-[10px] text-on-surface/40">
+                    📜 {orchState.citationCount}
+                  </span>
+                )}
+              </div>
             )}
           </div>
 
+          {/* Evaluation reason — why extra agents were called */}
+          {orchState.evaluationReason && orchState.phase === 'done' && (
+            <div className="px-4 py-2.5 bg-surface-container-low shrink-0">
+              <p className="text-[10px] uppercase tracking-[0.2em] text-[#A78BFA]/70 mb-1">Motivo de convocatoria</p>
+              <p className="text-[10px] text-on-surface/60 leading-relaxed">{orchState.evaluationReason}</p>
+            </div>
+          )}
+
           {/* Agent Grid */}
-          <div className="flex-1 overflow-y-auto px-3 py-4">
-            <p className="text-[10px] uppercase tracking-widest text-[#6B7280] px-1 mb-3">
+          <div className="flex-1 overflow-y-auto px-3 py-3">
+            <p className="text-[10px] uppercase tracking-[0.2em] text-on-surface/40 px-1 mb-2">
               Agentes Especializados
             </p>
-            <div className="space-y-1.5">
+            <div className="space-y-1">
               {LEGAL_AREAS.map(area => {
                 const isActive    = orchState.activeAgents.includes(area.id);
                 const isPrimary   = orchState.primaryArea === area.id;
@@ -1323,48 +1542,58 @@ function ChatPage() {
                 return (
                   <div
                     key={area.id}
-                    className={`flex items-center gap-2.5 px-3 py-2 rounded-lg transition-all duration-500 ${
-                      isPrimary   ? 'bg-[#EAB308]/10 border border-[#EAB308]/30' :
-                      isSecondary ? 'bg-[#A78BFA]/10 border border-[#A78BFA]/30' :
-                      isActive    ? 'bg-[#1A1A22] border border-[#2A2A35]' :
+                    className={`flex items-center gap-2.5 px-3 py-1.5 rounded-lg transition-all duration-500 ${
+                      isPrimary   ? 'bg-primary/10 border border-primary/20' :
+                      isSecondary ? 'bg-[#A78BFA]/10 border border-[#A78BFA]/20' :
+                      isActive    ? 'bg-surface-container-high border border-transparent' :
                       'border border-transparent'
                     }`}
                   >
                     {/* Status dot */}
                     <div className={`w-2 h-2 rounded-full flex-shrink-0 transition-all duration-500 ${
-                      isPrimary   ? 'bg-[#EAB308] shadow-sm shadow-[#EAB308]/50' :
+                      isPrimary   ? 'bg-primary shadow-sm shadow-primary/50' :
                       isSecondary ? 'bg-[#A78BFA] shadow-sm shadow-[#A78BFA]/50' :
                       isActive    ? 'bg-[#34D399]' :
-                      'bg-[#2A2A35]'
+                      'bg-surface-container-high'
                     } ${isActive && orchState.phase !== 'done' ? 'animate-pulse' : ''}`} />
 
                     {/* Agent icon */}
                     <AreaIcon className={`w-3.5 h-3.5 flex-shrink-0 transition-all duration-500 ${
-                      isPrimary   ? 'text-[#EAB308]' :
+                      isPrimary   ? 'text-primary' :
                       isSecondary ? 'text-[#A78BFA]' :
-                      isActive    ? 'text-[#F5F5F5]' :
-                      'text-[#4B5563]'
+                      isActive    ? 'text-on-surface' :
+                      'text-on-surface/20'
                     }`} />
 
-                    {/* Agent name */}
-                    <span className={`text-xs truncate flex-1 transition-all duration-500 ${
-                      isActive ? 'text-[#F5F5F5]' : 'text-[#4B5563]'
+                    {/* Agent name + role tag */}
+                    <span className={`text-[11px] truncate flex-1 transition-all duration-500 ${
+                      isActive || isSecondary ? 'text-on-surface' : 'text-on-surface/25'
                     }`}>
                       {area.label}
+                      {isPrimary && orchState.phase === 'done' && (
+                        <span className="ml-1.5 text-[9px] text-primary/70">Principal</span>
+                      )}
+                      {isSecondary && orchState.phase === 'done' && (
+                        <span className="ml-1.5 text-[9px] text-[#A78BFA]/70">Complementó</span>
+                      )}
                     </span>
 
                     {/* Typing indicator while active */}
                     {isActive && orchState.phase !== 'done' && (
                       <div className="ml-auto flex gap-0.5">
-                        <div className="w-1 h-1 rounded-full bg-[#EAB308] animate-bounce" style={{ animationDelay: '0ms' }} />
-                        <div className="w-1 h-1 rounded-full bg-[#EAB308] animate-bounce" style={{ animationDelay: '150ms' }} />
-                        <div className="w-1 h-1 rounded-full bg-[#EAB308] animate-bounce" style={{ animationDelay: '300ms' }} />
+                        <div className="w-1 h-1 rounded-full bg-primary animate-bounce" style={{ animationDelay: '0ms' }} />
+                        <div className="w-1 h-1 rounded-full bg-primary animate-bounce" style={{ animationDelay: '150ms' }} />
+                        <div className="w-1 h-1 rounded-full bg-primary animate-bounce" style={{ animationDelay: '300ms' }} />
                       </div>
                     )}
 
                     {/* Completed check */}
-                    {isActive && orchState.phase === 'done' && (
-                      <CheckCircle2 className="ml-auto w-3.5 h-3.5 text-[#34D399] flex-shrink-0" />
+                    {(isActive || isSecondary) && orchState.phase === 'done' && (
+                      <CheckCircle2 className={`ml-auto w-3.5 h-3.5 flex-shrink-0 ${
+                        isPrimary ? 'text-primary' :
+                        isSecondary ? 'text-[#A78BFA]' :
+                        'text-[#34D399]'
+                      }`} />
                     )}
                   </div>
                 );
@@ -1372,35 +1601,141 @@ function ChatPage() {
             </div>
           </div>
 
-          {/* Steps timeline */}
+          {/* Steps timeline with relative timestamps */}
           {orchState.steps.length > 0 && (
-            <div className="border-t border-[#1E1E2A] px-4 py-3 max-h-40 overflow-y-auto shrink-0">
-              <p className="text-[10px] uppercase tracking-widest text-[#6B7280] mb-2">Timeline</p>
-              <div className="space-y-1.5">
-                {orchState.steps.map((step, i) => (
-                  <div key={i} className="flex items-center gap-2 text-xs">
-                    <span>{step.icon}</span>
-                    <span className={step.done ? 'text-[#9CA3AF]' : 'text-[#EAB308]'}>
-                      {step.text}
-                    </span>
-                  </div>
-                ))}
+            <div className="bg-surface-container-low px-4 py-3 max-h-48 overflow-y-auto shrink-0">
+              <p className="text-[10px] uppercase tracking-[0.2em] text-on-surface/40 mb-2">Timeline</p>
+              <div className="space-y-1">
+                {orchState.steps.map((step, i) => {
+                  const elapsed = orchState.startTime > 0 ? ((step.ts - orchState.startTime) / 1000).toFixed(1) : null;
+                  return (
+                    <div key={i} className="flex items-center gap-2 text-[11px]">
+                      <span className="w-4 text-center">{step.icon}</span>
+                      <span className={`flex-1 truncate ${step.done ? 'text-on-surface/50' : 'text-primary'}`}>
+                        {step.text}
+                      </span>
+                      {elapsed && (
+                        <span className="text-[9px] text-on-surface/25 tabular-nums flex-shrink-0">{elapsed}s</span>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}
         </aside>
       )}
 
-      {/* Toggle button when panel is hidden */}
+      {/* Toggle button when panel is hidden — desktop */}
       {!showOrchPanel && (
         <button
           onClick={() => setShowOrchPanel(true)}
-          className="fixed right-0 top-1/2 -translate-y-1/2 z-30 bg-[#111116] border border-[#2A2A35] rounded-l-xl p-2 hover:bg-[#1A1A22] transition hidden lg:flex items-center"
+          className="fixed right-0 top-1/2 -translate-y-1/2 z-30 bg-surface border border-[rgba(79,70,51,0.15)] rounded-l-lg p-2 hover:bg-surface-container-low transition hidden lg:flex items-center"
           title="Mostrar Orquestador"
           aria-label="Mostrar panel del orquestador"
         >
-          <Brain className="w-5 h-5 text-[#6B7280]" />
+          <Brain className="w-5 h-5 text-on-surface/40" />
         </button>
+      )}
+
+      {/* Mobile orchestrator — floating status pill (visible during processing on small screens) */}
+      {orchState.phase !== 'idle' && (
+        <div className="lg:hidden fixed bottom-20 left-1/2 -translate-x-1/2 z-30">
+          <button
+            onClick={() => setShowOrchPanel(p => !p)}
+            className={`flex items-center gap-2 px-3 py-2 rounded-lg border shadow-lg transition-all ${
+              orchState.phase === 'done'
+                ? 'bg-surface border-[#34D399]/20 text-[#34D399]'
+                : 'bg-surface border-primary/20 text-primary animate-pulse'
+            }`}
+          >
+            {orchState.phase === 'done' ? <CheckCircle2 className="w-4 h-4" /> : <Brain className="w-4 h-4" />}
+            <span className="text-[11px] max-w-[200px] truncate">
+              {orchState.phase === 'done'
+                ? `✅ ${orchState.activeAgents.length} agentes · ${(orchState.latencyMs / 1000).toFixed(1)}s`
+                : orchState.statusText.slice(0, 40)
+              }
+            </span>
+          </button>
+        </div>
+      )}
+
+      {/* Mobile orchestrator drawer — slides up from bottom */}
+      {showOrchPanel && (
+        <div className="lg:hidden fixed inset-0 z-40" onClick={() => setShowOrchPanel(false)}>
+          <div className="absolute inset-0 bg-black/50" />
+          <div
+            className="absolute bottom-0 left-0 right-0 bg-surface rounded-t-lg max-h-[70vh] overflow-y-auto"
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Drag handle */}
+            <div className="flex justify-center py-2">
+              <div className="w-10 h-1 rounded-full bg-surface-container-high" />
+            </div>
+            {/* Compact mobile content */}
+            <div className="px-4 pb-4">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-on-surface/40">Orquestador</span>
+                <div className="flex items-center gap-2">
+                  {orchState.modelUsed && (
+                    <span className="text-[9px] bg-surface-container-high text-on-surface/60 rounded-lg px-1.5 py-0.5">
+                      {orchState.modelUsed.split('/').pop()}
+                    </span>
+                  )}
+                  {orchState.reasoningLevel && (
+                    <span className="text-[9px] bg-surface-container-high text-on-surface/40 rounded-lg px-1.5 py-0.5">
+                      {orchState.reasoningLevel}
+                    </span>
+                  )}
+                </div>
+              </div>
+              {/* Stats row */}
+              <div className="flex items-center gap-4 mb-3">
+                {orchState.confidence > 0 && <span className="text-[10px] text-on-surface/40">🎯 {Math.round(orchState.confidence * 100)}%</span>}
+                {orchState.latencyMs > 0 && <span className="text-[10px] text-on-surface/40">⏱ {(orchState.latencyMs / 1000).toFixed(1)}s</span>}
+                {orchState.citationCount > 0 && <span className="text-[10px] text-on-surface/40">📜 {orchState.citationCount} refs</span>}
+                <span className="text-[10px] text-on-surface/40">👥 {orchState.activeAgents.length} agentes</span>
+              </div>
+              {/* Active agents only */}
+              <div className="flex flex-wrap gap-1.5 mb-3">
+                {LEGAL_AREAS.filter(a => orchState.activeAgents.includes(a.id) || orchState.secondaryAreas.includes(a.id)).map(area => {
+                  const isPrimary = orchState.primaryArea === area.id;
+                  const isSecondary = orchState.secondaryAreas.includes(area.id);
+                  return (
+                    <span key={area.id} className={`text-[10px] rounded-lg px-2 py-0.5 border ${
+                      isPrimary ? 'bg-primary/10 border-primary/20 text-primary' :
+                      isSecondary ? 'bg-[#A78BFA]/10 border-[#A78BFA]/20 text-[#A78BFA]' :
+                      'bg-surface-container-low border-transparent text-on-surface/60'
+                    }`}>
+                      {area.name} {isPrimary ? '★' : ''}
+                    </span>
+                  );
+                })}
+              </div>
+              {/* Evaluation reason */}
+              {orchState.evaluationReason && (
+                <p className="text-[10px] text-on-surface/60 leading-relaxed mb-3 border-l-2 border-[#A78BFA]/30 pl-2">
+                  {orchState.evaluationReason}
+                </p>
+              )}
+              {/* Timeline compact */}
+              {orchState.steps.length > 0 && (
+                <div className="space-y-1">
+                  {orchState.steps.slice(-6).map((step, i) => {
+                    const elapsed = orchState.startTime > 0 ? ((step.ts - orchState.startTime) / 1000).toFixed(1) : null;
+                    return (
+                      <div key={i} className="flex items-center gap-2 text-[10px]">
+                        <span>{step.icon}</span>
+                        <span className={`flex-1 truncate ${step.done ? 'text-on-surface/50' : 'text-primary'}`}>{step.text}</span>
+                        {elapsed && <span className="text-[9px] text-on-surface/25">{elapsed}s</span>}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       )}
 
       </div>{/* end outer flex row */}
@@ -1408,14 +1743,14 @@ function ChatPage() {
       {/* Context menu — right-click on conversation */}
       {contextMenu && (
         <div
-          className="fixed z-50 bg-[#111116] border border-[#2A2A35] rounded-xl shadow-lg shadow-black/40 py-1 min-w-[180px]"
+          className="fixed z-50 bg-surface-container border border-[rgba(79,70,51,0.15)] rounded-lg shadow-lg shadow-black/40 py-1 min-w-[180px]"
           style={{ top: contextMenu.y, left: contextMenu.x }}
           onClick={(e) => e.stopPropagation()}
         >
-          <p className="px-4 py-1.5 text-[10px] text-[#6B7280] truncate max-w-[180px] uppercase tracking-widest">
+          <p className="px-4 py-1.5 text-[10px] text-on-surface/40 truncate max-w-[180px] uppercase tracking-[0.2em]">
             {contextMenu.convTitle ?? "Consulta"}
           </p>
-          <div className="border-t border-[#2A2A35] mt-1" />
+          <div className="h-px bg-surface-container-high mt-1" />
           <ContextMenuItem
             icon={<Pencil className="w-3.5 h-3.5" />}
             label="Renombrar"
@@ -1452,7 +1787,7 @@ function ChatPage() {
             loading={contextActionLoading === "share"}
             onClick={() => contextShare(contextMenu.convId)}
           />
-          <div className="border-t border-[#2A2A35] my-1" />
+          <div className="h-px bg-surface-container-high my-1" />
           <ContextMenuItem
             icon={<Trash2 className="w-3.5 h-3.5" />}
             label="Eliminar"
@@ -1503,7 +1838,7 @@ function ContextMenuItem({
       className={`w-full flex items-center gap-2.5 px-4 py-2.5 text-xs transition-colors disabled:opacity-50 ${
         danger
           ? "text-[#F87171] hover:bg-[#F87171]/10"
-          : "text-[#F5F5F5] hover:bg-[#1A1A22]"
+          : "text-on-surface hover:bg-surface-container-high"
       }`}
     >
       {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : icon}

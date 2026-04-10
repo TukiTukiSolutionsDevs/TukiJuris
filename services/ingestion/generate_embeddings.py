@@ -44,8 +44,51 @@ DB_URL = os.getenv(
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY", "")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 
-GOOGLE_MODEL = "models/text-embedding-004"
-GOOGLE_DIM = 768
+# Fernet decryption — same derivation as llm_key_service.py
+_JWT_SECRET = os.getenv("JWT_SECRET", "dev-only-secret-change-in-production")
+
+
+def _decrypt_fernet(encrypted: str) -> str:
+    """Decrypt a Fernet-encrypted API key using the JWT_SECRET."""
+    import base64
+    import hashlib
+    from cryptography.fernet import Fernet
+    key_bytes = hashlib.sha256(_JWT_SECRET.encode()).digest()
+    f = Fernet(base64.urlsafe_b64encode(key_bytes))
+    return f.decrypt(encrypted.encode()).decode()
+
+
+async def _resolve_keys_from_db(conn: asyncpg.Connection) -> None:
+    """
+    Read API keys from user_llm_keys table (BYOK keys saved through the app).
+    BYOK keys ALWAYS take priority over .env keys — this is a SaaS platform,
+    users configure everything from the UI, not from server files.
+    """
+    global GOOGLE_API_KEY, OPENAI_API_KEY
+
+    rows = await conn.fetch(
+        """
+        SELECT provider, api_key_encrypted
+        FROM user_llm_keys
+        WHERE is_active = true
+        ORDER BY created_at ASC
+        LIMIT 10
+        """
+    )
+    for row in rows:
+        try:
+            decrypted = _decrypt_fernet(row["api_key_encrypted"])
+        except Exception:
+            continue
+        if row["provider"] == "google":
+            GOOGLE_API_KEY = decrypted
+            logger.info("Using Google API key from app (BYOK — overrides .env)")
+        elif row["provider"] == "openai":
+            OPENAI_API_KEY = decrypted
+            logger.info("Using OpenAI API key from app (BYOK — overrides .env)")
+
+GOOGLE_MODEL = "models/gemini-embedding-001"
+GOOGLE_DIM = 768  # native is 3072 but we request 768 via output_dimensionality for pgvector HNSW compat
 
 OPENAI_MODEL = "text-embedding-3-small"
 OPENAI_DIM = 1536
@@ -160,6 +203,7 @@ def _embed_google(texts: list[str]) -> list[list[float]]:
         result = genai.embed_content(
             model=GOOGLE_MODEL,
             content=text,
+            output_dimensionality=GOOGLE_DIM,
         )
         embeddings.append(result["embedding"])
     return embeddings
@@ -279,12 +323,15 @@ async def run_migration(conn: asyncpg.Connection, provider: str, target_dim: int
 
 async def generate_embeddings() -> None:
     """Main pipeline: connects, migrates schema, batches, embeds, updates."""
-    provider, dim = detect_provider()
-
     logger.info(f"Connecting to DB: {DB_URL.split('@')[-1]}")  # hide credentials
     conn = await asyncpg.connect(DB_URL)
 
     try:
+        # ── Resolve API keys from DB if not in env ──────────────────────────
+        await _resolve_keys_from_db(conn)
+
+        provider, dim = detect_provider()
+
         # ── Schema migration ────────────────────────────────────────────────
         await run_migration(conn, provider, dim)
 

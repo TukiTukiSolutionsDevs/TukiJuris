@@ -12,6 +12,7 @@ Or locally:
 import argparse
 import asyncio
 import logging
+import os
 import sys
 import uuid
 from collections import defaultdict
@@ -60,7 +61,10 @@ from services.ingestion.seeders.derecho_laboral_ext import LABORAL_EXT_ARTICLES
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
-DEFAULT_DB_URL = "postgresql://postgres:postgres@localhost:5432/agente_derecho"
+DEFAULT_DB_URL = os.environ.get(
+    "DATABASE_URL_SYNC",
+    "postgresql://postgres:postgres@localhost:5432/agente_derecho",
+)
 
 
 DOCUMENT_DEFINITIONS = [

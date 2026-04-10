@@ -20,24 +20,27 @@ logger = logging.getLogger(__name__)
 
 # Configure LiteLLM
 litellm.set_verbose = settings.app_debug
+litellm.drop_params = True  # Allow models not yet in LiteLLM's catalog (e.g. gemini-3.1-pro-preview)
 
 
-# Available models configuration
+# ─── Available models — April 2026 catalog ─────────────────────────────────
+# ALL model IDs use LiteLLM prefix format so routing works out of the box.
+# Verified against official provider docs: 2026-04-08
 AVAILABLE_MODELS = [
     # --- Free / Ultra-cheap tier ---
     {
-        "id": "gemini/gemini-2.0-flash",
+        "id": "gemini/gemini-2.5-flash",
         "provider": "google",
-        "name": "Gemini 2.0 Flash",
-        "description": "Rápido y gratuito. Ideal para consultas rápidas.",
+        "name": "Gemini 2.5 Flash",
+        "description": "Rápido y gratuito. Último Flash estable de Google.",
         "tier": "free",
         "cost_per_1k_tokens": 0.0,
     },
     {
         "id": "deepseek/deepseek-chat",
         "provider": "deepseek",
-        "name": "DeepSeek V3",
-        "description": "Ultra económico. Excelente razonamiento legal.",
+        "name": "DeepSeek V3.2",
+        "description": "Ultra económico ($0.28/M). Excelente razonamiento.",
         "tier": "free",
         "cost_per_1k_tokens": 0.00028,
     },
@@ -45,7 +48,7 @@ AVAILABLE_MODELS = [
         "id": "groq/llama-3.1-8b-instant",
         "provider": "groq",
         "name": "Llama 3.1 8B — Groq",
-        "description": "Ultra rápido. Respuestas instantáneas.",
+        "description": "Ultra rápido (560 t/s). Respuestas instantáneas.",
         "tier": "free",
         "cost_per_1k_tokens": 0.00005,
     },
@@ -53,32 +56,32 @@ AVAILABLE_MODELS = [
         "id": "groq/llama-3.3-70b-versatile",
         "provider": "groq",
         "name": "Llama 3.3 70B — Groq",
-        "description": "Rápido y versátil. Buena calidad general.",
+        "description": "Rápido y versátil (280 t/s). Buena calidad.",
         "tier": "free",
         "cost_per_1k_tokens": 0.00059,
     },
     # --- Standard tier ---
     {
-        "id": "gpt-4o-mini",
+        "id": "openai/gpt-5.4-nano",
         "provider": "openai",
-        "name": "GPT-4o Mini",
-        "description": "Rápido y económico. Bueno para consultas simples.",
+        "name": "GPT-5.4 Nano",
+        "description": "El más barato de OpenAI ($0.20/M). Tareas simples.",
         "tier": "standard",
-        "cost_per_1k_tokens": 0.00015,
+        "cost_per_1k_tokens": 0.0002,
     },
     {
-        "id": "claude-3-5-haiku-20241022",
+        "id": "anthropic/claude-haiku-4-5",
         "provider": "anthropic",
-        "name": "Claude 3.5 Haiku",
-        "description": "Rápido y preciso. Buena relación calidad-precio.",
+        "name": "Claude Haiku 4.5",
+        "description": "El más rápido de Anthropic ($1/M). Near-frontier.",
         "tier": "standard",
-        "cost_per_1k_tokens": 0.0008,
+        "cost_per_1k_tokens": 0.001,
     },
     {
-        "id": "groq/qwen-qwq-32b",
+        "id": "groq/qwen/qwen3-32b",
         "provider": "groq",
-        "name": "Qwen QwQ 32B — Groq",
-        "description": "Modelo chino potente. Buen razonamiento.",
+        "name": "Qwen3 32B — Groq",
+        "description": "Modelo potente en Groq (400 t/s). Buen razonamiento.",
         "tier": "standard",
         "cost_per_1k_tokens": 0.00029,
     },
@@ -86,66 +89,148 @@ AVAILABLE_MODELS = [
         "id": "deepseek/deepseek-reasoner",
         "provider": "deepseek",
         "name": "DeepSeek Reasoner",
-        "description": "Razonamiento profundo. Ideal para análisis complejo.",
+        "description": "Razonamiento profundo (thinking mode). Análisis complejo.",
         "tier": "standard",
         "cost_per_1k_tokens": 0.00028,
-    },
-    {
-        "id": "moonshot/moonshot-v1-8k",
-        "provider": "moonshot",
-        "name": "Moonshot v1 8k (Kimi)",
-        "description": "Kimi AI. Bueno para textos en español y chino.",
-        "tier": "standard",
-        "cost_per_1k_tokens": 0.001,
-    },
-    # --- Pro tier ---
-    {
-        "id": "gpt-4o",
-        "provider": "openai",
-        "name": "GPT-4o",
-        "description": "Modelo avanzado. Mejor análisis y razonamiento legal.",
-        "tier": "pro",
-        "cost_per_1k_tokens": 0.005,
-    },
-    {
-        "id": "claude-sonnet-4-20250514",
-        "provider": "anthropic",
-        "name": "Claude Sonnet 4",
-        "description": "Excelente para análisis legal detallado.",
-        "tier": "pro",
-        "cost_per_1k_tokens": 0.003,
     },
     {
         "id": "gemini/gemini-2.5-pro",
         "provider": "google",
         "name": "Gemini 2.5 Pro",
-        "description": "Gran contexto. Ideal para documentos largos.",
-        "tier": "pro",
+        "description": "Gran contexto (1M tokens). Ideal para documentos largos.",
+        "tier": "standard",
         "cost_per_1k_tokens": 0.00125,
     },
+    # --- Pro tier ---
     {
-        "id": "groq/moonshotai/kimi-k2-instruct",
+        "id": "openai/gpt-5.4-mini",
+        "provider": "openai",
+        "name": "GPT-5.4 Mini",
+        "description": "Mejor relación calidad/precio de OpenAI ($0.75/M). 400K ctx.",
+        "tier": "pro",
+        "cost_per_1k_tokens": 0.00075,
+    },
+    {
+        "id": "anthropic/claude-sonnet-4-6",
+        "provider": "anthropic",
+        "name": "Claude Sonnet 4.6",
+        "description": "Velocidad + inteligencia ($3/M). 1M contexto.",
+        "tier": "pro",
+        "cost_per_1k_tokens": 0.003,
+    },
+    {
+        "id": "gemini/gemini-3.1-flash-lite-preview",
+        "provider": "google",
+        "name": "Gemini 3.1 Flash-Lite",
+        "description": "Alta eficiencia ($0.25/M). Ideal para tareas de alto volumen.",
+        "tier": "standard",
+        "cost_per_1k_tokens": 0.00025,
+    },
+    {
+        "id": "gemini/gemini-3.1-pro-preview",
+        "provider": "google",
+        "name": "Gemini 3.1 Pro",
+        "description": "Flagship de Google ($2/M). Deep Think, 1M contexto, agentic.",
+        "tier": "pro",
+        "cost_per_1k_tokens": 0.002,
+    },
+    {
+        "id": "groq/openai/gpt-oss-120b",
         "provider": "groq",
-        "name": "Kimi K2 — Groq",
-        "description": "Kimi K2 en Groq. Rápido y potente.",
+        "name": "GPT-OSS 120B — Groq",
+        "description": "OpenAI open-weight en Groq (500 t/s). Potente.",
         "tier": "pro",
-        "cost_per_1k_tokens": 0.001,
+        "cost_per_1k_tokens": 0.00015,
     },
     {
-        "id": "qwen/qwen-turbo",
-        "provider": "qwen",
-        "name": "Qwen Turbo",
-        "description": "Qwen Turbo. Rápido y económico.",
+        "id": "openai/gpt-5.4",
+        "provider": "openai",
+        "name": "GPT-5.4",
+        "description": "Flagship OpenAI ($2.50/M). 1M contexto, 128K output.",
         "tier": "pro",
-        "cost_per_1k_tokens": 0.0004,
+        "cost_per_1k_tokens": 0.0025,
     },
     {
-        "id": "zhipu/glm-4-plus",
-        "provider": "zhipu",
-        "name": "GLM-4 Plus",
-        "description": "GLM-4 Plus. Buen análisis jurídico.",
+        "id": "anthropic/claude-opus-4-6",
+        "provider": "anthropic",
+        "name": "Claude Opus 4.6",
+        "description": "El más inteligente de Anthropic ($5/M). Agentes y coding.",
         "tier": "pro",
-        "cost_per_1k_tokens": 0.0007,
+        "cost_per_1k_tokens": 0.005,
+    },
+    # --- xAI Grok (prefix: xai/) ─────────────────────────────
+    {
+        "id": "xai/grok-3-mini-fast-latest",
+        "provider": "xai",
+        "name": "Grok 3 Mini Fast",
+        "description": "Ultra económico ($0.30/M). 131K ctx. Rápido y eficiente.",
+        "tier": "free",
+        "cost_per_1k_tokens": 0.0003,
+    },
+    {
+        "id": "xai/grok-3-fast-latest",
+        "provider": "xai",
+        "name": "Grok 3 Fast",
+        "description": "Rápido con razonamiento ($3/M). 131K ctx.",
+        "tier": "standard",
+        "cost_per_1k_tokens": 0.003,
+    },
+    {
+        "id": "xai/grok-4-1-fast-reasoning",
+        "provider": "xai",
+        "name": "Grok 4.1 Fast",
+        "description": "Mejor valor xAI ($0.20/M). 2M ctx. Reasoning + tool-calling.",
+        "tier": "standard",
+        "cost_per_1k_tokens": 0.0002,
+    },
+    {
+        "id": "xai/grok-4-0709",
+        "provider": "xai",
+        "name": "Grok 4",
+        "description": "Flagship xAI ($3/M). 256K ctx. Reasoning profundo.",
+        "tier": "pro",
+        "cost_per_1k_tokens": 0.003,
+    },
+    {
+        "id": "xai/grok-4.20-reasoning-latest",
+        "provider": "xai",
+        "name": "Grok 4.20 Reasoning",
+        "description": "Lo último de xAI ($2/M). 2M ctx. Menor alucinación del mercado.",
+        "tier": "pro",
+        "cost_per_1k_tokens": 0.002,
+    },
+]
+
+# ─── Free tier models — available without BYOK keys ──────────────────────
+# These are provided by the platform at zero cost to the user.
+# Order matters: first model is the primary, rest are fallbacks.
+FREE_TIER_MODELS = [
+    {
+        "id": "gemini/gemini-2.5-flash",
+        "provider": "google",
+        "name": "Gemini 2.5 Flash",
+        "description": "Modelo gratuito incluido. Rápido y capaz.",
+        "tier": "free",
+        "cost_per_1k_tokens": 0.0,
+        "is_platform_provided": True,
+    },
+    {
+        "id": "groq/llama-3.3-70b-versatile",
+        "provider": "groq",
+        "name": "Llama 3.3 70B — Groq",
+        "description": "Modelo gratuito incluido. 280 t/s, versátil.",
+        "tier": "free",
+        "cost_per_1k_tokens": 0.0,
+        "is_platform_provided": True,
+    },
+    {
+        "id": "groq/llama-3.1-8b-instant",
+        "provider": "groq",
+        "name": "Llama 3.1 8B — Groq",
+        "description": "Modelo gratuito incluido. Ultra rápido.",
+        "tier": "free",
+        "cost_per_1k_tokens": 0.0,
+        "is_platform_provided": True,
     },
 ]
 
@@ -155,35 +240,121 @@ class LLMService:
 
     def __init__(self):
         self._configure_api_keys()
+        self._byok_cache: dict[str, str] = {}  # provider → decrypted key
 
     def _configure_api_keys(self):
         """Set platform-level API keys from settings (used for internal operations)."""
+        import os
+
         if settings.openai_api_key:
             litellm.openai_key = settings.openai_api_key
         if settings.anthropic_api_key:
             litellm.anthropic_key = settings.anthropic_api_key
-        if settings.google_api_key:
-            litellm.google_key = settings.google_api_key
+        if settings.xai_api_key:
+            os.environ["XAI_API_KEY"] = settings.xai_api_key
+        if settings.openrouter_api_key:
+            os.environ["OPENROUTER_API_KEY"] = settings.openrouter_api_key
+
+    def _provider_from_model(self, model: str) -> str | None:
+        """Map a model string to its provider name for BYOK key resolution.
+
+        Checks LiteLLM-style prefix first (e.g. ``openai/gpt-5.4``),
+        then falls back to keyword matching for bare model names.
+        """
+        model_lower = (model or "").lower()
+
+        # ── 1. Explicit LiteLLM prefix (highest priority) ──────────────
+        if model_lower.startswith("openai/"):
+            return "openai"
+        if model_lower.startswith("anthropic/"):
+            return "anthropic"
+        if model_lower.startswith("gemini/"):
+            return "google"
+        if model_lower.startswith("deepseek/"):
+            return "deepseek"
+        if model_lower.startswith("groq/"):
+            return "groq"
+        if model_lower.startswith("xai/"):
+            return "xai"
+        if model_lower.startswith("openrouter/"):
+            return "openrouter"
+
+        # ── 2. Keyword fallback for bare model names ───────────────────
+        if any(x in model_lower for x in ["gpt", "o1-", "o3-", "o4-"]):
+            return "openai"
+        if any(x in model_lower for x in ["claude", "sonnet", "haiku", "opus"]):
+            return "anthropic"
+        if any(x in model_lower for x in ["gemini", "palm"]):
+            return "google"
+        if "deepseek" in model_lower:
+            return "deepseek"
+        if any(x in model_lower for x in ["llama", "qwen", "mixtral"]):
+            return "groq"
+        return None
 
     def _get_platform_key(self, model: str) -> str | None:
         """
-        Return the platform's own API key for a given model.
+        Return the best available API key for a model.
 
-        Used ONLY for internal operations (classification, reranking, memory extraction)
-        that are not user-facing. User-facing responses must use the user's own key.
+        Priority: BYOK keys from DB (user-configured) → .env fallback.
+        The BYOK model means keys come from the app UI (configuración),
+        NOT from .env files.  The .env is only a last-resort fallback for
+        providers where the platform has its own key (e.g. internal ops).
         """
-        model_lower = (model or "").lower()
-        if any(x in model_lower for x in ["gpt", "o1", "o3", "openai"]):
-            return settings.openai_api_key or None
-        elif any(x in model_lower for x in ["claude", "anthropic", "sonnet", "haiku", "opus"]):
-            return settings.anthropic_api_key or None
-        elif any(x in model_lower for x in ["gemini", "google", "palm"]):
-            return settings.google_api_key or None
-        elif any(x in model_lower for x in ["deepseek"]):
-            return settings.deepseek_api_key or None
-        elif any(x in model_lower for x in ["groq", "llama", "qwen", "dashscope", "moonshot", "kimi", "zhipu", "glm", "minimax"]):
-            return settings.groq_api_key or None
+        provider = self._provider_from_model(model)
+
+        # 1. BYOK key from DB cache (user-configured via app UI) — PRIORITY
+        if provider and provider in self._byok_cache:
+            return self._byok_cache[provider]
+
+        # 2. Fallback: env-based platform key (NOT for Google — always BYOK)
+        env_keys = {
+            "openai": settings.openai_api_key,
+            "anthropic": settings.anthropic_api_key,
+            "google": settings.google_api_key,
+            "deepseek": settings.deepseek_api_key,
+            "groq": settings.groq_api_key,
+            "xai": settings.xai_api_key,
+            "openrouter": settings.openrouter_api_key,
+        }
+        env_key = env_keys.get(provider or "", "") or ""
+        if env_key:
+            return env_key
+
         return None
+
+    async def _resolve_byok_for_platform(self) -> None:
+        """
+        Load BYOK keys from DB into cache for platform internal operations.
+        Called once on first internal request that needs a key.
+        SaaS model: users configure keys in the app, not in .env files.
+        """
+        if self._byok_cache:
+            return  # already loaded
+
+        try:
+            from app.core.database import async_session_factory
+            from app.models.llm_key import UserLLMKey
+            from app.services.llm_key_service import decrypt_key
+            from sqlalchemy import select
+
+            async with async_session_factory() as session:
+                result = await session.execute(
+                    select(UserLLMKey)
+                    .where(UserLLMKey.is_active.is_(True))
+                    .order_by(UserLLMKey.created_at.asc())
+                    .limit(20)
+                )
+                keys = result.scalars().all()
+                for k in keys:
+                    if k.provider not in self._byok_cache:
+                        try:
+                            self._byok_cache[k.provider] = decrypt_key(k.api_key_encrypted)
+                            logger.info(f"BYOK key loaded for platform ops: {k.provider}")
+                        except Exception:
+                            pass
+        except Exception as exc:
+            logger.warning(f"Could not load BYOK keys for platform: {exc}")
 
     async def completion(
         self,
@@ -193,28 +364,35 @@ class LLMService:
         max_tokens: int = 4096,
         stream: bool = False,
         user_api_key: str | None = None,  # BYOK: user's own provider key
+        reasoning_effort: str | None = None,  # "low", "medium", "high"
     ) -> dict:
         """
         Send a completion request to any supported LLM.
 
         Args:
-            messages: Chat messages in OpenAI format [{"role": "...", "content": "..."}]
-            model: Model ID (e.g., "gpt-4o-mini", "claude-sonnet-4-20250514")
+            messages: Chat messages in OpenAI format
+            model: Model ID with LiteLLM prefix
             temperature: Sampling temperature (low for legal accuracy)
             max_tokens: Maximum response tokens
             stream: Whether to stream the response
             user_api_key: BYOK — the user's own provider API key.
-                If None, falls back to the platform's key (for internal operations only).
+            reasoning_effort: "low", "medium", "high" — controls thinking depth.
+                LiteLLM maps this to each provider's native parameter:
+                - Anthropic: output_config.effort / thinking.budget_tokens
+                - Gemini: thinking budget
+                - OpenAI: reasoning_effort
+                - xAI: selects reasoning vs non-reasoning variant
 
         Returns:
             dict with 'content', 'model', 'tokens_used'
         """
         model = model or settings.default_llm_model
 
-        # BYOK key resolution:
-        # 1. Use user's key if provided (user-facing responses)
-        # 2. Fall back to platform key (internal ops: classification, reranking, etc.)
+        # BYOK key resolution
         api_key = user_api_key or self._get_platform_key(model)
+        if not api_key:
+            await self._resolve_byok_for_platform()
+            api_key = self._get_platform_key(model)
 
         try:
             call_kwargs: dict = dict(
@@ -227,13 +405,34 @@ class LLMService:
             if api_key:
                 call_kwargs["api_key"] = api_key
 
+            # Pass reasoning_effort if specified — LiteLLM handles provider mapping
+            if reasoning_effort and reasoning_effort in ("low", "medium", "high"):
+                call_kwargs["reasoning_effort"] = reasoning_effort
+
             response = await litellm.acompletion(**call_kwargs)
 
             if stream:
                 return {"stream": response, "model": model}
 
+            # Extract content — thinking models may return None in .content
+            content = response.choices[0].message.content
+            if content is None:
+                # Some thinking models put all output in reasoning/thinking blocks
+                # Try to extract from thinking_content or reasoning_content
+                msg = response.choices[0].message
+                content = (
+                    getattr(msg, "reasoning_content", None)
+                    or getattr(msg, "thinking_content", None)
+                    or getattr(msg, "thinking", None)
+                    or ""
+                )
+                if content:
+                    logger.info(f"Extracted content from thinking block ({len(content)} chars)")
+                else:
+                    logger.warning(f"Model {model} returned None content with no thinking fallback")
+
             return {
-                "content": response.choices[0].message.content,
+                "content": content or "",
                 "model": model,
                 "tokens_used": response.usage.total_tokens if response.usage else None,
                 "prompt_tokens": response.usage.prompt_tokens if response.usage else None,
@@ -259,8 +458,9 @@ class LLMService:
                 if fallback_key:
                     fallback_kwargs["api_key"] = fallback_key
                 response = await litellm.acompletion(**fallback_kwargs)
+                fallback_content = response.choices[0].message.content or ""
                 return {
-                    "content": response.choices[0].message.content,
+                    "content": fallback_content,
                     "model": fallback,
                     "tokens_used": response.usage.total_tokens if response.usage else None,
                     "fallback": True,
@@ -280,6 +480,43 @@ class LLMService:
         )
 
         return [item["embedding"] for item in response.data]
+
+    def resolve_free_tier(self, requested_model: str | None = None) -> tuple[str, str] | None:
+        """Resolve a model + API key for free tier usage.
+
+        Tries the requested model first (if it's a free tier model),
+        then falls back through FREE_TIER_MODELS in order.
+
+        Returns:
+            (model_id, api_key) tuple, or None if no free tier key is available.
+        """
+        # Build ordered candidate list: requested model first, then fallbacks
+        candidates = []
+        if requested_model:
+            free_ids = {m["id"] for m in FREE_TIER_MODELS}
+            if requested_model in free_ids:
+                candidates.append(requested_model)
+        candidates.extend(m["id"] for m in FREE_TIER_MODELS if m["id"] not in candidates)
+
+        for model_id in candidates:
+            key = self._get_platform_key(model_id)
+            if key:
+                logger.info(f"Free tier resolved: {model_id}")
+                return (model_id, key)
+
+        logger.warning("No free tier key available — all platform keys are empty")
+        return None
+
+    def get_free_tier_models(self) -> list[dict]:
+        """Return free tier models that have a working platform key."""
+        if not settings.free_tier_enabled:
+            return []
+        result = []
+        for model in FREE_TIER_MODELS:
+            key = self._get_platform_key(model["id"])
+            if key:
+                result.append({**model, "available": True})
+        return result
 
     def get_available_models(self) -> list[dict]:
         """

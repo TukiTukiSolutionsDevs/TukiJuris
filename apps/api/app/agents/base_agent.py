@@ -77,6 +77,7 @@ class BaseLegalAgent(ABC):
         model: str | None = None,
         conversation_history: list[dict] | None = None,
         user_api_key: str | None = None,
+        reasoning_effort: str | None = None,
     ) -> dict:
         """
         Process a legal query through this specialized agent.
@@ -87,8 +88,7 @@ class BaseLegalAgent(ABC):
             model: LLM model to use
             conversation_history: Prior messages for multi-turn context
             user_api_key: BYOK — the user's own LLM provider key.
-                Passed directly to llm_service so the charge goes to the user,
-                not to the platform.
+            reasoning_effort: "low", "medium", "high" — thinking depth.
 
         Returns:
             dict with response, citations, and metadata
@@ -116,7 +116,8 @@ class BaseLegalAgent(ABC):
         result = await llm_service.completion(
             messages=messages,
             model=model,
-            user_api_key=user_api_key,  # BYOK: user pays their own provider
+            user_api_key=user_api_key,
+            reasoning_effort=reasoning_effort,
         )
 
         return {
