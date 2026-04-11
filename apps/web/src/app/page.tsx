@@ -2,8 +2,9 @@
 
 import { useState, useRef, useEffect, useCallback, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
+import Link from "next/link";
+import Image from "next/image";
 import {
-  Scale,
   Send,
   Bot,
   User,
@@ -12,19 +13,15 @@ import {
   Shield,
   Briefcase,
   Landmark,
-  Gavel,
   Building2,
-  Plus,
-  MessageSquare,
   ThumbsUp,
   ThumbsDown,
-  ScrollText,
   FileCheck,
   Globe,
   Lock,
-  BadgeCheck,
   Download,
   Bookmark,
+  Type,
   Bold,
   Italic,
   List,
@@ -35,7 +32,6 @@ import {
   Archive,
   Share2,
   Trash2,
-  History,
   Pencil,
   Check,
   Paperclip,
@@ -49,10 +45,10 @@ import {
   TreePine,
   Heart,
 } from "lucide-react";
-import NotificationBell from "@/components/NotificationBell";
 import KeyboardShortcuts from "@/components/KeyboardShortcuts";
 import HelpPopover from "@/components/HelpPopover";
 import { AppLayout } from "@/components/AppLayout";
+import { ShellUtilityActions } from "@/components/shell/ShellUtilityActions";
 import { getToken } from "@/lib/auth";
 import { t } from "@/lib/i18n";
 import { renderMarkdown } from "@/lib/markdown";
@@ -132,17 +128,17 @@ interface Message {
 }
 
 const LEGAL_AREAS = [
-  { id: "civil", name: "Civil", label: "Derecho Civil", icon: BookOpen, color: "text-blue-400" },
-  { id: "penal", name: "Penal", label: "Derecho Penal", icon: Shield, color: "text-red-400" },
-  { id: "laboral", name: "Laboral", label: "Derecho Laboral", icon: Briefcase, color: "text-green-400" },
-  { id: "tributario", name: "Tributario", label: "Derecho Tributario", icon: Calculator, color: "text-yellow-400" },
-  { id: "constitucional", name: "Constitucional", label: "Derecho Constitucional", icon: Landmark, color: "text-purple-400" },
-  { id: "administrativo", name: "Administrativo", label: "Derecho Administrativo", icon: Building2, color: "text-orange-400" },
-  { id: "corporativo", name: "Corporativo", label: "Derecho Comercial", icon: Store, color: "text-cyan-400" },
-  { id: "registral", name: "Registral", label: "Derecho Registral", icon: FileCheck, color: "text-pink-400" },
-  { id: "comercio_exterior", name: "Comercio Ext.", label: "Comercio Exterior", icon: Globe, color: "text-teal-400" },
-  { id: "compliance", name: "Compliance", label: "Compliance / Ambiental", icon: TreePine, color: "text-indigo-400" },
-  { id: "competencia", name: "Competencia/PI", label: "Competencia / Propiedad Intelectual", icon: Heart, color: "text-amber-400" },
+  { id: "civil", name: "Civil", label: "Derecho Civil", description: "Contratos, daños, bienes y obligaciones", icon: BookOpen, color: "text-blue-400" },
+  { id: "penal", name: "Penal", label: "Derecho Penal", description: "Delitos, denuncias y responsabilidad penal", icon: Shield, color: "text-red-400" },
+  { id: "laboral", name: "Laboral", label: "Derecho Laboral", description: "Trabajo, despidos e indemnizaciones", icon: Briefcase, color: "text-green-400" },
+  { id: "tributario", name: "Tributario", label: "Derecho Tributario", description: "Impuestos y obligaciones fiscales", icon: Calculator, color: "text-yellow-400" },
+  { id: "constitucional", name: "Constitucional", label: "Derecho Constitucional", description: "Derechos fundamentales y garantías", icon: Landmark, color: "text-purple-400" },
+  { id: "administrativo", name: "Administrativo", label: "Derecho Administrativo", description: "Trámites, sanciones y organismos públicos", icon: Building2, color: "text-orange-400" },
+  { id: "corporativo", name: "Corporativo", label: "Derecho Comercial", description: "Empresas, sociedades y actividad comercial", icon: Store, color: "text-cyan-400" },
+  { id: "registral", name: "Registral", label: "Derecho Registral", description: "Inscripciones, títulos y registros", icon: FileCheck, color: "text-pink-400" },
+  { id: "comercio_exterior", name: "Comercio Ext.", label: "Comercio Exterior", description: "Operaciones internacionales y aduanas", icon: Globe, color: "text-teal-400" },
+  { id: "compliance", name: "Compliance", label: "Compliance / Ambiental", description: "Normativas, controles y riesgo regulatorio", icon: TreePine, color: "text-indigo-400" },
+  { id: "competencia", name: "Competencia/PI", label: "Competencia / Propiedad Intelectual", description: "Marcas, patentes y competencia desleal", icon: Heart, color: "text-amber-400" },
 ];
 
 interface ChatHistory {
@@ -213,7 +209,6 @@ function ChatPage() {
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const [chatHistory, setChatHistory] = useState<ChatHistory[]>([]);
-  const [showAreas, setShowAreas] = useState(true);
   const [authToken, setAuthToken] = useState<string | null>(null);
   const [showAllTemplates, setShowAllTemplates] = useState(false);
   const [contextMenu, setContextMenu] = useState<ContextMenu | null>(null);
@@ -224,7 +219,6 @@ function ChatPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [showShortcutsModal, setShowShortcutsModal] = useState(false);
   const [attachedFile, setAttachedFile] = useState<{
     id: string;
     name: string;
@@ -233,6 +227,8 @@ function ChatPage() {
   } | null>(null);
   const [uploading, setUploading] = useState(false);
   const [orchestratorStatus, setOrchestratorStatus] = useState<string | null>(null);
+  const [showFormattingTools, setShowFormattingTools] = useState(false);
+  const [isAnalysisTimelineOpen, setIsAnalysisTimelineOpen] = useState(false);
 
   // Orchestration panel state
   const [showOrchPanel, setShowOrchPanel] = useState(true);
@@ -912,9 +908,12 @@ function ChatPage() {
       ? QUERY_TEMPLATES[selectedArea]
       : QUERY_TEMPLATES.general;
 
-  const visibleTemplates = showAllTemplates
+const visibleTemplates = showAllTemplates
     ? activeTemplates
     : activeTemplates.slice(0, 4);
+
+  const selectedAreaMeta = selectedArea ? LEGAL_AREAS.find((a) => a.id === selectedArea) : null;
+  const handleShowShortcuts = useCallback(() => {}, []);
 
   // ---------------------------------------------------------------------------
   // Context usage calculation
@@ -930,11 +929,308 @@ function ChatPage() {
   const contextTextColor =
     contextPercent >= 80 ? "text-red-400" : contextPercent >= 50 ? "text-amber-400" : "text-primary/70";
 
+  const involvedAreas = LEGAL_AREAS.filter(
+    (area) => orchState.activeAgents.includes(area.id) || orchState.secondaryAreas.includes(area.id)
+  );
+  const highlightedAreas = LEGAL_AREAS.filter(
+    (area) => orchState.primaryArea === area.id || orchState.secondaryAreas.includes(area.id)
+  );
+  const processSteps = [
+    { id: "received", label: "Nos contás tu caso", done: orchState.steps.length > 0 },
+    { id: "detected", label: "Detectamos áreas relevantes", done: orchState.activeAgents.length > 0 },
+    { id: "prepared", label: "Preparamos una orientación más precisa", done: orchState.phase === "done" },
+  ];
+  const currentAnalysisStep = [...orchState.steps].reverse().find((step) => !step.done) ?? orchState.steps[orchState.steps.length - 1] ?? null;
+  const currentStepElapsed =
+    currentAnalysisStep && orchState.startTime > 0
+      ? ((currentAnalysisStep.ts - orchState.startTime) / 1000).toFixed(1)
+      : null;
+  const radarAreas = (highlightedAreas.length > 0 ? highlightedAreas : involvedAreas.length > 0 ? involvedAreas : LEGAL_AREAS.slice(0, 3)).slice(0, 3);
+  const analysisHeadline =
+    orchState.phase === "done"
+      ? "Análisis completado"
+      : orchState.phase === "evaluating"
+        ? "Estamos revisando tu consulta"
+        : "Listo para revisar tu consulta";
+  const analysisSupportingText =
+    orchState.phase === "done"
+      ? highlightedAreas.length > 0
+        ? `Detectamos ${highlightedAreas.map((area) => area.label).join(", ")} como ${highlightedAreas.length === 1 ? "área relevante" : "áreas relevantes"} para tu caso.`
+        : "Terminamos la revisión inicial de tu consulta."
+      : orchState.phase === "evaluating"
+        ? orchState.statusText || "Estamos identificando los temas legales que podrían intervenir en tu caso."
+        : "Cuando nos cuentes tu situación, vamos a identificar qué áreas legales podrían intervenir para orientarte mejor.";
+
+  const getAreaPresentation = (areaId: string) => {
+    const isPrimary = orchState.primaryArea === areaId;
+    const isSecondary = orchState.secondaryAreas.includes(areaId);
+    const isActive = orchState.activeAgents.includes(areaId);
+
+    if (isPrimary) {
+      return {
+        badge: "Prioritaria",
+        containerClass: "border-primary/30 bg-primary/10 shadow-[0_0_0_1px_rgba(201,169,97,0.08)]",
+        iconClass: "text-primary bg-primary/15",
+        badgeClass: "bg-primary/15 text-primary",
+      };
+    }
+
+    if (isSecondary) {
+      return {
+        badge: "Detectada",
+        containerClass: "border-[#A78BFA]/30 bg-[#A78BFA]/10",
+        iconClass: "text-[#A78BFA] bg-[#A78BFA]/15",
+        badgeClass: "bg-[#A78BFA]/15 text-[#C4B5FD]",
+      };
+    }
+
+    if (isActive) {
+      return {
+        badge: "En revisión",
+        containerClass: "border-emerald-400/20 bg-emerald-400/10",
+        iconClass: "text-emerald-300 bg-emerald-400/10",
+        badgeClass: "bg-emerald-400/10 text-emerald-300",
+      };
+    }
+
+    return {
+      badge: "Disponible",
+      containerClass: "border-[rgba(255,255,255,0.04)] bg-surface-container-low/60",
+      iconClass: "text-on-surface/55 bg-surface-container-high/70",
+      badgeClass: "bg-surface-container-high/70 text-on-surface/45",
+    };
+  };
+
+  const orchestratorRail = showOrchPanel ? (
+    <aside className="flex h-full w-[22rem] border-l border-[rgba(79,70,51,0.15)] bg-surface flex-col overflow-hidden flex-shrink-0">
+      <div className="px-4 py-4 bg-surface-container-low flex items-start justify-between shrink-0 border-b border-[rgba(255,255,255,0.04)]">
+        <div className="max-w-[260px]">
+          <span className="text-[10px] font-bold uppercase tracking-[0.22em] text-primary/75">Análisis de tu caso</span>
+          <p className="mt-2 text-[12px] text-on-surface/72 leading-relaxed">
+            Identificamos las áreas legales que podrían intervenir para orientarte mejor.
+          </p>
+        </div>
+        <button
+          onClick={() => setShowOrchPanel(false)}
+          className="text-on-surface/40 hover:text-on-surface/70 transition-colors focus:outline-none focus:ring-2 focus:ring-primary/30 rounded-lg"
+          aria-label="Cerrar panel de análisis"
+        >
+          <PanelRightClose className="w-4 h-4" />
+        </button>
+      </div>
+
+      <div className="px-4 py-4 bg-surface shrink-0 border-b border-[rgba(255,255,255,0.04)]">
+        <div className="overflow-hidden rounded-[1.6rem] border border-[rgba(255,255,255,0.06)] bg-[radial-gradient(circle_at_top,rgba(167,139,250,0.18),transparent_34%),linear-gradient(180deg,rgba(255,255,255,0.02),rgba(255,255,255,0))] p-4 shadow-[0_24px_60px_rgba(0,0,0,0.28)]">
+          <div className="flex items-start gap-4">
+            <div className="relative flex h-24 w-24 shrink-0 items-center justify-center rounded-[1.4rem] border border-white/6 bg-[#111723]">
+              <svg viewBox="0 0 120 120" className="h-20 w-20" aria-hidden="true">
+                <defs>
+                  <linearGradient id="analysis-ring" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stopColor="#A78BFA" />
+                    <stop offset="100%" stopColor="#34D399" />
+                  </linearGradient>
+                </defs>
+                <circle cx="60" cy="60" r="38" fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="1.5" />
+                <circle cx="60" cy="60" r="28" fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="1" />
+                {radarAreas.map((area, index) => {
+                  const positions = [
+                    { x: 60, y: 18 },
+                    { x: 92, y: 76 },
+                    { x: 28, y: 78 },
+                  ];
+                  const point = positions[index];
+                  return (
+                    <g key={area.id}>
+                      <line x1="60" y1="60" x2={point.x} y2={point.y} stroke="url(#analysis-ring)" strokeOpacity="0.45" strokeWidth="1.5" strokeDasharray="4 4">
+                        <animate attributeName="stroke-dashoffset" values="0;-16" dur="1.8s" repeatCount="indefinite" />
+                      </line>
+                      <circle cx={point.x} cy={point.y} r="6" fill={index === 0 && orchState.phase !== "idle" ? "#34D399" : "#A78BFA"}>
+                        <animate attributeName="r" values="5.5;7.5;5.5" dur={`${1.8 + index * 0.25}s`} repeatCount="indefinite" />
+                        <animate attributeName="opacity" values="0.7;1;0.7" dur={`${1.8 + index * 0.25}s`} repeatCount="indefinite" />
+                      </circle>
+                    </g>
+                  );
+                })}
+                <circle cx="60" cy="60" r="12" fill={orchState.phase === "done" ? "#34D399" : "#C9A961"} fillOpacity="0.2" stroke="url(#analysis-ring)" strokeWidth="2.5">
+                  <animate attributeName="r" values="11;13;11" dur="2.4s" repeatCount="indefinite" />
+                </circle>
+                {orchState.phase === "done" ? (
+                  <path d="M54 60l5 5 9-12" fill="none" stroke="#34D399" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+                ) : (
+                  <path d="M52 47c-4 2-6 6-6 11 0 8 6 14 14 14 3 0 6-1 8-3m-2-22c4 2 6 6 6 11" fill="none" stroke="#C9A961" strokeWidth="3" strokeLinecap="round" />
+                )}
+              </svg>
+              <div className="pointer-events-none absolute inset-0 rounded-[1.4rem] bg-[radial-gradient(circle,rgba(201,169,97,0.12),transparent_60%)]" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-[11px] uppercase tracking-[0.18em] text-on-surface/45">Estado del análisis</p>
+              <h3 className="mt-1 text-[1.15rem] font-semibold tracking-[-0.02em] text-on-surface">{analysisHeadline}</h3>
+              <p className="mt-1.5 text-[11px] text-on-surface/68 leading-relaxed">{analysisSupportingText}</p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {radarAreas.map((area, index) => (
+                  <span key={area.id} className={`rounded-full px-2.5 py-1 text-[10px] ${index === 0 ? "bg-primary/12 text-primary" : "bg-white/5 text-on-surface/55"}`}>
+                    {area.name}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
+          {(orchState.confidence > 0 || orchState.latencyMs > 0 || orchState.citationCount > 0) && (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {orchState.confidence > 0 && (
+                <span className="rounded-full bg-surface-container-high px-2.5 py-1 text-[10px] text-on-surface/60">
+                  Confianza {Math.round(orchState.confidence * 100)}%
+                </span>
+              )}
+              {orchState.latencyMs > 0 && (
+                <span className="rounded-full bg-surface-container-high px-2.5 py-1 text-[10px] text-on-surface/60">
+                  {(orchState.latencyMs / 1000).toFixed(1)}s
+                </span>
+              )}
+              {orchState.citationCount > 0 && (
+                <span className="rounded-full bg-surface-container-high px-2.5 py-1 text-[10px] text-on-surface/60">
+                  {orchState.citationCount} referencias
+                </span>
+              )}
+            </div>
+          )}
+          <div className="mt-4 space-y-2 rounded-2xl border border-white/5 bg-black/10 p-3">
+            <p className="text-[10px] uppercase tracking-[0.18em] text-on-surface/45">Cómo funciona</p>
+            {processSteps.map((step) => {
+              const done = step.done;
+              return (
+                <div key={step.id} className="flex items-center gap-2.5 text-[11px]">
+                  <span
+                    className={`flex h-5 w-5 items-center justify-center rounded-full border text-[10px] ${
+                      done
+                        ? "border-primary/30 bg-primary/10 text-primary"
+                        : "border-[rgba(255,255,255,0.06)] bg-surface text-on-surface/40"
+                    }`}
+                  >
+                    {done ? "✓" : processSteps.findIndex((item) => item.id === step.id) + 1}
+                  </span>
+                  <span className={done ? "text-on-surface/80" : "text-on-surface/50"}>{step.label}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      {orchState.evaluationReason && orchState.phase === "done" && (
+        <div className="px-4 py-3 bg-surface-container-low shrink-0 border-b border-[rgba(255,255,255,0.04)]">
+          <p className="text-[10px] uppercase tracking-[0.18em] text-[#A78BFA]/75 mb-1">Por qué estas áreas</p>
+          <p className="text-[11px] text-on-surface/65 leading-relaxed">{orchState.evaluationReason}</p>
+        </div>
+      )}
+
+      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
+        <div>
+          <p className="text-[10px] uppercase tracking-[0.18em] text-on-surface/45 mb-2">Áreas legales involucradas</p>
+          <p className="text-[11px] text-on-surface/55 leading-relaxed mb-3">
+            Estas áreas se activan según el contenido de tu consulta. No todas participan siempre.
+          </p>
+        </div>
+        <div className="space-y-2">
+          {LEGAL_AREAS.map((area) => {
+            const AreaIcon = area.icon;
+            const areaPresentation = getAreaPresentation(area.id);
+            return (
+              <div
+                key={area.id}
+                className={`rounded-2xl border px-3 py-3 transition-all duration-500 ${areaPresentation.containerClass}`}
+              >
+                <div className="flex items-start gap-3">
+                  <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition-all duration-500 ${areaPresentation.iconClass}`}>
+                    <AreaIcon className="w-4 h-4" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <p className="text-[12px] font-medium text-on-surface">{area.label}</p>
+                        <p className="mt-1 text-[10px] leading-relaxed text-on-surface/55">{area.description}</p>
+                      </div>
+                      <span className={`shrink-0 rounded-full px-2 py-1 text-[9px] font-medium ${areaPresentation.badgeClass}`}>
+                        {areaPresentation.badge}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="rounded-2xl border border-[rgba(255,255,255,0.05)] bg-surface-container-low/70 p-4">
+          <p className="text-[10px] uppercase tracking-[0.18em] text-on-surface/45">Resultado del análisis</p>
+          {orchState.phase === "done" && involvedAreas.length > 0 ? (
+            <>
+              <p className="mt-2 text-sm font-medium text-on-surface">
+                Detectamos {involvedAreas.map((area) => area.label).join(", ")}
+              </p>
+              <p className="mt-1 text-[11px] leading-relaxed text-on-surface/60">
+                Estas áreas aparecen porque encontramos elementos de tu consulta que podrían requerir una revisión combinada.
+              </p>
+            </>
+          ) : (
+            <>
+              <p className="mt-2 text-sm font-medium text-on-surface">Todavía no recibimos una consulta</p>
+              <p className="mt-1 text-[11px] leading-relaxed text-on-surface/60">
+                Apenas escribas tu caso, te mostraremos qué áreas detectamos y por qué podrían intervenir.
+              </p>
+            </>
+          )}
+        </div>
+      </div>
+
+      {orchState.steps.length > 0 && currentAnalysisStep && (
+        <div className="bg-surface-container-low px-4 py-3 shrink-0 border-t border-[rgba(255,255,255,0.04)]">
+          <button
+            type="button"
+            onClick={() => setIsAnalysisTimelineOpen((prev) => !prev)}
+            className="flex w-full items-center gap-3 rounded-2xl border border-white/5 bg-white/[0.02] px-3 py-3 text-left transition hover:bg-white/[0.04]"
+            aria-expanded={isAnalysisTimelineOpen}
+            aria-label="Mostrar seguimiento del análisis"
+          >
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 text-primary">
+              <span className="text-sm">{currentAnalysisStep.icon}</span>
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-[10px] uppercase tracking-[0.18em] text-on-surface/42">Seguimiento del análisis</p>
+              <p className="mt-1 truncate text-[11px] text-on-surface/72">{currentAnalysisStep.text}</p>
+            </div>
+            <div className="flex items-center gap-2">
+              {currentStepElapsed && <span className="text-[10px] tabular-nums text-on-surface/35">{currentStepElapsed}s</span>}
+              {isAnalysisTimelineOpen ? <ChevronUp className="h-4 w-4 text-on-surface/40" /> : <ChevronDown className="h-4 w-4 text-on-surface/40" />}
+            </div>
+          </button>
+          {isAnalysisTimelineOpen && (
+            <div className="mt-2 max-h-48 overflow-y-auto rounded-2xl border border-white/5 bg-black/10 p-3">
+              <div className="space-y-1.5">
+                {orchState.steps.map((step, i) => {
+                  const elapsed = orchState.startTime > 0 ? ((step.ts - orchState.startTime) / 1000).toFixed(1) : null;
+                  const isCurrent = currentAnalysisStep.ts === step.ts && currentAnalysisStep.text === step.text;
+                  return (
+                    <div key={i} className={`flex items-center gap-2 rounded-xl px-2 py-1.5 text-[11px] ${isCurrent ? "bg-primary/10 text-on-surface" : "text-on-surface/55"}`}>
+                      <span className="w-4 text-center">{step.icon}</span>
+                      <span className={`flex-1 truncate ${isCurrent ? "text-on-surface" : step.done ? "text-on-surface/50" : "text-primary"}`}>{step.text}</span>
+                      {elapsed && <span className="text-[9px] text-on-surface/25 tabular-nums flex-shrink-0">{elapsed}s</span>}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </aside>
+  ) : null;
+
   // ---------------------------------------------------------------------------
   // Render
   // ---------------------------------------------------------------------------
   return (
-    <AppLayout>
+    <AppLayout contentClassName="overflow-hidden" rightRail={orchestratorRail}>
       {/* Skip to main content — visible on focus for keyboard/screen reader users */}
       <a
         href="#main-content"
@@ -957,143 +1253,106 @@ function ChatPage() {
       />
 
       {/* Outer flex row: [Chat Area] [Orchestration Panel] */}
-      <div className="flex h-full overflow-hidden">
+      <div className="flex h-full min-h-0 overflow-hidden">
 
       {/* Main Chat Area */}
-      <div id="main-content" className="flex flex-col flex-1 min-w-0 overflow-hidden bg-surface-container-lowest">
+      <div id="main-content" className="flex min-h-0 flex-1 min-w-0 flex-col overflow-hidden bg-surface-container-lowest">
         {/* Header */}
-        <header className="h-14 flex items-center justify-between px-4 lg:px-6 bg-surface shrink-0">
-          <div className="flex items-center gap-2">
-            <Bot className="w-5 h-5 text-primary-container" aria-hidden="true" />
-            <span className="text-sm font-medium text-on-surface">
-              {conversationTitle
-                ? conversationTitle
-                : selectedArea
-                ? `Consulta dirigida: ${LEGAL_AREAS.find((a) => a.id === selectedArea)?.name}`
-                : "Consulta general — el orquestador determinara el area"}
-            </span>
-            {currentConversationId && (
-              <span className="hidden text-[10px] text-on-surface/20" aria-hidden="true">
-                #{currentConversationId.slice(0, 8)}
-              </span>
-            )}
-          </div>
-          <div className="flex items-center gap-3">
-            <NotificationBell token={authToken} />
-            <label htmlFor="model-select" className="sr-only">{t("model.select")}</label>
-            {availableModels.length === 0 ? (
-              <a
-                href="/configuracion"
-                className="text-xs text-primary/70 hover:text-primary border border-primary/20 rounded-lg px-2 py-1 transition-colors"
-                title="Configurar clave de IA"
-              >
-                Cargando modelos...
-              </a>
-            ) : (
-              <select
-                id="model-select"
-                value={selectedModel}
-                onChange={(e) => {
-                  const newModel = e.target.value;
-                  setSelectedModel(newModel);
-                  localStorage.setItem("pref_default_model", newModel);
-                  // Reset reasoning if new model doesn't support it
-                  if (!modelSupportsThinking(newModel) && reasoningEffort !== null) {
-                    setReasoningEffort(null);
-                  }
-                }}
-                aria-label={t("model.select")}
-                className="bg-surface-container-low border border-[rgba(79,70,51,0.15)] rounded-lg px-2 py-1 text-xs text-on-surface/60 focus:outline-none focus:border-primary/50"
-              >
-                {MODEL_CATALOG
-                  .filter((model) => availableModels.includes(model.id))
-                  .map((model) => (
-                    <option key={model.id} value={model.id}>
-                      {model.name}
-                    </option>
-                  ))}
-              </select>
-            )}
-
-            {/* Thinking depth selector — how deep the AI analyzes */}
-            {(() => {
-              const hasThinking = modelSupportsThinking(selectedModel);
-              return (
-                <div
-                  className="flex items-center gap-0.5 bg-surface-container-low border border-[rgba(79,70,51,0.15)] rounded-lg p-0.5"
-                  title={hasThinking
-                    ? "Controla qué tan profundo analiza la IA tu consulta"
-                    : "Este modelo no soporta modos de razonamiento — usa velocidad estándar"
-                  }
-                >
-                  {[
-                    { value: null, label: "Auto", tooltip: "La IA decide el nivel de análisis según tu consulta" },
-                    { value: "low", label: "Rápida", tooltip: "Respuesta directa y veloz — ideal para preguntas simples" },
-                    { value: "medium", label: "Moderada", tooltip: "Análisis balanceado — buen nivel sin demoras largas" },
-                    { value: "high", label: "Profunda", tooltip: "Análisis exhaustivo — ideal para casos complejos con múltiples áreas" },
-                  ].map((opt) => {
-                    const isDisabled = !hasThinking && opt.value !== null;
-                    return (
-                      <button
-                        key={opt.label}
-                        onClick={() => !isDisabled && setReasoningEffort(opt.value)}
-                        title={isDisabled
-                          ? `${MODEL_CATALOG.find(m => m.id === selectedModel)?.name || selectedModel} no soporta modo "${opt.label}"`
-                          : opt.tooltip
-                        }
-                        disabled={isDisabled}
-                        className={`px-2 py-0.5 rounded text-[10px] font-medium transition-all ${
-                          isDisabled
-                            ? "text-surface-container-high cursor-not-allowed"
-                            : reasoningEffort === opt.value
-                              ? "bg-secondary-container text-secondary"
-                              : "bg-surface-container-low text-on-surface/60 hover:text-on-surface hover:bg-surface-container-high"
-                        }`}
-                      >
-                        {opt.label}
-                      </button>
-                    );
-                  })}
+        <header className="border-b border-[rgba(79,70,51,0.15)] bg-surface px-4 py-3 lg:px-6 shrink-0">
+          <div className="flex items-center justify-between gap-4">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <Bot className="w-5 h-5 text-primary-container" aria-hidden="true" />
+                <span className="section-eyebrow text-primary">Workspace</span>
+              </div>
+              <div className="mt-1 flex items-start justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                    <h1 className="truncate text-base font-medium tracking-[-0.02em] text-on-surface lg:text-lg">
+                      {conversationTitle || "Chat"}
+                    </h1>
+                    <span className="inline-flex items-center rounded-full border border-[rgba(79,70,51,0.15)] bg-surface-container-low px-2.5 py-1 text-[10px] uppercase tracking-[0.18em] text-on-surface/45">
+                      {selectedAreaMeta ? `Consulta dirigida · ${selectedAreaMeta.name}` : "Consulta general"}
+                    </span>
+                    <span className="hidden text-xs text-on-surface/35 lg:inline">
+                      {selectedAreaMeta
+                        ? `${selectedAreaMeta.name} prioritaria · apoyos automáticos`
+                        : "El orquestador decide área principal y apoyos"}
+                    </span>
+                  </div>
                 </div>
-              );
-            })()}
+
+                {orchState.phase !== "idle" && (
+                  <button
+                    type="button"
+                    onClick={() => setShowOrchPanel(true)}
+                    className="xl:hidden group flex w-[17rem] max-w-[46vw] items-center gap-2.5 rounded-[1.25rem] border border-primary/15 bg-[radial-gradient(circle_at_left,rgba(201,169,97,0.12),transparent_38%),linear-gradient(180deg,rgba(255,255,255,0.02),rgba(255,255,255,0))] px-3 py-2 text-left shadow-[0_12px_28px_rgba(0,0,0,0.08)] transition hover:border-primary/25 hover:bg-primary/5"
+                    aria-label="Abrir razonamiento del análisis"
+                  >
+                    <div className={`relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${
+                      orchState.phase === "done" ? "bg-emerald-400/12 text-emerald-500" : "bg-primary/12 text-primary"
+                    }`}>
+                      <span className={`absolute inset-0 rounded-full ${orchState.phase === "done" ? "bg-emerald-400/10" : "bg-primary/10"} animate-ping`} />
+                      {orchState.phase === "done" ? <CheckCircle2 className="relative h-4 w-4" /> : <Brain className="relative h-4 w-4" />}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-[10px] font-semibold uppercase tracking-[0.18em] text-primary/80">Mirá el razonamiento</p>
+                      <p className="mt-0.5 truncate text-[10px] text-on-surface/58">
+                        {currentAnalysisStep?.text || analysisHeadline}
+                      </p>
+                    </div>
+                  </button>
+                )}
+              </div>
+            </div>
+            {currentConversationId && (
+              <div className="hidden items-center gap-2 md:flex">
+                <span className="rounded-lg border border-[rgba(79,70,51,0.15)] bg-surface-container-low px-2 py-1 text-[10px] text-on-surface/35">
+                  #{currentConversationId.slice(0, 8)}
+                </span>
+                <ShellUtilityActions />
+              </div>
+            )}
+            {!currentConversationId && <div className="hidden md:flex"><ShellUtilityActions /></div>}
           </div>
         </header>
 
-        {/* Context usage bar — shows how loaded the conversation context is */}
-        {messages.length > 0 && (
-          <div className="px-4 lg:px-6 py-1.5 bg-surface-container-lowest flex items-center gap-3">
-            <div className="flex items-center gap-1.5">
-              <svg className="w-3 h-3 text-on-surface/20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2Zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8Z" opacity="0.3"/>
-                <path d="M12 6v6l4 2"/>
-              </svg>
-              <span className="text-[10px] text-on-surface/30 uppercase tracking-wider">Contexto</span>
-            </div>
-            <div className="flex-1 max-w-xs">
-              <div className="w-full bg-surface-container-low rounded-full h-1.5">
-                <div
-                  className={`h-1.5 rounded-full transition-all duration-500 ${contextColor}`}
-                  style={{ width: `${Math.max(2, contextPercent)}%` }}
-                />
-              </div>
-            </div>
-            <span className={`text-[10px] font-mono ${contextTextColor}`}>
-              {messages.length} msgs · ~{estimatedTokens.toLocaleString()} tokens
-            </span>
-            {contextPercent >= 80 && (
-              <span className="text-[10px] text-red-400/70 animate-pulse">
-                Contexto casi lleno
-              </span>
+        {(messages.length > 0 || (orchestratorStatus && isLoading)) && (
+          <div className="flex flex-wrap items-center gap-3 border-b border-[rgba(79,70,51,0.08)] bg-surface-container-lowest px-4 py-2 lg:px-6">
+            {messages.length > 0 && (
+              <>
+                <div className="flex items-center gap-1.5">
+                  <svg className="w-3 h-3 text-on-surface/20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2Zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8Z" opacity="0.3"/>
+                    <path d="M12 6v6l4 2"/>
+                  </svg>
+                  <span className="text-[10px] text-on-surface/30 uppercase tracking-wider">Contexto</span>
+                </div>
+                <div className="flex-1 max-w-xs min-w-32">
+                  <div className="w-full bg-surface-container-low rounded-full h-1.5">
+                    <div
+                      className={`h-1.5 rounded-full transition-all duration-500 ${contextColor}`}
+                      style={{ width: `${Math.max(2, contextPercent)}%` }}
+                    />
+                  </div>
+                </div>
+                <span className={`text-[10px] font-mono ${contextTextColor}`}>
+                  {messages.length} msgs · ~{estimatedTokens.toLocaleString()} tokens
+                </span>
+                {contextPercent >= 80 && (
+                  <span className="rounded-full border border-red-400/20 bg-red-400/10 px-2 py-0.5 text-[10px] text-red-400/80">
+                    Contexto casi lleno
+                  </span>
+                )}
+              </>
             )}
-          </div>
-        )}
 
-        {/* Orchestrator status bar — shows during deliberative loop */}
-        {orchestratorStatus && isLoading && (
-          <div className="px-4 lg:px-6 py-2 bg-primary-container/5 flex items-center gap-2">
-            <Loader2 className="w-3.5 h-3.5 text-primary-container animate-spin" aria-hidden="true" />
-            <span className="text-xs text-primary-container/80">{orchestratorStatus}</span>
+            {orchestratorStatus && isLoading && (
+              <div className="inline-flex items-center gap-2 rounded-full border border-primary-container/20 bg-primary-container/5 px-2.5 py-1">
+                <Loader2 className="w-3.5 h-3.5 text-primary-container animate-spin" aria-hidden="true" />
+                <span className="text-[11px] text-primary-container/80">{orchestratorStatus}</span>
+              </div>
+            )}
           </div>
         )}
 
@@ -1103,44 +1362,50 @@ function ChatPage() {
             <Lock className="w-4 h-4 text-primary-container shrink-0" />
             <p className="text-sm text-on-surface/60">
               Esta beta funciona con API key propia por usuario. Configurá tu clave para habilitar el chat en{" "}
-              <a href="/configuracion" className="text-primary hover:text-primary/80 font-medium">
+              <Link href="/configuracion" className="text-primary hover:text-primary/80 font-medium">
                 Configuración → API Keys
-              </a>
+              </Link>
             </p>
           </div>
         )}
 
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto px-6 py-4 bg-surface-container-lowest" aria-live="polite" aria-label="Mensajes de la consulta">
+        <div className="flex-1 overflow-y-auto bg-surface-container-lowest px-3 py-3 sm:px-4 md:px-6 md:py-5" aria-live="polite" aria-label="Mensajes de la consulta">
           {messages.length === 0 ? (
             // Empty state with logo
-            <div className="h-full flex flex-col items-center justify-center text-center">
-              <img src="/brand/logo-full.png" className="w-32 mx-auto mb-6 opacity-40" alt="TukiJuris" />
-              <h2 className="font-['Newsreader'] text-2xl font-bold mb-2 text-on-surface tracking-tight">¿En qué puedo ayudarte?</h2>
-              <p className="text-on-surface/50 max-w-md mb-8 text-sm leading-relaxed">
-                Plataforma jurídica inteligente especializada en derecho
-                peruano. Consulta normativa, jurisprudencia y recibí
-                orientación legal con agentes de IA especializados.
-              </p>
+            <div className="mx-auto flex h-full w-full max-w-3xl flex-col justify-start text-center">
+              <div className="panel-base mb-4 rounded-[1.75rem] px-5 py-5 sm:px-6 md:mb-6 md:px-8 md:py-6">
+                <Image src="/brand/logo-full.png" className="mx-auto mb-3 w-16 opacity-70 md:mb-4 md:w-20" alt="TukiJuris" width={80} height={80} />
+                <p className="section-eyebrow justify-center text-primary/80">Asistente legal inteligente</p>
+                <h2 className="mt-2 font-['Newsreader'] text-[2.15rem] leading-[1.02] font-bold tracking-[-0.04em] text-on-surface md:text-4xl">¿En qué puedo ayudarte?</h2>
+                <p className="mx-auto mt-3 max-w-xl text-sm leading-7 text-on-surface/60 md:text-base md:leading-8">
+                  Consultá normativa, jurisprudencia y orientación legal sobre derecho peruano sin perder tiempo buscando desde cero.
+                </p>
+              </div>
 
               {/* Template section */}
-              <div className="w-full max-w-lg">
+              <div className="w-full max-w-2xl">
                 {selectedArea && QUERY_TEMPLATES[selectedArea] && (
-                  <p className="text-[10px] text-on-surface/30 mb-3 uppercase tracking-[0.2em]">
+                  <p className="section-eyebrow mb-3 text-on-surface/35">
                     {LEGAL_AREAS.find((a) => a.id === selectedArea)?.name} — consultas frecuentes
                   </p>
                 )}
-                <div className="grid grid-cols-2 gap-3">
+                {!selectedArea && (
+                  <p className="mb-3 text-[11px] font-medium uppercase tracking-[0.18em] text-on-surface/38">
+                    Sugerencias rápidas
+                  </p>
+                )}
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   {visibleTemplates.map((tpl) => (
                     <button
                       key={tpl.label}
                       onClick={() => setInput(tpl.query)}
-                      className="text-left text-sm p-3 rounded-lg border border-[rgba(79,70,51,0.15)] bg-surface-container text-on-surface/60 hover:border-primary/30 hover:text-on-surface hover:bg-surface-container-high transition-all duration-200"
+                      className="panel-base rounded-[1.4rem] p-4 text-left text-sm text-on-surface/65 transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/30 hover:text-on-surface"
                     >
-                      <span className="font-medium text-on-surface block mb-0.5 text-xs">
+                      <span className="mb-1 block text-[1.05rem] font-semibold leading-6 text-on-surface">
                         {tpl.label}
                       </span>
-                      <span className="text-xs text-on-surface/40 line-clamp-2">
+                      <span className="line-clamp-2 text-sm leading-6 text-on-surface/45">
                         {tpl.query}
                       </span>
                     </button>
@@ -1304,56 +1569,166 @@ function ChatPage() {
 
         {/* TODO: Sprint 33 — Daily usage indicator when /api/billing/daily-usage endpoint is ready */}
 
-        {/* Formatting toolbar + Input */}
-        <div className="p-4 bg-surface shrink-0">
-          <div className="max-w-3xl mx-auto">
-            {/* Formatting toolbar */}
-            <div className="flex items-center gap-1 mb-2 px-1">
-              <span className="text-[10px] text-on-surface/30 mr-1 uppercase tracking-[0.2em]">Formato:</span>
-              {[
-                { icon: Bold, label: "Negrita", prefix: "**", suffix: "**", placeholder: "texto" },
-                { icon: Italic, label: "Cursiva", prefix: "*", suffix: "*", placeholder: "texto" },
-                { icon: List, label: "Lista", prefix: "\n- ", suffix: "", placeholder: "elemento" },
-                { icon: Code, label: "Codigo", prefix: "`", suffix: "`", placeholder: "codigo" },
-              ].map(({ icon: Icon, label, prefix, suffix, placeholder }) => (
+        {/* Composer */}
+        <div className="border-t border-[rgba(79,70,51,0.15)] bg-surface px-3 py-3 shrink-0 sm:px-4 sm:py-4">
+          <div className="panel-raised mx-auto max-w-4xl rounded-[1.75rem] p-2.5 sm:p-3.5">
+            <div className="mb-2.5 flex flex-wrap items-center gap-2 border-b border-[rgba(79,70,51,0.12)] pb-2.5 sm:mb-3 sm:pb-3">
+              {selectedAreaMeta ? (
                 <button
-                  key={label}
                   type="button"
-                  title={label}
-                  onClick={() => {
-                    if (inputRef.current) {
-                      insertMarkdownSyntax(inputRef.current, prefix, suffix, placeholder, setInput);
+                  onClick={() => setSelectedArea(null)}
+                  className="inline-flex items-center gap-1 rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.18em] text-primary"
+                >
+                  {selectedAreaMeta.name}
+                  <X className="h-3 w-3" />
+                </button>
+              ) : (
+                <span className="inline-flex items-center rounded-full border border-[rgba(79,70,51,0.15)] bg-surface px-2.5 py-1 text-[10px] uppercase tracking-[0.18em] text-on-surface/45">
+                  Consulta general
+                </span>
+              )}
+
+              <label htmlFor="model-select" className="sr-only">{t("model.select")}</label>
+              {availableModels.length === 0 ? (
+                <a
+                  href="/configuracion"
+                  className="text-xs text-primary/70 hover:text-primary border border-primary/20 rounded-lg px-2 py-1 transition-colors"
+                  title="Configurar clave de IA"
+                >
+                  Configurar modelos
+                </a>
+              ) : (
+                <select
+                  id="model-select"
+                  value={selectedModel}
+                  onChange={(e) => {
+                    const newModel = e.target.value;
+                    setSelectedModel(newModel);
+                    localStorage.setItem("pref_default_model", newModel);
+                    if (!modelSupportsThinking(newModel) && reasoningEffort !== null) {
+                      setReasoningEffort(null);
                     }
                   }}
-                  aria-label={label}
-                  className="p-1.5 rounded-lg text-on-surface/30 hover:text-on-surface/70 hover:bg-surface-container-low transition-colors focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  aria-label={t("model.select")}
+                  className="control-surface min-w-[10rem] rounded-xl px-3 py-2 text-xs text-on-surface/75 focus:outline-none focus:border-primary/50"
                 >
-                  <Icon className="w-3.5 h-3.5" aria-hidden="true" />
-                </button>
-              ))}
+                  {MODEL_CATALOG
+                    .filter((model) => availableModels.includes(model.id))
+                    .map((model) => (
+                      <option key={model.id} value={model.id}>
+                        {model.name}
+                      </option>
+                    ))}
+                </select>
+              )}
 
-              {/* File attachment */}
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".pdf,.docx,.doc,.jpg,.jpeg,.png,.webp,.txt"
-                onChange={handleFileUpload}
-                className="hidden"
-              />
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={uploading}
-                className="p-1.5 rounded-lg text-on-surface/40 hover:text-primary hover:bg-surface-container-low transition-colors disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-primary/30 ml-1"
-                title="Adjuntar archivo"
-                aria-label="Adjuntar archivo"
-              >
-                {uploading ? (
-                  <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
-                ) : (
-                  <Paperclip className="w-4 h-4" aria-hidden="true" />
+              {(() => {
+                const hasThinking = modelSupportsThinking(selectedModel);
+                return (
+                  <div
+                    className="control-surface flex items-center gap-0.5 rounded-xl p-0.5"
+                    title={hasThinking
+                      ? "Controla qué tan profundo analiza la IA tu consulta"
+                      : "Este modelo no soporta modos de razonamiento — usa velocidad estándar"
+                    }
+                  >
+                    {[
+                      { value: null, label: "Auto", tooltip: "La IA decide el nivel de análisis según tu consulta" },
+                      { value: "low", label: "Rápida", tooltip: "Respuesta directa y veloz — ideal para preguntas simples" },
+                      { value: "medium", label: "Moderada", tooltip: "Análisis balanceado — buen nivel sin demoras largas" },
+                      { value: "high", label: "Profunda", tooltip: "Análisis exhaustivo — ideal para casos complejos con múltiples áreas" },
+                    ].map((opt) => {
+                      const isDisabled = !hasThinking && opt.value !== null;
+                      return (
+                        <button
+                          key={opt.label}
+                          onClick={() => !isDisabled && setReasoningEffort(opt.value)}
+                          title={isDisabled
+                            ? `${MODEL_CATALOG.find(m => m.id === selectedModel)?.name || selectedModel} no soporta modo "${opt.label}"`
+                            : opt.tooltip
+                          }
+                          disabled={isDisabled}
+                          className={`px-2 py-1 rounded text-[10px] font-medium transition-all ${
+                            isDisabled
+                              ? "text-surface-container-high cursor-not-allowed"
+                              : reasoningEffort === opt.value
+                                ? "bg-secondary-container text-secondary"
+                                : "bg-surface text-on-surface/60 hover:text-on-surface hover:bg-surface-container-high/80"
+                          }`}
+                        >
+                          {opt.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
+
+              <div className="ml-auto flex items-center gap-1 relative">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".pdf,.docx,.doc,.jpg,.jpeg,.png,.webp,.txt"
+                  onChange={handleFileUpload}
+                  className="hidden"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowFormattingTools((v) => !v)}
+                  className="control-surface rounded-xl p-2 text-on-surface/45 hover:text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  title="Opciones de formato"
+                  aria-label="Opciones de formato"
+                >
+                  <Type className="w-4 h-4" aria-hidden="true" />
+                </button>
+                {showFormattingTools && (
+                  <div className="panel-raised absolute bottom-full right-0 z-20 mb-2 w-auto min-w-[220px] rounded-2xl p-2">
+                    <div className="mb-1 px-2 pt-1 text-[10px] uppercase tracking-[0.2em] text-on-surface/35">
+                      Formato rápido
+                    </div>
+                    <div className="flex flex-wrap items-center gap-1">
+                      {[
+                        { icon: Bold, label: "Negrita", prefix: "**", suffix: "**", placeholder: "texto" },
+                        { icon: Italic, label: "Cursiva", prefix: "*", suffix: "*", placeholder: "texto" },
+                        { icon: List, label: "Lista", prefix: "\n- ", suffix: "", placeholder: "elemento" },
+                        { icon: Code, label: "Codigo", prefix: "`", suffix: "`", placeholder: "codigo" },
+                      ].map(({ icon: Icon, label, prefix, suffix, placeholder }) => (
+                        <button
+                          key={label}
+                          type="button"
+                          title={label}
+                          onClick={() => {
+                            if (inputRef.current) {
+                              insertMarkdownSyntax(inputRef.current, prefix, suffix, placeholder, setInput);
+                            }
+                            setShowFormattingTools(false);
+                          }}
+                          aria-label={label}
+                          className="control-surface inline-flex items-center gap-2 rounded-xl px-3 py-2 text-xs text-on-surface/65 hover:text-on-surface"
+                        >
+                          <Icon className="w-3.5 h-3.5" aria-hidden="true" />
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 )}
-              </button>
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploading}
+                  className="control-surface rounded-xl p-2 text-on-surface/45 hover:text-primary disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  title="Adjuntar archivo"
+                  aria-label="Adjuntar archivo"
+                >
+                  {uploading ? (
+                    <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
+                  ) : (
+                    <Paperclip className="w-4 h-4" aria-hidden="true" />
+                  )}
+                </button>
+                <HelpPopover onShowShortcuts={handleShowShortcuts} />
+              </div>
             </div>
 
             {/* Attached file preview */}
@@ -1373,7 +1748,7 @@ function ChatPage() {
             )}
 
             {/* Input form */}
-            <form onSubmit={handleSubmit} aria-busy={isLoading} aria-label="Formulario de consulta legal" className="flex gap-3">
+            <form onSubmit={handleSubmit} aria-busy={isLoading} aria-label="Formulario de consulta legal" className="flex items-end gap-2.5 sm:gap-3">
               <label htmlFor="chat-input" className="sr-only">{t("chat.placeholder")}</label>
               <textarea
                 id="chat-input"
@@ -1388,7 +1763,7 @@ function ChatPage() {
                   }
                 }}
                 aria-label={t("chat.placeholder")}
-                className="flex-1 bg-surface-container border border-[rgba(79,70,51,0.15)] rounded-lg px-4 py-3 text-sm placeholder-on-surface/30 focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/20 resize-none min-h-[52px] max-h-32 overflow-y-auto text-on-surface transition-colors"
+                className="panel-base flex-1 resize-none rounded-2xl px-4 py-3 text-sm text-on-surface transition-colors placeholder-on-surface/30 focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/20 min-h-[52px] max-h-28 overflow-y-auto sm:min-h-[56px] sm:max-h-32"
                 disabled={isLoading || availableModels.length === 0}
                 placeholder={availableModels.length === 0 ? "Configurá tu API key para usar el chat en esta beta" : t("chat.placeholder")}
                 style={{ height: "auto" }}
@@ -1402,240 +1777,36 @@ function ChatPage() {
                 type="submit"
                 disabled={isLoading || !input.trim() || availableModels.length === 0}
                 aria-label={t("chat.send")}
-                className="bg-gradient-to-tr from-primary to-primary-container hover:from-primary/90 hover:to-primary-container/90 disabled:from-surface-container-low disabled:to-surface-container-low disabled:text-on-surface/20 text-on-primary rounded-lg px-4 py-3 transition-all self-end focus:outline-none focus:ring-2 focus:ring-primary/40"
+                className="gold-gradient self-end rounded-2xl px-4 py-3 text-on-primary shadow-[0_14px_30px_rgba(0,0,0,0.18)] transition-all hover:opacity-95 disabled:bg-surface-container-low disabled:text-on-surface/20 focus:outline-none focus:ring-2 focus:ring-primary/40"
               >
                 <Send className="w-5 h-5" aria-hidden="true" />
               </button>
-              <HelpPopover onShowShortcuts={() => setShowShortcutsModal(true)} />
             </form>
-            <p className="text-[10px] text-on-surface/25 mt-1.5 px-1">
+            <p className="mt-1.5 px-1 text-[10px] text-on-surface/25 sm:mt-2">
               Enter para enviar, Shift+Enter para nueva linea
             </p>
           </div>
         </div>
       </div>{/* end #main-content */}
 
-      {/* ------------------------------------------------------------------ */}
-      {/* Orchestration Panel — Right side (lg+ only)                         */}
-      {/* ------------------------------------------------------------------ */}
-      {showOrchPanel && (
-        <aside className="hidden lg:flex w-72 bg-surface flex-col overflow-hidden flex-shrink-0">
-          {/* Header */}
-          <div className="px-4 py-3 bg-surface-container-low flex items-center justify-between shrink-0">
-            <div>
-              <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-on-surface/40">Orquestador</span>
-              {/* Model + Reasoning badge */}
-              {orchState.modelUsed && orchState.phase !== 'idle' && (
-                <div className="flex items-center gap-1.5 mt-1">
-                  <span className="text-[9px] bg-surface-container-high text-on-surface/60 rounded-lg px-1.5 py-0.5">
-                    {orchState.modelUsed.split('/').pop()}
-                  </span>
-                  {orchState.reasoningLevel && (
-                    <span className={`text-[9px] rounded-lg px-1.5 py-0.5 ${
-                      orchState.reasoningLevel === 'Profunda' ? 'bg-[#EF4444]/10 text-[#EF4444]' :
-                      orchState.reasoningLevel === 'Moderada' ? 'bg-[#F59E0B]/10 text-[#F59E0B]' :
-                      orchState.reasoningLevel === 'Rápida'   ? 'bg-[#34D399]/10 text-[#34D399]' :
-                      'bg-surface-container-high text-on-surface/40'
-                    }`}>
-                      {orchState.reasoningLevel}
-                    </span>
-                  )}
-                </div>
-              )}
-            </div>
-            <button
-              onClick={() => setShowOrchPanel(false)}
-              className="text-on-surface/40 hover:text-on-surface/70 transition-colors focus:outline-none focus:ring-2 focus:ring-primary/30 rounded-lg"
-              aria-label="Cerrar panel de orquestación"
-            >
-              <PanelRightClose className="w-4 h-4" />
-            </button>
-          </div>
-
-          {/* Brain / Orchestrator node */}
-          <div className="px-4 py-5 flex flex-col items-center bg-surface shrink-0">
-            <div className={`w-14 h-14 rounded-lg flex items-center justify-center transition-all duration-500 ${
-              orchState.phase === 'idle'       ? 'bg-surface-container-low text-on-surface/30' :
-              orchState.phase === 'evaluating' ? 'bg-[#A78BFA]/20 text-[#A78BFA] animate-pulse shadow-lg shadow-[#A78BFA]/20' :
-              orchState.phase === 'done'       ? 'bg-[#34D399]/20 text-[#34D399]' :
-              'bg-primary/20 text-primary animate-pulse shadow-lg shadow-primary/20'
-            }`}>
-              {orchState.phase === 'done'
-                ? <CheckCircle2 className="w-7 h-7" />
-                : <Brain className="w-7 h-7" />
-              }
-            </div>
-            <p className="mt-2 text-[11px] text-on-surface/60 text-center leading-snug max-w-[220px]">
-              {orchState.statusText || 'Esperando consulta...'}
-            </p>
-            {/* Stats row: confidence + latency + citations */}
-            {(orchState.confidence > 0 || orchState.latencyMs > 0) && (
-              <div className="flex items-center gap-3 mt-2">
-                {orchState.confidence > 0 && (
-                  <span className="text-[10px] text-on-surface/40">
-                    🎯 {Math.round(orchState.confidence * 100)}%
-                  </span>
-                )}
-                {orchState.latencyMs > 0 && (
-                  <span className="text-[10px] text-on-surface/40">
-                    ⏱ {(orchState.latencyMs / 1000).toFixed(1)}s
-                  </span>
-                )}
-                {orchState.citationCount > 0 && (
-                  <span className="text-[10px] text-on-surface/40">
-                    📜 {orchState.citationCount}
-                  </span>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* Evaluation reason — why extra agents were called */}
-          {orchState.evaluationReason && orchState.phase === 'done' && (
-            <div className="px-4 py-2.5 bg-surface-container-low shrink-0">
-              <p className="text-[10px] uppercase tracking-[0.2em] text-[#A78BFA]/70 mb-1">Motivo de convocatoria</p>
-              <p className="text-[10px] text-on-surface/60 leading-relaxed">{orchState.evaluationReason}</p>
-            </div>
-          )}
-
-          {/* Agent Grid */}
-          <div className="flex-1 overflow-y-auto px-3 py-3">
-            <p className="text-[10px] uppercase tracking-[0.2em] text-on-surface/40 px-1 mb-2">
-              Agentes Especializados
-            </p>
-            <div className="space-y-1">
-              {LEGAL_AREAS.map(area => {
-                const isActive    = orchState.activeAgents.includes(area.id);
-                const isPrimary   = orchState.primaryArea === area.id;
-                const isSecondary = orchState.secondaryAreas.includes(area.id);
-                const AreaIcon    = area.icon;
-                return (
-                  <div
-                    key={area.id}
-                    className={`flex items-center gap-2.5 px-3 py-1.5 rounded-lg transition-all duration-500 ${
-                      isPrimary   ? 'bg-primary/10 border border-primary/20' :
-                      isSecondary ? 'bg-[#A78BFA]/10 border border-[#A78BFA]/20' :
-                      isActive    ? 'bg-surface-container-high border border-transparent' :
-                      'border border-transparent'
-                    }`}
-                  >
-                    {/* Status dot */}
-                    <div className={`w-2 h-2 rounded-full flex-shrink-0 transition-all duration-500 ${
-                      isPrimary   ? 'bg-primary shadow-sm shadow-primary/50' :
-                      isSecondary ? 'bg-[#A78BFA] shadow-sm shadow-[#A78BFA]/50' :
-                      isActive    ? 'bg-[#34D399]' :
-                      'bg-surface-container-high'
-                    } ${isActive && orchState.phase !== 'done' ? 'animate-pulse' : ''}`} />
-
-                    {/* Agent icon */}
-                    <AreaIcon className={`w-3.5 h-3.5 flex-shrink-0 transition-all duration-500 ${
-                      isPrimary   ? 'text-primary' :
-                      isSecondary ? 'text-[#A78BFA]' :
-                      isActive    ? 'text-on-surface' :
-                      'text-on-surface/20'
-                    }`} />
-
-                    {/* Agent name + role tag */}
-                    <span className={`text-[11px] truncate flex-1 transition-all duration-500 ${
-                      isActive || isSecondary ? 'text-on-surface' : 'text-on-surface/25'
-                    }`}>
-                      {area.label}
-                      {isPrimary && orchState.phase === 'done' && (
-                        <span className="ml-1.5 text-[9px] text-primary/70">Principal</span>
-                      )}
-                      {isSecondary && orchState.phase === 'done' && (
-                        <span className="ml-1.5 text-[9px] text-[#A78BFA]/70">Complementó</span>
-                      )}
-                    </span>
-
-                    {/* Typing indicator while active */}
-                    {isActive && orchState.phase !== 'done' && (
-                      <div className="ml-auto flex gap-0.5">
-                        <div className="w-1 h-1 rounded-full bg-primary animate-bounce" style={{ animationDelay: '0ms' }} />
-                        <div className="w-1 h-1 rounded-full bg-primary animate-bounce" style={{ animationDelay: '150ms' }} />
-                        <div className="w-1 h-1 rounded-full bg-primary animate-bounce" style={{ animationDelay: '300ms' }} />
-                      </div>
-                    )}
-
-                    {/* Completed check */}
-                    {(isActive || isSecondary) && orchState.phase === 'done' && (
-                      <CheckCircle2 className={`ml-auto w-3.5 h-3.5 flex-shrink-0 ${
-                        isPrimary ? 'text-primary' :
-                        isSecondary ? 'text-[#A78BFA]' :
-                        'text-[#34D399]'
-                      }`} />
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Steps timeline with relative timestamps */}
-          {orchState.steps.length > 0 && (
-            <div className="bg-surface-container-low px-4 py-3 max-h-48 overflow-y-auto shrink-0">
-              <p className="text-[10px] uppercase tracking-[0.2em] text-on-surface/40 mb-2">Timeline</p>
-              <div className="space-y-1">
-                {orchState.steps.map((step, i) => {
-                  const elapsed = orchState.startTime > 0 ? ((step.ts - orchState.startTime) / 1000).toFixed(1) : null;
-                  return (
-                    <div key={i} className="flex items-center gap-2 text-[11px]">
-                      <span className="w-4 text-center">{step.icon}</span>
-                      <span className={`flex-1 truncate ${step.done ? 'text-on-surface/50' : 'text-primary'}`}>
-                        {step.text}
-                      </span>
-                      {elapsed && (
-                        <span className="text-[9px] text-on-surface/25 tabular-nums flex-shrink-0">{elapsed}s</span>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-        </aside>
-      )}
-
       {/* Toggle button when panel is hidden — desktop */}
       {!showOrchPanel && (
         <button
           onClick={() => setShowOrchPanel(true)}
-          className="fixed right-0 top-1/2 -translate-y-1/2 z-30 bg-surface border border-[rgba(79,70,51,0.15)] rounded-l-lg p-2 hover:bg-surface-container-low transition hidden lg:flex items-center"
-          title="Mostrar Orquestador"
-          aria-label="Mostrar panel del orquestador"
+          className="fixed right-0 top-1/2 -translate-y-1/2 z-30 bg-surface border border-[rgba(79,70,51,0.15)] rounded-l-lg p-2 hover:bg-surface-container-low transition hidden md:flex items-center"
+          title="Mostrar análisis del caso"
+          aria-label="Mostrar panel de análisis del caso"
         >
           <Brain className="w-5 h-5 text-on-surface/40" />
         </button>
       )}
 
-      {/* Mobile orchestrator — floating status pill (visible during processing on small screens) */}
-      {orchState.phase !== 'idle' && (
-        <div className="lg:hidden fixed bottom-20 left-1/2 -translate-x-1/2 z-30">
-          <button
-            onClick={() => setShowOrchPanel(p => !p)}
-            className={`flex items-center gap-2 px-3 py-2 rounded-lg border shadow-lg transition-all ${
-              orchState.phase === 'done'
-                ? 'bg-surface border-[#34D399]/20 text-[#34D399]'
-                : 'bg-surface border-primary/20 text-primary animate-pulse'
-            }`}
-          >
-            {orchState.phase === 'done' ? <CheckCircle2 className="w-4 h-4" /> : <Brain className="w-4 h-4" />}
-            <span className="text-[11px] max-w-[200px] truncate">
-              {orchState.phase === 'done'
-                ? `✅ ${orchState.activeAgents.length} agentes · ${(orchState.latencyMs / 1000).toFixed(1)}s`
-                : orchState.statusText.slice(0, 40)
-              }
-            </span>
-          </button>
-        </div>
-      )}
-
-      {/* Mobile orchestrator drawer — slides up from bottom */}
+      {/* Tablet/mobile orchestrator drawer */}
       {showOrchPanel && (
-        <div className="lg:hidden fixed inset-0 z-40" onClick={() => setShowOrchPanel(false)}>
+        <div className="xl:hidden fixed inset-0 z-40" onClick={() => setShowOrchPanel(false)}>
           <div className="absolute inset-0 bg-black/50" />
           <div
-            className="absolute bottom-0 left-0 right-0 bg-surface rounded-t-lg max-h-[70vh] overflow-y-auto"
+            className="absolute bottom-0 left-0 right-0 bg-surface rounded-t-lg max-h-[70vh] overflow-y-auto md:bottom-0 md:left-auto md:right-0 md:top-0 md:w-[24rem] md:max-h-none md:rounded-none md:border-l md:border-[rgba(79,70,51,0.15)]"
             onClick={e => e.stopPropagation()}
           >
             {/* Drag handle */}
@@ -1645,62 +1816,117 @@ function ChatPage() {
             {/* Compact mobile content */}
             <div className="px-4 pb-4">
               <div className="flex items-center justify-between mb-3">
-                <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-on-surface/40">Orquestador</span>
-                <div className="flex items-center gap-2">
-                  {orchState.modelUsed && (
-                    <span className="text-[9px] bg-surface-container-high text-on-surface/60 rounded-lg px-1.5 py-0.5">
-                      {orchState.modelUsed.split('/').pop()}
-                    </span>
-                  )}
-                  {orchState.reasoningLevel && (
-                    <span className="text-[9px] bg-surface-container-high text-on-surface/40 rounded-lg px-1.5 py-0.5">
-                      {orchState.reasoningLevel}
-                    </span>
-                  )}
+                <div>
+                  <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-primary/70">Análisis de tu caso</span>
+                  <p className="mt-1 text-[11px] text-on-surface/60">Identificamos las áreas legales que podrían intervenir.</p>
                 </div>
               </div>
-              {/* Stats row */}
-              <div className="flex items-center gap-4 mb-3">
-                {orchState.confidence > 0 && <span className="text-[10px] text-on-surface/40">🎯 {Math.round(orchState.confidence * 100)}%</span>}
-                {orchState.latencyMs > 0 && <span className="text-[10px] text-on-surface/40">⏱ {(orchState.latencyMs / 1000).toFixed(1)}s</span>}
-                {orchState.citationCount > 0 && <span className="text-[10px] text-on-surface/40">📜 {orchState.citationCount} refs</span>}
-                <span className="text-[10px] text-on-surface/40">👥 {orchState.activeAgents.length} agentes</span>
+              <div className="rounded-[1.4rem] border border-[rgba(255,255,255,0.05)] bg-[radial-gradient(circle_at_top,rgba(167,139,250,0.16),transparent_30%),linear-gradient(180deg,rgba(255,255,255,0.02),rgba(255,255,255,0))] p-3 mb-3">
+                <div className="mb-3 flex items-center gap-3">
+                  <div className="relative flex h-16 w-16 items-center justify-center rounded-[1rem] border border-white/6 bg-[#111723]">
+                    <svg viewBox="0 0 120 120" className="h-12 w-12" aria-hidden="true">
+                      <defs>
+                        <linearGradient id="analysis-ring-mobile" x1="0%" y1="0%" x2="100%" y2="100%">
+                          <stop offset="0%" stopColor="#A78BFA" />
+                          <stop offset="100%" stopColor="#34D399" />
+                        </linearGradient>
+                      </defs>
+                      <circle cx="60" cy="60" r="34" fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="1.5" />
+                      {radarAreas.map((area, index) => {
+                        const positions = [
+                          { x: 60, y: 24 },
+                          { x: 88, y: 74 },
+                          { x: 32, y: 74 },
+                        ];
+                        const point = positions[index];
+                        return (
+                          <g key={area.id}>
+                            <line x1="60" y1="60" x2={point.x} y2={point.y} stroke="url(#analysis-ring-mobile)" strokeOpacity="0.45" strokeWidth="1.5" strokeDasharray="4 4">
+                              <animate attributeName="stroke-dashoffset" values="0;-16" dur="1.8s" repeatCount="indefinite" />
+                            </line>
+                            <circle cx={point.x} cy={point.y} r="5.5" fill={index === 0 && orchState.phase !== "idle" ? "#34D399" : "#A78BFA"}>
+                              <animate attributeName="r" values="5;7;5" dur={`${1.8 + index * 0.25}s`} repeatCount="indefinite" />
+                            </circle>
+                          </g>
+                        );
+                      })}
+                      <circle cx="60" cy="60" r="10" fill="rgba(201,169,97,0.18)" stroke="url(#analysis-ring-mobile)" strokeWidth="2.5">
+                        <animate attributeName="r" values="9;11;9" dur="2.4s" repeatCount="indefinite" />
+                      </circle>
+                    </svg>
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-[10px] uppercase tracking-[0.18em] text-on-surface/45">Estado del análisis</p>
+                    <p className="mt-1 text-sm font-medium text-on-surface">{analysisHeadline}</p>
+                  </div>
+                </div>
+                <p className="mt-1 text-[11px] leading-relaxed text-on-surface/60">{analysisSupportingText}</p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {orchState.confidence > 0 && <span className="rounded-full bg-surface-container-high px-2.5 py-1 text-[10px] text-on-surface/60">Confianza {Math.round(orchState.confidence * 100)}%</span>}
+                  {orchState.latencyMs > 0 && <span className="rounded-full bg-surface-container-high px-2.5 py-1 text-[10px] text-on-surface/60">{(orchState.latencyMs / 1000).toFixed(1)}s</span>}
+                  {orchState.citationCount > 0 && <span className="rounded-full bg-surface-container-high px-2.5 py-1 text-[10px] text-on-surface/60">{orchState.citationCount} referencias</span>}
+                </div>
               </div>
-              {/* Active agents only */}
-              <div className="flex flex-wrap gap-1.5 mb-3">
-                {LEGAL_AREAS.filter(a => orchState.activeAgents.includes(a.id) || orchState.secondaryAreas.includes(a.id)).map(area => {
-                  const isPrimary = orchState.primaryArea === area.id;
-                  const isSecondary = orchState.secondaryAreas.includes(area.id);
+              <div className="space-y-2 mb-3">
+                <p className="text-[10px] uppercase tracking-[0.18em] text-on-surface/45">Áreas legales involucradas</p>
+                {LEGAL_AREAS.map(area => {
+                  const areaPresentation = getAreaPresentation(area.id);
+                  const AreaIcon = area.icon;
                   return (
-                    <span key={area.id} className={`text-[10px] rounded-lg px-2 py-0.5 border ${
-                      isPrimary ? 'bg-primary/10 border-primary/20 text-primary' :
-                      isSecondary ? 'bg-[#A78BFA]/10 border-[#A78BFA]/20 text-[#A78BFA]' :
-                      'bg-surface-container-low border-transparent text-on-surface/60'
-                    }`}>
-                      {area.name} {isPrimary ? '★' : ''}
-                    </span>
+                    <div key={area.id} className={`rounded-xl border px-3 py-2 ${areaPresentation.containerClass}`}>
+                      <div className="flex items-start gap-2.5">
+                        <div className={`flex h-8 w-8 items-center justify-center rounded-lg ${areaPresentation.iconClass}`}>
+                          <AreaIcon className="w-4 h-4" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-[11px] font-medium text-on-surface">{area.label}</span>
+                            <span className={`rounded-full px-2 py-0.5 text-[9px] ${areaPresentation.badgeClass}`}>{areaPresentation.badge}</span>
+                          </div>
+                          <p className="mt-1 text-[10px] leading-relaxed text-on-surface/55">{area.description}</p>
+                        </div>
+                      </div>
+                    </div>
                   );
                 })}
               </div>
-              {/* Evaluation reason */}
               {orchState.evaluationReason && (
                 <p className="text-[10px] text-on-surface/60 leading-relaxed mb-3 border-l-2 border-[#A78BFA]/30 pl-2">
                   {orchState.evaluationReason}
                 </p>
               )}
-              {/* Timeline compact */}
-              {orchState.steps.length > 0 && (
-                <div className="space-y-1">
-                  {orchState.steps.slice(-6).map((step, i) => {
-                    const elapsed = orchState.startTime > 0 ? ((step.ts - orchState.startTime) / 1000).toFixed(1) : null;
-                    return (
-                      <div key={i} className="flex items-center gap-2 text-[10px]">
-                        <span>{step.icon}</span>
-                        <span className={`flex-1 truncate ${step.done ? 'text-on-surface/50' : 'text-primary'}`}>{step.text}</span>
-                        {elapsed && <span className="text-[9px] text-on-surface/25">{elapsed}s</span>}
-                      </div>
-                    );
-                  })}
+              {orchState.steps.length > 0 && currentAnalysisStep && (
+                <div>
+                  <button
+                    type="button"
+                    onClick={() => setIsAnalysisTimelineOpen((prev) => !prev)}
+                    className="flex w-full items-center gap-3 rounded-2xl border border-white/5 bg-white/[0.02] px-3 py-3 text-left"
+                    aria-expanded={isAnalysisTimelineOpen}
+                  >
+                    <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary/10 text-primary text-sm">
+                      {currentAnalysisStep.icon}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[10px] uppercase tracking-[0.18em] text-on-surface/42">Seguimiento del análisis</p>
+                      <p className="mt-1 truncate text-[10px] text-on-surface/72">{currentAnalysisStep.text}</p>
+                    </div>
+                    {isAnalysisTimelineOpen ? <ChevronUp className="h-4 w-4 text-on-surface/40" /> : <ChevronDown className="h-4 w-4 text-on-surface/40" />}
+                  </button>
+                  {isAnalysisTimelineOpen && (
+                    <div className="mt-2 space-y-1 rounded-2xl border border-white/5 bg-black/10 p-2.5">
+                      {orchState.steps.slice(-6).map((step, i) => {
+                        const elapsed = orchState.startTime > 0 ? ((step.ts - orchState.startTime) / 1000).toFixed(1) : null;
+                        const isCurrent = currentAnalysisStep.ts === step.ts && currentAnalysisStep.text === step.text;
+                        return (
+                          <div key={i} className={`flex items-center gap-2 rounded-xl px-2 py-1.5 text-[10px] ${isCurrent ? 'bg-primary/10 text-on-surface' : 'text-on-surface/55'}`}>
+                            <span>{step.icon}</span>
+                            <span className={`flex-1 truncate ${isCurrent ? 'text-on-surface' : step.done ? 'text-on-surface/50' : 'text-primary'}`}>{step.text}</span>
+                            {elapsed && <span className="text-[9px] text-on-surface/25">{elapsed}s</span>}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               )}
             </div>

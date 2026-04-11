@@ -397,7 +397,7 @@ export default function StatusPage() {
 
   return (
     <AppLayout>
-      <div className="min-h-full text-on-surface">
+      <div className="flex min-h-full flex-col text-on-surface">
         {/* Top bar */}
         <div
           className="px-4 sm:px-6 py-3 flex items-center gap-3 sticky top-0 bg-surface-container-lowest z-20"

@@ -16,6 +16,8 @@ import {
 import Link from "next/link";
 import { getToken } from "@/lib/auth";
 import { AppLayout } from "@/components/AppLayout";
+import { InternalPageHeader } from "@/components/shell/InternalPageHeader";
+import { ShellUtilityActions } from "@/components/shell/ShellUtilityActions";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -245,16 +247,16 @@ export default function OrganizacionPage() {
 
   return (
     <AppLayout>
-      <div className="min-h-full text-on-surface">
-        {/* Page header */}
-        <div className="border-b border-[rgba(79,70,51,0.15)] px-4 lg:px-6 py-4 flex items-center gap-3 sticky top-0 z-10 bg-[#0e0e12]">
-          <Users className="w-5 h-5 text-primary" />
-          <h1 className="font-['Newsreader'] text-4xl font-bold text-on-surface leading-none">
-            Organización
-          </h1>
-        </div>
+      <div className="flex min-h-full flex-col text-on-surface">
+        <InternalPageHeader
+          icon={<Users className="w-5 h-5 text-primary" />}
+          eyebrow="Equipo"
+          title="Organización"
+          description="Gestioná miembros, roles, plan y uso compartido con una cabecera consistente con el resto de pantallas internas."
+          utilitySlot={<div className="hidden md:flex"><ShellUtilityActions /></div>}
+        />
 
-        <div className="max-w-5xl mx-auto px-4 lg:px-6 py-6 sm:py-8">
+        <div className="w-full px-4 py-6 sm:py-8 lg:px-6 xl:px-8">
           {/* Alerts */}
           {error && (
             <div className="flex items-center gap-3 bg-red-500/10 border border-red-500/30 text-red-400 rounded-lg px-4 py-3 mb-6 text-sm">
@@ -276,11 +278,11 @@ export default function OrganizacionPage() {
             </div>
           ) : org === null ? (
             /* CREATE ORG FORM */
-            <div className="max-w-lg mx-auto">
-              <div className="text-center mb-8">
-                <div className="w-16 h-16 bg-surface-container-low border border-[rgba(79,70,51,0.15)] rounded-lg flex items-center justify-center mx-auto mb-4">
-                  <Building2 className="w-8 h-8 text-[#7c7885]" />
-                </div>
+              <div className="max-w-lg mx-auto">
+                <div className="text-center mb-8">
+                  <div className="panel-base mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl">
+                    <Building2 className="w-8 h-8 text-[#7c7885]" />
+                  </div>
                 <h2 className="font-['Newsreader'] text-3xl font-bold text-on-surface mb-2">
                   Sin organización
                 </h2>
@@ -291,7 +293,7 @@ export default function OrganizacionPage() {
 
               <form
                 onSubmit={handleCreate}
-                className="bg-surface-container-low border border-[rgba(79,70,51,0.15)] rounded-lg p-6 space-y-4"
+                className="panel-raised rounded-2xl p-6 space-y-4"
               >
                 <div>
                   <label className="block text-xs font-medium text-[#a09ba8] mb-1.5">
@@ -310,7 +312,7 @@ export default function OrganizacionPage() {
                       );
                     }}
                     placeholder="Estudio Jurídico Ejemplo SAC"
-                    className="w-full bg-surface border border-[rgba(79,70,51,0.2)] rounded-lg px-3 py-2.5 text-sm text-on-surface placeholder-[#55535d] focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/15 transition-colors"
+                     className="control-surface w-full rounded-xl px-3 py-2.5 text-sm text-on-surface placeholder-[#55535d] focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/15 transition-colors"
                     required
                   />
                 </div>
@@ -325,7 +327,7 @@ export default function OrganizacionPage() {
                       setCreateSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))
                     }
                     placeholder="estudio-juridico-ejemplo"
-                    className="w-full bg-surface border border-[rgba(79,70,51,0.2)] rounded-lg px-3 py-2.5 text-sm text-on-surface placeholder-[#55535d] focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/15 transition-colors"
+                     className="control-surface w-full rounded-xl px-3 py-2.5 text-sm text-on-surface placeholder-[#55535d] focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/15 transition-colors"
                     required
                   />
                   <p className="text-[10px] text-[#55535d] mt-1">
@@ -335,7 +337,7 @@ export default function OrganizacionPage() {
                 <button
                   type="submit"
                   disabled={creating || !createName.trim() || !createSlug.trim()}
-                  className="w-full bg-gradient-to-br from-primary to-primary-container hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed text-on-primary font-bold rounded-lg py-2.5 text-sm flex items-center justify-center gap-2 transition-opacity"
+                   className="gold-gradient w-full text-on-primary font-bold rounded-xl py-2.5 text-sm flex items-center justify-center gap-2 shadow-[0_12px_24px_rgba(0,0,0,0.14)] hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed transition-opacity"
                 >
                   {creating ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
@@ -350,7 +352,7 @@ export default function OrganizacionPage() {
             /* ORG DASHBOARD */
             <div className="space-y-6">
               {/* Org Header Card */}
-              <div className="bg-surface-container-low border border-[rgba(79,70,51,0.15)] rounded-lg p-6">
+               <div className="panel-base rounded-xl p-6">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                   <div className="flex items-center gap-4">
                     <div className="w-12 h-12 bg-primary/10 border border-primary/20 rounded-lg flex items-center justify-center">
@@ -375,7 +377,7 @@ export default function OrganizacionPage() {
 
               <div className="grid lg:grid-cols-3 gap-4 sm:gap-6">
                 {/* Members Table */}
-                <div className="lg:col-span-2 bg-surface-container-low border border-[rgba(79,70,51,0.15)] rounded-lg">
+                 <div className="panel-base lg:col-span-2 rounded-xl">
                   <div className="p-4 sm:p-5 border-b border-[rgba(79,70,51,0.15)] bg-surface rounded-t-lg flex items-center gap-2">
                     <Users className="w-4 h-4 text-primary" />
                     <h3 className="font-semibold text-sm text-on-surface">Miembros</h3>

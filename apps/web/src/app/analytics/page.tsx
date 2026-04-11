@@ -3,6 +3,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { getToken } from "@/lib/auth";
 import { AppLayout } from "@/components/AppLayout";
+import { InternalPageHeader } from "@/components/shell/InternalPageHeader";
+import { ShellUtilityActions } from "@/components/shell/ShellUtilityActions";
 import {
   BarChart3,
   TrendingUp,
@@ -149,7 +151,7 @@ interface StatCardProps {
 function StatCard({ label, value, sub, icon, loading }: StatCardProps) {
   if (loading) {
     return (
-      <div className="bg-surface-container-low border border-[rgba(79,70,51,0.15)] rounded-lg p-6">
+      <div className="panel-base rounded-xl p-6">
         <Skeleton className="h-3 w-24 mb-4" />
         <Skeleton className="h-8 w-32 mb-2" />
         <Skeleton className="h-3 w-20" />
@@ -157,12 +159,12 @@ function StatCard({ label, value, sub, icon, loading }: StatCardProps) {
     );
   }
   return (
-    <div className="bg-surface-container-low border border-[rgba(79,70,51,0.15)] rounded-lg p-6">
+    <div className="panel-base rounded-xl p-6 transition-transform duration-200 hover:-translate-y-0.5">
       <div className="flex items-center justify-between mb-3">
-        <p className="text-[10px] text-[#7c7885] uppercase tracking-wider leading-tight">{label}</p>
+        <p className="section-eyebrow text-[#7c7885] leading-tight">{label}</p>
         {icon && <div className="text-[#7c7885] shrink-0">{icon}</div>}
       </div>
-      <p className="font-['Newsreader'] text-3xl font-bold text-primary">{value}</p>
+      <p className="font-['Newsreader'] text-3xl font-bold tracking-[-0.03em] text-primary">{value}</p>
       {sub && <div className="mt-2">{sub}</div>}
     </div>
   );
@@ -179,14 +181,16 @@ function BarChart({
   data: { date: string; count: number }[];
   loading: boolean;
 }) {
+  const loadingHeights = [24, 38, 52, 44, 66, 58, 34, 48, 72, 60, 42, 56, 28, 46, 64, 36, 54, 68, 40, 50];
+
   if (loading) {
     return (
       <div className="flex items-end gap-1 h-36">
-        {Array.from({ length: 20 }).map((_, i) => (
+        {loadingHeights.map((height, i) => (
           <div
             key={i}
             className="flex-1 animate-pulse rounded bg-[#25242b]"
-            style={{ height: `${20 + Math.random() * 60}%` }}
+            style={{ height: `${height}%` }}
           />
         ))}
       </div>
@@ -256,15 +260,13 @@ function DonutChart({
 
   const total = data.reduce((s, d) => s + d.count, 0) || 1;
 
-  let cumulative = 0;
-  const segments = data.map((d) => {
+  const segments = data.reduce<Array<{ color: string; start: number; end: number }>>((acc, d) => {
     const pct = (d.count / total) * 100;
     const area = AREA_MAP[d.area];
     const color = area?.hex ?? "#6b7280";
-    const start = cumulative;
-    cumulative += pct;
-    return { color, start, end: cumulative };
-  });
+    const start = acc.length > 0 ? acc[acc.length - 1].end : 0;
+    return [...acc, { color, start, end: start + pct }];
+  }, []);
 
   const gradient = segments
     .map((s) => `${s.color} ${s.start}% ${s.end}%`)
@@ -525,16 +527,14 @@ export default function AnalyticsPage() {
 
   return (
     <AppLayout>
-      <div className="min-h-full text-on-surface">
-        {/* Page header with controls */}
-        <div className="border-b border-[rgba(79,70,51,0.15)] px-4 sm:px-6 py-4 flex items-center justify-between sticky top-0 bg-[#0e0e12] z-20">
-          <div className="flex items-center gap-3">
-            <BarChart3 className="w-5 h-5 text-primary" />
-            <h1 className="font-['Newsreader'] text-4xl font-bold text-on-surface leading-none">
-              Analytics
-            </h1>
-          </div>
-          <div className="flex items-center gap-2">
+      <div className="flex min-h-full flex-col text-on-surface">
+        <InternalPageHeader
+          icon={<BarChart3 className="w-5 h-5 text-primary" />}
+          eyebrow="Organización"
+          title="Analytics"
+          description="Métricas de uso, costos y consultas frecuentes dentro del mismo lenguaje espacial del shell privado."
+          utilitySlot={<div className="hidden md:flex"><ShellUtilityActions /></div>}
+          actions={<div className="flex items-center gap-2">
             {/* Date range selector */}
             <div className="flex items-center gap-1 bg-surface-container-low border border-[rgba(79,70,51,0.15)] rounded-lg p-1">
               {dateRangeOptions.map((opt) => (
@@ -572,8 +572,8 @@ export default function AnalyticsPage() {
             >
               <RefreshCw className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`} />
             </button>
-          </div>
-        </div>
+          </div>}
+        />
 
         <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6">
           {/* Loading org state */}

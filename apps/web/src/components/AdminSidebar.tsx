@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState, useEffect } from "react";
 import {
   Scale,
@@ -11,8 +12,6 @@ import {
   BarChart3,
   Bell,
   ArrowLeft,
-  Menu,
-  X,
   LogOut,
   ShieldCheck,
 } from "lucide-react";
@@ -32,6 +31,8 @@ interface NavItem {
 
 interface AdminSidebarProps {
   currentPath: string;
+  mode?: "desktop" | "mobile";
+  onNavigate?: () => void;
 }
 
 interface UserInfo {
@@ -109,9 +110,13 @@ function SectionHeader({ label }: { label: string }) {
 // AdminSidebar
 // ---------------------------------------------------------------------------
 
-export function AdminSidebar({ currentPath }: AdminSidebarProps) {
-  const [mobileOpen, setMobileOpen] = useState(false);
+export function AdminSidebar({
+  currentPath,
+  mode = "desktop",
+  onNavigate,
+}: AdminSidebarProps) {
   const [user, setUser] = useState<UserInfo | null>(null);
+  const isMobile = mode === "mobile";
 
   // Fetch user info on mount
   useEffect(() => {
@@ -128,18 +133,13 @@ export function AdminSidebar({ currentPath }: AdminSidebarProps) {
       .catch(() => null);
   }, []);
 
-  // Close mobile sidebar on route change
-  useEffect(() => {
-    setMobileOpen(false);
-  }, [currentPath]);
-
-  const closeMobile = () => setMobileOpen(false);
-
-  const sidebarContent = (
+  return (
     <aside
       role="navigation"
       aria-label="Menu de administración"
-      className="w-72 bg-surface border-r border-[rgba(79,70,51,0.15)] flex flex-col h-full"
+      className={`bg-surface border-r border-[rgba(79,70,51,0.15)] flex flex-col h-full ${
+        isMobile ? "w-72 max-w-[88vw]" : "w-72"
+      }`}
     >
       {/* Logo + Admin badge */}
       <div className="p-4 border-b border-[rgba(79,70,51,0.15)]">
@@ -163,7 +163,7 @@ export function AdminSidebar({ currentPath }: AdminSidebarProps) {
             key={item.href}
             item={item}
             currentPath={currentPath}
-            onClick={closeMobile}
+            onClick={isMobile ? onNavigate : undefined}
           />
         ))}
       </div>
@@ -177,20 +177,20 @@ export function AdminSidebar({ currentPath }: AdminSidebarProps) {
             key={item.href}
             item={item}
             currentPath={currentPath}
-            onClick={closeMobile}
+            onClick={isMobile ? onNavigate : undefined}
           />
         ))}
 
         {/* Separator + Volver al App */}
         <div className="border-t border-[rgba(79,70,51,0.15)] my-2" />
-        <a
+        <Link
           href="/"
-          onClick={closeMobile}
+          onClick={isMobile ? onNavigate : undefined}
           className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-primary hover:text-primary/80 hover:bg-surface-container-low transition-colors"
         >
           <ArrowLeft className="w-4 h-4 shrink-0" aria-hidden="true" />
           <span>Volver al App</span>
-        </a>
+        </Link>
       </div>
 
       {/* Footer: user info + logout */}
@@ -219,48 +219,5 @@ export function AdminSidebar({ currentPath }: AdminSidebarProps) {
         )}
       </div>
     </aside>
-  );
-
-  return (
-    <>
-      {/* Hamburger button — mobile only */}
-      <button
-        onClick={() => setMobileOpen(true)}
-        aria-label="Abrir menu"
-        className="fixed top-3 left-3 z-50 p-2 rounded-lg bg-surface border border-[rgba(79,70,51,0.15)] text-on-surface/50 hover:text-on-surface transition-colors lg:hidden"
-      >
-        <Menu className="w-5 h-5" />
-      </button>
-
-      {/* Mobile overlay */}
-      {mobileOpen && (
-        <div
-          className="fixed inset-0 bg-black/60 z-40 lg:hidden"
-          onClick={closeMobile}
-          aria-hidden="true"
-        />
-      )}
-
-      {/* Mobile sidebar */}
-      <div
-        className={`fixed inset-y-0 left-0 z-50 lg:hidden transition-transform duration-200 ${
-          mobileOpen ? "translate-x-0" : "-translate-x-full"
-        }`}
-      >
-        <div className="relative h-full">
-          {sidebarContent}
-          <button
-            onClick={closeMobile}
-            aria-label="Cerrar menu"
-            className="absolute top-3 right-3 p-1.5 rounded-lg text-on-surface/40 hover:text-on-surface transition-colors"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-      </div>
-
-      {/* Desktop sidebar — always visible */}
-      <div className="hidden lg:flex h-full">{sidebarContent}</div>
-    </>
   );
 }

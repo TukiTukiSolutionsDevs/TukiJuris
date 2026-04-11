@@ -40,7 +40,7 @@ export default function AnalizarPage() {
 
   return (
     <AppLayout>
-      <div className="min-h-full text-on-surface">
+      <div className="flex min-h-full flex-col text-on-surface">
         {/* Page header */}
         <div className="border-b border-[rgba(79,70,51,0.15)] px-6 py-4 flex items-center gap-3 sticky top-0 z-10 bg-[#0e0e12]">
           <Scale className="w-5 h-5 text-primary" />

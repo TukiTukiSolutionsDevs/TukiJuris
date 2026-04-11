@@ -3,8 +3,11 @@
 import { useState, useEffect, useRef, useCallback, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { getToken, authHeaders as getAuthHeaders } from "@/lib/auth";
 import { AppLayout } from "@/components/AppLayout";
+import { InternalPageHeader } from "@/components/shell/InternalPageHeader";
+import { ShellUtilityActions } from "@/components/shell/ShellUtilityActions";
 import {
   Search,
   Filter,
@@ -14,7 +17,6 @@ import {
   BookmarkCheck,
   Clock,
   SlidersHorizontal,
-  FileText,
   Calendar,
   BookOpen,
   Shield,
@@ -28,7 +30,6 @@ import {
   Lock,
   BadgeCheck,
   RotateCcw,
-  Scale,
 } from "lucide-react";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
@@ -163,7 +164,7 @@ function HighlightedText({ text, query }: { text: string; query: string }) {
 // Skeleton card
 function SkeletonCard() {
   return (
-    <div className="bg-surface-container-low border border-[rgba(79,70,51,0.15)] rounded-lg p-5 animate-pulse">
+    <div className="panel-base rounded-xl p-5 animate-pulse">
       <div className="flex justify-between gap-4 mb-3">
         <div className="flex-1">
           <div className="h-4 bg-[#35343a] rounded w-3/4 mb-2" />
@@ -232,6 +233,7 @@ function BuscarPage() {
   const [saving, setSaving] = useState(false);
 
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const lastExecutedSearchKey = useRef<string | null>(null);
 
   // ---------------------------------------------------------------------------
   // Auth + sidebar data
@@ -274,23 +276,6 @@ function BuscarPage() {
   // Run search on mount if URL has params
   // ---------------------------------------------------------------------------
 
-  useEffect(() => {
-    if (searchParams.get("q")) {
-      runSearch(
-        searchParams.get("q") || "",
-        {
-          areas: searchParams.getAll("area"),
-          document_type: searchParams.get("tipo") || "",
-          date_from: searchParams.get("desde") || "",
-          date_to: searchParams.get("hasta") || "",
-          hierarchy: searchParams.get("jerarquia") || "",
-        },
-        searchParams.get("orden") || "relevance",
-        Number(searchParams.get("pagina")) || 1,
-      );
-    }
-  }, []);
-
   // ---------------------------------------------------------------------------
   // Core search
   // ---------------------------------------------------------------------------
@@ -310,7 +295,11 @@ function BuscarPage() {
       if (f.hierarchy) params.set("jerarquia", f.hierarchy);
       if (s !== "relevance") params.set("orden", s);
       if (p > 1) params.set("pagina", String(p));
-      router.replace(`/buscar?${params.toString()}`, { scroll: false });
+      const nextSearchKey = params.toString();
+      if (searchParams.toString() !== nextSearchKey) {
+        router.replace(`/buscar?${nextSearchKey}`, { scroll: false });
+      }
+      lastExecutedSearchKey.current = nextSearchKey;
 
       try {
         const body = {
@@ -353,8 +342,47 @@ function BuscarPage() {
         if (isLoggedIn) fetchHistory();
       }
     },
-    [router, isLoggedIn],
+    [router, isLoggedIn, searchParams],
   );
+
+  useEffect(() => {
+    const q = searchParams.get("q") || "";
+    if (!q.trim()) return;
+
+    const params = new URLSearchParams();
+    params.set("q", q);
+    const areas = searchParams.getAll("area");
+    if (areas.length) areas.forEach((area) => params.append("area", area));
+    const documentType = searchParams.get("tipo") || "";
+    const dateFrom = searchParams.get("desde") || "";
+    const dateTo = searchParams.get("hasta") || "";
+    const hierarchy = searchParams.get("jerarquia") || "";
+    const order = searchParams.get("orden") || "relevance";
+    const currentPage = Number(searchParams.get("pagina")) || 1;
+
+    if (documentType) params.set("tipo", documentType);
+    if (dateFrom) params.set("desde", dateFrom);
+    if (dateTo) params.set("hasta", dateTo);
+    if (hierarchy) params.set("jerarquia", hierarchy);
+    if (order !== "relevance") params.set("orden", order);
+    if (currentPage > 1) params.set("pagina", String(currentPage));
+
+    const currentSearchKey = params.toString();
+    if (lastExecutedSearchKey.current === currentSearchKey) return;
+
+    runSearch(
+      q,
+      {
+        areas,
+        document_type: documentType,
+        date_from: dateFrom,
+        date_to: dateTo,
+        hierarchy,
+      },
+      order,
+      currentPage,
+    );
+  }, [runSearch, searchParams]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -521,29 +549,26 @@ function BuscarPage() {
 
   return (
     <AppLayout>
-      <div className="min-h-full text-on-surface">
-        {/* Page header */}
-        <div className="border-b border-[rgba(79,70,51,0.15)] px-4 sm:px-6 py-5 flex items-center justify-between sticky top-0 bg-[#0e0e14] z-30">
-          <div className="flex items-center gap-3">
-            <Search className="w-4 h-4 text-primary" />
-            <span className="text-primary text-xs uppercase tracking-[0.2em] font-bold">Normativa</span>
-            <span className="text-on-surface/20 mx-1">·</span>
-            <h1 className="font-['Newsreader'] text-xl font-bold text-on-surface">Buscador Avanzado</h1>
-          </div>
-          {/* Mobile: toggle filters button */}
-          <button
-            onClick={() => setShowFilters((v) => !v)}
-            className="sm:hidden flex items-center gap-1.5 text-sm text-on-surface/60 hover:text-on-surface transition-colors bg-surface-container-low border border-[rgba(79,70,51,0.15)] rounded-lg px-3 py-1.5"
-          >
-            <SlidersHorizontal className="w-4 h-4" />
-            Filtros
-            {hasActiveFilters && (
-              <span className="w-1.5 h-1.5 rounded-full bg-primary ml-0.5" />
-            )}
-          </button>
-        </div>
+      <div className="flex min-h-full flex-col text-on-surface">
+        <InternalPageHeader
+          icon={<Search className="w-5 h-5 text-primary" />}
+          eyebrow="Normativa"
+          title="Buscador avanzado"
+          description="Explorá normativa peruana con búsqueda contextual, filtros y ordenamiento sin salir del shell principal."
+          utilitySlot={<div className="hidden md:flex"><ShellUtilityActions /></div>}
+          actions={
+            <button
+              onClick={() => setShowFilters((v) => !v)}
+              className="sm:hidden flex items-center gap-1.5 text-sm text-on-surface/60 hover:text-on-surface transition-colors bg-surface border border-[rgba(79,70,51,0.15)] rounded-lg px-3 py-2"
+            >
+              <SlidersHorizontal className="w-4 h-4" />
+              Filtros
+              {hasActiveFilters && <span className="w-1.5 h-1.5 rounded-full bg-primary ml-0.5" />}
+            </button>
+          }
+        />
 
-        <div className="max-w-screen-xl mx-auto px-4 sm:px-6 py-6">
+        <div className="w-full px-4 py-6 sm:px-6 xl:px-8">
           {/* Search bar */}
           <div className="relative mb-5">
             <form onSubmit={handleSubmit}>
@@ -557,7 +582,7 @@ function BuscarPage() {
                   onFocus={() => suggestions.length && setShowSuggestions(true)}
                   onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
                   placeholder="Buscar en la normativa peruana... (ej: despido arbitrario, alimentos, IGV)"
-                  className="w-full bg-surface-container-low border border-[rgba(79,70,51,0.15)] rounded-lg pl-12 pr-40 h-14 text-base text-on-surface placeholder-on-surface/30 focus:outline-none focus:border-primary transition-colors"
+                  className="panel-base w-full rounded-xl pl-12 pr-40 h-14 text-base text-on-surface placeholder-on-surface/30 focus:outline-none focus:border-primary transition-colors"
                   autoComplete="off"
                 />
                 <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-2">
@@ -573,7 +598,7 @@ function BuscarPage() {
                   <button
                     type="submit"
                     disabled={loading || !query.trim()}
-                    className="bg-gradient-to-br from-primary to-primary-container disabled:opacity-40 text-on-primary rounded-lg px-5 h-11 text-sm font-bold transition-opacity"
+                    className="gold-gradient disabled:opacity-40 text-on-primary rounded-xl px-5 h-11 text-sm font-bold shadow-[0_12px_24px_rgba(0,0,0,0.16)] transition-opacity"
                   >
                     {loading ? "Buscando..." : "Buscar"}
                   </button>
@@ -599,12 +624,12 @@ function BuscarPage() {
           </div>
 
           {/* Layout: filters + results + sidebar */}
-          <div className="flex gap-5">
+          <div className="flex gap-5 xl:gap-6">
             {/* LEFT: Filter panel */}
             <aside
               className={`
                 ${showFilters ? "block" : "hidden"} sm:block
-                w-full sm:w-60 lg:w-64 shrink-0
+                w-full sm:w-64 lg:w-72 shrink-0
                 ${showFilters ? "fixed inset-0 z-50 sm:relative sm:inset-auto sm:z-auto" : ""}
               `}
             >
@@ -788,7 +813,7 @@ function BuscarPage() {
               {/* Empty state — post-search no results */}
               {searched && !loading && results.length === 0 && (
                 <div className="text-center py-20">
-                  <img src="/brand/logo-full.png" className="w-24 mx-auto mb-4 opacity-20" alt="Agente Derecho" />
+                  <Image src="/brand/logo-full.png" className="w-24 mx-auto mb-4 opacity-20" alt="Agente Derecho" width={96} height={96} />
                   <p className="text-base text-on-surface/60 font-medium mb-1">
                     No se encontraron resultados
                   </p>

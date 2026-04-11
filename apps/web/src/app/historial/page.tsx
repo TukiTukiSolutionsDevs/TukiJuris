@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import Image from "next/image";
+import { useState, useEffect, useCallback } from "react";
 import {
   History,
   Search,
@@ -14,22 +15,21 @@ import {
   ChevronDown,
   Loader2,
   RotateCcw,
-  Copy,
   Check,
   Tag,
   Folder,
   FolderOpen,
-  FolderPlus,
   Plus,
   X,
   ChevronRight,
   Edit2,
   FolderInput,
 } from "lucide-react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { getToken } from "@/lib/auth";
 import { AppLayout } from "@/components/AppLayout";
+import { InternalPageHeader } from "@/components/shell/InternalPageHeader";
+import { ShellUtilityActions } from "@/components/shell/ShellUtilityActions";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://tukijuris.net.pe";
@@ -130,7 +130,6 @@ export default function HistorialPage() {
   const [showNewFolderForm, setShowNewFolderForm] = useState(false);
   const [newFolderName, setNewFolderName] = useState("");
   const [folderActionLoading, setFolderActionLoading] = useState<string | null>(null);
-  const [editingFolder, setEditingFolder] = useState<FolderItem | null>(null);
 
   // Tag dropdown per conversation
   const [tagDropdownConv, setTagDropdownConv] = useState<string | null>(null);
@@ -232,7 +231,11 @@ export default function HistorialPage() {
   const toggleSelect = (id: string) => {
     setSelected((prev) => {
       const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
       return next;
     });
   };
@@ -444,20 +447,20 @@ export default function HistorialPage() {
 
   return (
     <AppLayout>
-      <div className="min-h-full text-on-surface">
-        {/* Header */}
-        <div className="border-b border-[rgba(79,70,51,0.15)] px-4 sm:px-6 py-5 flex items-center gap-3 sticky top-0 z-10 bg-[#0e0e14]">
-          <History className="w-4 h-4 text-primary" />
-          <span className="text-primary text-xs uppercase tracking-[0.2em] font-bold">Consultas</span>
-          <span className="text-on-surface/20 mx-1">·</span>
-          <h1 className="font-['Newsreader'] text-xl font-bold text-on-surface">Historial</h1>
-        </div>
+      <div className="flex min-h-full flex-col text-on-surface">
+        <InternalPageHeader
+          icon={<History className="w-5 h-5 text-primary" />}
+          eyebrow="Consultas"
+          title="Historial"
+          description="Revisá conversaciones, carpetas y estados sin romper la jerarquía del shell privado."
+          utilitySlot={<div className="hidden md:flex"><ShellUtilityActions /></div>}
+        />
 
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 flex gap-5">
+        <div className="w-full px-4 py-6 sm:px-6 xl:px-8 flex gap-5 xl:gap-6">
           {/* Sidebar */}
-          <aside className="w-52 shrink-0 space-y-3">
+          <aside className="w-60 shrink-0 space-y-3 xl:w-64">
             {/* Folders section */}
-            <div className="bg-surface-container-low border border-[rgba(79,70,51,0.15)] rounded-lg overflow-hidden">
+            <div className="panel-base rounded-xl overflow-hidden">
               <button
                 onClick={() => setFoldersExpanded((v) => !v)}
                 className="w-full flex items-center justify-between px-3 py-2.5 text-sm font-medium text-on-surface hover:bg-surface-container transition-colors"
@@ -565,7 +568,7 @@ export default function HistorialPage() {
             </div>
 
             {/* Tags section */}
-            <div className="bg-surface-container-low border border-[rgba(79,70,51,0.15)] rounded-lg overflow-hidden">
+            <div className="panel-base rounded-xl overflow-hidden">
               <button
                 onClick={() => setTagsExpanded((v) => !v)}
                 className="w-full flex items-center justify-between px-3 py-2.5 text-sm font-medium text-on-surface hover:bg-surface-container transition-colors"
@@ -865,10 +868,12 @@ export default function HistorialPage() {
               </div>
             ) : filtered.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-20 text-center">
-                <img
+                <Image
                   src="/brand/logo-full.png"
                   className="w-24 mx-auto mb-4 opacity-20"
                   alt="Logo"
+                  width={96}
+                  height={96}
                 />
                 <p className="text-on-surface/40 text-sm">
                   {search || activeTagFilter || activeFolderFilter

@@ -14,6 +14,7 @@ import {
   Moon,
 } from "lucide-react";
 import Link from "next/link";
+import Image from "next/image";
 import { useTheme } from "@/components/ThemeProvider";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
@@ -73,7 +74,8 @@ const FREE_FEATURES = [
   "10 consultas por día",
   "Chat legal con 11 áreas",
   "Búsqueda normativa",
-  "Modelos incluidos (Gemini, Llama)",
+  "Trae tu propia clave de IA (BYOK)",
+  "Modelos free incluidos próximamente",
 ];
 
 const BASE_FEATURES = [
@@ -82,22 +84,27 @@ const BASE_FEATURES = [
   "Trae tu propia IA (BYOK)",
   "Exportar PDF",
   "Analytics avanzado",
+  "Carpetas y Etiquetas",
+  "Historial ilimitado",
+  "Marcadores",
   "Soporte prioritario",
 ];
 
 const ENTERPRISE_FEATURES = [
-  "Todo lo de Base",
+  "Todo lo de Profesional",
   "Consultas ilimitadas",
   "Multi-organización",
-  "API access completo",
+  "Integraciones API",
+  "SDKs y webhooks",
   "Soporte dedicado",
   "SSO empresarial",
+  "Members ilimitados",
 ];
 
 export default function LandingPage() {
   const { theme, toggleTheme } = useTheme();
   const isDark = theme === "dark";
-  const logoSrc = isDark ? "/brand/logo-full.png" : "/brand/logo-negro.png";
+  const heroMascotSrc = "/brand/tukan.png";
 
   const [stats, setStats] = useState({
     chunks: 138,
@@ -132,15 +139,17 @@ export default function LandingPage() {
         className="fixed top-0 left-0 right-0 z-50 bg-surface/80 backdrop-blur-md"
         style={{ borderBottom: "1px solid var(--ghost-border)" }}
       >
-        <div className="max-w-7xl mx-auto px-4 lg:px-8 h-16 flex items-center justify-between">
+        <div className="max-w-7xl mx-auto px-4 lg:px-8 h-20 flex items-center justify-between">
           {/* Logo — tucán icon + text */}
-          <Link href="/" className="flex items-center gap-2.5">
-            <img
+          <Link href="/" className="flex items-center gap-3.5 rounded-2xl px-2 py-1 transition-transform duration-200 hover:scale-[1.01]">
+            <Image
               src="/brand/logo-icon.png"
               alt="TukiJuris"
-              className="h-10 w-10 object-contain"
+              className="h-14 w-14 object-contain drop-shadow-[0_8px_20px_rgba(0,0,0,0.12)]"
+              width={56}
+              height={56}
             />
-            <span className="font-['Newsreader'] text-xl font-bold text-primary tracking-tight hidden sm:inline">
+            <span className="font-['Newsreader'] text-[2.2rem] leading-none font-bold text-primary tracking-[-0.03em] hidden sm:inline">
               TukiJuris
             </span>
           </Link>
@@ -284,12 +293,64 @@ export default function LandingPage() {
           </div>
 
           {/* Right — mascot logo */}
-          <div className="flex items-center justify-center">
-            <img
-              src={logoSrc}
-              alt="TukiJuris Abogados"
-              className="w-[32rem] h-auto drop-shadow-2xl"
+          <div className="relative flex items-center justify-center">
+            <div
+              className="absolute inset-6 rounded-[2.5rem] blur-3xl"
+              style={{
+                background: isDark
+                  ? "radial-gradient(circle at center, rgba(234,179,8,0.22) 0%, rgba(15,23,42,0.00) 72%)"
+                  : "radial-gradient(circle at center, rgba(15,23,42,0.10) 0%, rgba(15,23,42,0.00) 72%)",
+              }}
             />
+            <div
+              className="relative overflow-hidden rounded-[2rem] px-6 py-5 shadow-[0_28px_80px_rgba(15,23,42,0.12)]"
+              style={{
+                background: isDark
+                  ? "linear-gradient(180deg, rgba(17,24,39,0.96) 0%, rgba(8,15,28,0.92) 100%)"
+                  : "linear-gradient(180deg, rgba(248,250,252,0.98) 0%, rgba(241,245,249,0.96) 100%)",
+                border: isDark
+                  ? "1px solid rgba(234,179,8,0.14)"
+                  : "1px solid rgba(15,23,42,0.06)",
+              }}
+            >
+              <div
+                className="pointer-events-none absolute inset-0 opacity-70"
+                style={{
+                  background: isDark
+                    ? "radial-gradient(circle at 50% 18%, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.00) 58%)"
+                    : "radial-gradient(circle at 50% 15%, rgba(255,255,255,0.72) 0%, rgba(255,255,255,0.00) 55%)",
+                }}
+              />
+              <div className="relative flex flex-col items-center">
+                <Image
+                  src={heroMascotSrc}
+                  alt="Mascota de TukiJuris"
+                  className="relative w-[28rem] max-w-[88vw] h-auto drop-shadow-[0_24px_60px_rgba(0,0,0,0.24)] lg:scale-[1.08]"
+                  width={448}
+                  height={448}
+                  priority
+                />
+                <div className="mt-2 text-center">
+                  <div
+                    className="font-['Newsreader'] text-[4.2rem] leading-[0.95] font-bold tracking-[-0.06em]"
+                    style={{
+                      color: isDark ? "#F8FAFC" : "#0F172A",
+                      textShadow: isDark
+                        ? "0 10px 34px rgba(234,179,8,0.10)"
+                        : "0 10px 24px rgba(15,23,42,0.08)",
+                    }}
+                  >
+                    TUKIJURIS
+                  </div>
+                  <div
+                    className="mt-1 text-[1.1rem] font-semibold tracking-[0.45em]"
+                    style={{ color: isDark ? "#FACC15" : "#A16207" }}
+                  >
+                    ABOGADOS
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -400,9 +461,9 @@ export default function LandingPage() {
               Planes simples, sin sorpresas
             </h2>
             <p className="text-on-surface-variant text-base">
-              Todos los planes incluyen:{" "}
+              Todos los planes funcionan con:{" "}
               <span className="text-primary font-medium">
-                Trae tu propia clave de IA (BYOK)
+                tu propia clave de IA (BYOK)
               </span>
             </p>
           </div>
@@ -472,11 +533,11 @@ export default function LandingPage() {
                   POPULAR
                 </span>
                 <h3 className="font-['Newsreader'] text-2xl font-bold text-on-surface mt-3 mb-1">
-                  Base
+                  Profesional
                 </h3>
                 <div className="flex items-baseline gap-1">
                   <span className="font-['Newsreader'] text-4xl font-bold text-on-surface">
-                    S/ 39
+                    S/ 70
                   </span>
                   <span className="text-on-surface/60 text-sm">/mes</span>
                 </div>
@@ -502,7 +563,7 @@ export default function LandingPage() {
                     "linear-gradient(135deg, var(--gold-gradient-from) 0%, var(--gold-gradient-to) 100%)",
                 }}
               >
-                Actualizar a Base
+                Actualizar a Profesional
               </Link>
             </div>
 
@@ -513,16 +574,15 @@ export default function LandingPage() {
             >
               <div>
                 <span className="text-on-surface-variant bg-on-surface-variant/10 rounded-lg text-xs px-2 py-0.5 font-medium uppercase tracking-widest">
-                  ENTERPRISE
+                  ESTUDIO
                 </span>
                 <h3 className="font-['Newsreader'] text-2xl font-bold text-on-surface mt-3 mb-1">
-                  Enterprise
+                  Estudio
                 </h3>
                 <div className="flex items-baseline gap-1">
                   <span className="font-['Newsreader'] text-4xl font-bold text-on-surface">
-                    S/ 99
+                    Contactar
                   </span>
-                  <span className="text-on-surface/60 text-sm">/mes</span>
                 </div>
               </div>
 
@@ -538,13 +598,13 @@ export default function LandingPage() {
                 ))}
               </ul>
 
-              <Link
-                href="/auth/register"
+              <a
+                href="mailto:ventas@tukijuris.net.pe?subject=Plan%20Estudio%20TukiJuris"
                 className="inline-flex items-center justify-center rounded-lg h-11 px-6 transition-colors text-sm font-medium w-full text-on-surface hover:text-primary bg-surface-container-high/40 hover:bg-surface-container-high/60"
                 style={{ border: "1px solid var(--ghost-border)" }}
               >
-                Actualizar a Enterprise
-              </Link>
+                Contactar ventas
+              </a>
             </div>
           </div>
         </div>
@@ -603,10 +663,12 @@ export default function LandingPage() {
             {/* Brand */}
             <div className="flex flex-col gap-3">
               <div className="flex items-center gap-2.5">
-                <img
+                <Image
                   src="/brand/logo-icon.png"
                   alt="TukiJuris"
                   className="h-12 w-12 object-contain"
+                  width={48}
+                  height={48}
                 />
                 <span className="font-['Newsreader'] text-xl font-bold text-primary tracking-tight">
                   TukiJuris

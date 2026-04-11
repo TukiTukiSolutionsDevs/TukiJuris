@@ -16,24 +16,24 @@ export function renderMarkdown(text: string): string {
     .replace(/>/g, "&gt;");
 
   // Headers (must run before bold/italic to avoid conflicts)
-  html = html.replace(/^#### (.+)$/gm, "<h5 class=\"text-sm font-semibold mt-3 mb-1 text-gray-100\">$1</h5>");
-  html = html.replace(/^### (.+)$/gm, "<h4 class=\"text-sm font-bold mt-4 mb-1 text-white\">$1</h4>");
-  html = html.replace(/^## (.+)$/gm, "<h3 class=\"text-base font-bold mt-4 mb-2 text-white border-b border-gray-700 pb-1\">$1</h3>");
-  html = html.replace(/^# (.+)$/gm, "<h2 class=\"text-lg font-bold mt-4 mb-2 text-white\">$1</h2>");
+  html = html.replace(/^#### (.+)$/gm, "<h5 class=\"mt-3 mb-1 text-sm font-semibold text-on-surface\">$1</h5>");
+  html = html.replace(/^### (.+)$/gm, "<h4 class=\"mt-4 mb-1 text-sm font-bold text-on-surface\">$1</h4>");
+  html = html.replace(/^## (.+)$/gm, "<h3 class=\"mt-4 mb-2 border-b border-[rgba(79,70,51,0.15)] pb-1 text-base font-bold text-on-surface\">$1</h3>");
+  html = html.replace(/^# (.+)$/gm, "<h2 class=\"mt-4 mb-2 text-lg font-bold text-on-surface\">$1</h2>");
 
   // Bold and italic (order matters: bold-italic first)
   html = html.replace(/\*\*\*(.+?)\*\*\*/g, "<strong><em>$1</em></strong>");
-  html = html.replace(/\*\*(.+?)\*\*/g, "<strong class=\"font-semibold text-white\">$1</strong>");
-  html = html.replace(/\*(.+?)\*/g, "<em class=\"italic text-gray-200\">$1</em>");
-  html = html.replace(/_(.+?)_/g, "<em class=\"italic text-gray-200\">$1</em>");
+  html = html.replace(/\*\*(.+?)\*\*/g, "<strong class=\"font-semibold text-on-surface\">$1</strong>");
+  html = html.replace(/\*(.+?)\*/g, "<em class=\"italic text-on-surface/80\">$1</em>");
+  html = html.replace(/_(.+?)_/g, "<em class=\"italic text-on-surface/80\">$1</em>");
 
   // Inline code (before links to avoid conflicts)
-  html = html.replace(/`([^`]+)`/g, "<code class=\"bg-gray-900 text-amber-300 px-1 py-0.5 rounded text-xs font-mono\">$1</code>");
+  html = html.replace(/`([^`]+)`/g, "<code class=\"rounded bg-surface-container-high px-1 py-0.5 text-xs font-mono text-primary\">$1</code>");
 
   // Links
   html = html.replace(
     /\[([^\]]+)\]\(([^)]+)\)/g,
-    "<a href=\"$2\" target=\"_blank\" rel=\"noopener noreferrer\" class=\"text-amber-400 hover:text-amber-300 underline\">$1</a>"
+    "<a href=\"$2\" target=\"_blank\" rel=\"noopener noreferrer\" class=\"text-primary underline underline-offset-2 hover:text-primary/80\">$1</a>"
   );
 
   // Numbered lists — collect consecutive `N. ` lines into <ol>
@@ -45,9 +45,9 @@ export function renderMarkdown(text: string): string {
         .split("\n")
         .filter(Boolean)
         .map((line) => line.replace(/^\d+\. /, ""))
-        .map((item) => `<li class="ml-4 list-decimal">${item}</li>`)
+        .map((item) => `<li class="ml-4 list-decimal text-on-surface/80">${item}</li>`)
         .join("\n");
-      return `<ol class="my-2 space-y-0.5 text-gray-300">\n${items}\n</ol>\n`;
+      return `<ol class="my-2 space-y-0.5">\n${items}\n</ol>\n`;
     }
   );
 
@@ -60,9 +60,9 @@ export function renderMarkdown(text: string): string {
         .split("\n")
         .filter(Boolean)
         .map((line) => line.replace(/^[-*] /, ""))
-        .map((item) => `<li class="ml-4 list-disc">${item}</li>`)
+        .map((item) => `<li class="ml-4 list-disc text-on-surface/80">${item}</li>`)
         .join("\n");
-      return `<ul class="my-2 space-y-0.5 text-gray-300">\n${items}\n</ul>\n`;
+      return `<ul class="my-2 space-y-0.5">\n${items}\n</ul>\n`;
     }
   );
 
@@ -81,7 +81,7 @@ export function renderMarkdown(text: string): string {
       ) {
         return trimmed;
       }
-      return `<p class="mb-2 leading-relaxed">${trimmed.replace(/\n/g, "<br />")}</p>`;
+      return `<p class="mb-2 leading-relaxed text-on-surface/80">${trimmed.replace(/\n/g, "<br />")}</p>`;
     })
     .join("\n");
 

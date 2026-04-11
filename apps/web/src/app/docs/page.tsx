@@ -383,7 +383,7 @@ export default function DocsPage() {
 
   return (
     <AppLayout>
-      <div className="min-h-full text-on-surface">
+      <div className="flex min-h-full flex-col text-on-surface">
         {/* Top bar */}
         <div
           className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm"

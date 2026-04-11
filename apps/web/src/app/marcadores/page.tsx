@@ -147,7 +147,7 @@ export default function MarcadoresPage() {
 
   return (
     <AppLayout>
-      <div className="min-h-full text-on-surface">
+      <div className="flex min-h-full flex-col text-on-surface">
         {/* Header */}
         <div className="border-b border-[rgba(79,70,51,0.15)] px-4 sm:px-6 py-5 flex items-center gap-3 sticky top-0 z-10 bg-[#0e0e14]">
           <Bookmark className="w-4 h-4 text-primary" fill="currentColor" />

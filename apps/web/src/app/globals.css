@@ -229,6 +229,47 @@ body {
   box-shadow: 0 24px 48px var(--ambient-shadow);
 }
 
+/* Refined shared surfaces */
+.panel-base {
+  border: 1px solid color-mix(in srgb, var(--outline-variant) 54%, transparent);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--surface-container-low) 94%, transparent), color-mix(in srgb, var(--surface) 96%, transparent));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.03),
+    0 12px 32px var(--shadow);
+}
+
+.panel-raised {
+  border: 1px solid color-mix(in srgb, var(--outline) 24%, transparent);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--surface) 92%, transparent), color-mix(in srgb, var(--surface-container-low) 98%, transparent));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 20px 44px var(--shadow);
+}
+
+.control-surface {
+  border: 1px solid color-mix(in srgb, var(--outline-variant) 58%, transparent);
+  background: color-mix(in srgb, var(--surface) 90%, transparent);
+  transition:
+    border-color 0.2s ease,
+    background-color 0.2s ease,
+    color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.control-surface:hover {
+  border-color: color-mix(in srgb, var(--primary) 28%, var(--outline-variant));
+  background: color-mix(in srgb, var(--surface-container-low) 86%, transparent);
+}
+
+.section-eyebrow {
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  font-size: 10px;
+  font-weight: 800;
+}
+
 /* Smooth theme transition for key properties */
 .theme-transition {
   transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;

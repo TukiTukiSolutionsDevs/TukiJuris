@@ -79,40 +79,41 @@ export default function DocumentoPage() {
 
   return (
     <AppLayout>
-      {/* Header */}
-      <header className="sticky top-0 z-10 bg-[#111116]/90 backdrop-blur-sm border-b border-[rgba(79,70,51,0.15)]">
-        <div className="max-w-5xl mx-auto px-6 py-4">
-          <div className="flex items-center gap-3 mb-3">
-            <Link
-              href="/buscar"
-              className="text-[#6B7280] hover:text-on-surface transition-colors"
-            >
-              <ArrowLeft className="w-4 h-4" />
-            </Link>
-            <Scale className="w-4 h-4 text-primary-container" />
-            <span className="bg-secondary-container text-secondary text-[10px] uppercase tracking-widest rounded px-2 py-0.5">
-              {doc.legal_area}
-            </span>
-            <span className="bg-secondary-container text-secondary text-[10px] uppercase tracking-widest rounded px-2 py-0.5">
-              {doc.document_type}
-            </span>
+      <div className="flex min-h-full flex-col text-on-surface">
+        {/* Header */}
+        <header className="sticky top-0 z-10 bg-[#111116]/90 backdrop-blur-sm border-b border-[rgba(79,70,51,0.15)]">
+          <div className="max-w-5xl mx-auto px-6 py-4">
+            <div className="flex items-center gap-3 mb-3">
+              <Link
+                href="/buscar"
+                className="text-[#6B7280] hover:text-on-surface transition-colors"
+              >
+                <ArrowLeft className="w-4 h-4" />
+              </Link>
+              <Scale className="w-4 h-4 text-primary-container" />
+              <span className="bg-secondary-container text-secondary text-[10px] uppercase tracking-widest rounded px-2 py-0.5">
+                {doc.legal_area}
+              </span>
+              <span className="bg-secondary-container text-secondary text-[10px] uppercase tracking-widest rounded px-2 py-0.5">
+                {doc.document_type}
+              </span>
+            </div>
+            <h1 className="font-['Newsreader'] text-3xl text-on-surface leading-snug">
+              {doc.title}
+            </h1>
+            <div className="flex items-center gap-3 mt-2">
+              {doc.document_number && (
+                <span className="text-xs text-[#6B7280]">{doc.document_number}</span>
+              )}
+              {doc.document_number && (
+                <span className="text-[#2A2A35] text-xs">·</span>
+              )}
+              <span className="text-xs text-[#6B7280]">
+                {data.total_chunks} artículos
+              </span>
+            </div>
           </div>
-          <h1 className="font-['Newsreader'] text-3xl text-on-surface leading-snug">
-            {doc.title}
-          </h1>
-          <div className="flex items-center gap-3 mt-2">
-            {doc.document_number && (
-              <span className="text-xs text-[#6B7280]">{doc.document_number}</span>
-            )}
-            {doc.document_number && (
-              <span className="text-[#2A2A35] text-xs">·</span>
-            )}
-            <span className="text-xs text-[#6B7280]">
-              {data.total_chunks} artículos
-            </span>
-          </div>
-        </div>
-      </header>
+        </header>
 
       {/* Search bar */}
       <div className="sticky top-[89px] z-10 bg-surface-container-lowest border-b border-[rgba(79,70,51,0.15)] px-6 py-3">
@@ -135,7 +136,7 @@ export default function DocumentoPage() {
       </div>
 
       {/* Body: TOC sidebar + Articles */}
-      <div className="max-w-5xl mx-auto px-6 py-6 flex gap-8 flex-1">
+        <div className="max-w-5xl mx-auto flex flex-1 min-h-0 gap-8 px-6 py-6">
         {/* Left TOC — desktop only */}
         <aside className="hidden lg:block w-52 shrink-0 sticky top-[145px] h-[calc(100vh-145px)] overflow-auto py-1 pr-4 border-r border-[rgba(79,70,51,0.15)]">
           <h3 className="text-[10px] uppercase tracking-widest text-[#4B5563] mb-3 font-medium">
@@ -196,6 +197,7 @@ export default function DocumentoPage() {
               No se encontraron resultados para &ldquo;{searchTerm}&rdquo;
             </div>
           )}
+        </div>
         </div>
       </div>
     </AppLayout>

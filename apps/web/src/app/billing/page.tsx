@@ -54,13 +54,15 @@ const STATIC_PLANS: Plan[] = [
     period: "/mes",
     badge: "BETA",
     features: [
-      "Acceso completo por 3 meses",
+      "10 consultas por día",
       "Chat legal con 11 áreas",
       "Búsqueda normativa",
+      "Trae tu propia clave de IA (BYOK)",
       "1 organización",
       "Historial 30 días",
+      "Modelos free incluidos próximamente",
     ],
-    byok_note: "Trae tu propia clave de IA",
+    byok_note: "Conectá tu propia API key. Modelos free próximamente.",
     cta: "Tu plan actual",
     cta_disabled: true,
     highlighted: false,
@@ -80,7 +82,7 @@ const STATIC_PLANS: Plan[] = [
       "Marcadores",
       "Soporte prioritario",
     ],
-    byok_note: "Trae tu propia clave de IA",
+    byok_note: "Conectá tu propia API key",
     cta: "Actualizar a Profesional",
     cta_disabled: false,
     highlighted: true,
@@ -100,7 +102,7 @@ const STATIC_PLANS: Plan[] = [
       "SSO empresarial",
       "Members ilimitados",
     ],
-    byok_note: "Trae tu propia clave de IA",
+    byok_note: "Conectá tu propia API key",
     cta: "Contactar ventas",
     cta_disabled: false,
     highlighted: false,
@@ -173,7 +175,6 @@ export default function BillingPage() {
     } finally {
       setLoading(false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -254,7 +255,7 @@ export default function BillingPage() {
 
   return (
     <AppLayout>
-      <div className="min-h-full text-on-surface">
+      <div className="flex min-h-full flex-col text-on-surface">
         {/* Page header */}
         <div className="border-b border-[rgba(79,70,51,0.15)] px-4 lg:px-6 py-4 flex items-center gap-3 sticky top-0 z-10 bg-[#0e0e12]">
           <CreditCard className="w-5 h-5 text-primary" />

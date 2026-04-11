@@ -210,7 +210,7 @@ export default function NotificationBell({ token }: NotificationBellProps) {
       {/* Bell button */}
       <button
         onClick={handleToggle}
-        className="relative p-2 rounded-lg text-[#9CA3AF] hover:text-white hover:bg-[#1A1A22] transition-colors"
+        className="control-surface relative rounded-xl p-2 text-[#9CA3AF] hover:text-white"
         aria-label="Notificaciones"
       >
         <Bell className="w-5 h-5" />
@@ -223,7 +223,7 @@ export default function NotificationBell({ token }: NotificationBellProps) {
 
       {/* Dropdown panel */}
       {open && (
-        <div className="absolute right-0 top-full mt-2 w-80 bg-[#111116] border border-[#2A2A35] rounded-xl shadow-2xl z-50 overflow-hidden">
+        <div className="panel-raised absolute right-0 top-full mt-2 w-80 rounded-2xl z-50 overflow-hidden">
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-[#1A1A22]">
             <span className="text-sm font-semibold text-gray-100">

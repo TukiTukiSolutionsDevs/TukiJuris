@@ -27,6 +27,8 @@ import {
 import Link from "next/link";
 import { getToken } from "@/lib/auth";
 import { AdminLayout } from "@/components/AdminLayout";
+import { InternalPageHeader } from "@/components/shell/InternalPageHeader";
+import { ShellUtilityActions } from "@/components/shell/ShellUtilityActions";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -246,7 +248,6 @@ export default function AdminPage() {
       setLoading(false);
       setRefreshing(false);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -262,26 +263,26 @@ export default function AdminPage() {
 
   return (
     <AdminLayout>
-      <div className="min-h-full text-on-surface">
-        {/* Top bar */}
-        <div
-          className="px-4 lg:px-6 py-4 flex items-center gap-3 sticky top-0 z-10 bg-surface-container-lowest"
-          style={{ borderBottom: "1px solid rgba(79,70,51,0.15)" }}
-        >
-          <ShieldCheck className="w-5 h-5 text-primary" />
-          <h1 className="font-['Newsreader'] font-bold text-base">Panel de Administración</h1>
-          <button
-            onClick={handleRefresh}
-            disabled={refreshing}
-            className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm text-on-surface hover:text-white transition-colors disabled:opacity-50"
-            style={{ border: "1px solid rgba(79,70,51,0.15)" }}
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? "animate-spin" : ""}`} />
-            <span className="hidden sm:inline">Actualizar</span>
-          </button>
-        </div>
+      <div className="flex min-h-full flex-col text-on-surface">
+        <InternalPageHeader
+          icon={<ShieldCheck className="w-5 h-5 text-primary" />}
+          eyebrow="Operación"
+          title="Panel de administración"
+          description="Monitoreo sistémico, salud de infraestructura y control operativo con el mismo contrato espacial del shell admin."
+          utilitySlot={<div className="hidden md:flex"><ShellUtilityActions /></div>}
+          actions={
+            <button
+              onClick={handleRefresh}
+              disabled={refreshing}
+              className="control-surface flex items-center gap-1.5 rounded-xl px-3 py-2 text-sm text-on-surface hover:text-white disabled:opacity-50"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? "animate-spin" : ""}`} />
+              <span className="hidden sm:inline">Actualizar</span>
+            </button>
+          }
+        />
 
-        <div className="max-w-7xl mx-auto px-4 lg:px-6 py-6 sm:py-8">
+        <div className="w-full px-4 py-6 sm:py-8 lg:px-6 xl:px-8">
           {/* Error */}
           {error && (
             <div className="flex items-center gap-3 bg-red-500/10 text-red-400 rounded-lg px-4 py-3 mb-6 text-sm" style={{ border: "1px solid rgba(239,68,68,0.3)" }}>
@@ -319,7 +320,7 @@ export default function AdminPage() {
             <div className="space-y-8">
               {/* System Stats */}
               <div>
-                <h2 className="text-[10px] uppercase tracking-[0.2em] text-on-surface/40 mb-4 flex items-center gap-2">
+                 <h2 className="section-eyebrow text-on-surface/40 mb-4 flex items-center gap-2">
                   <TrendingUp className="w-3.5 h-3.5" />
                   Estadísticas del sistema
                 </h2>
@@ -369,7 +370,7 @@ export default function AdminPage() {
                   <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-4">
                     {/* DB Status */}
                     <div
-                      className="bg-surface-container-low rounded-lg p-4"
+                       className="panel-base rounded-xl p-4"
                       style={{ border: "1px solid rgba(79,70,51,0.15)" }}
                     >
                       <div className="flex items-center gap-2 mb-2">
@@ -390,7 +391,7 @@ export default function AdminPage() {
 
                     {/* pgvector Status */}
                     <div
-                      className="bg-surface-container-low rounded-lg p-4"
+                       className="panel-base rounded-xl p-4"
                       style={{ border: "1px solid rgba(79,70,51,0.15)" }}
                     >
                       <div className="flex items-center gap-2 mb-2">
@@ -411,7 +412,7 @@ export default function AdminPage() {
 
                     {/* Embedding Coverage */}
                     <div
-                      className="bg-surface-container-low rounded-lg p-4"
+                       className="panel-base rounded-xl p-4"
                       style={{ border: "1px solid rgba(79,70,51,0.15)" }}
                     >
                       <div className="flex items-center gap-2 mb-2">

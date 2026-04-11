@@ -16,6 +16,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { register, getToken } from "@/lib/auth";
+import { useTheme } from "@/components/ThemeProvider";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -34,6 +35,8 @@ const PASSWORD_RULES: PasswordRule[] = [
 ];
 
 export default function RegisterPage() {
+  const { theme } = useTheme();
+  const isDark = theme === "dark";
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -44,12 +47,42 @@ export default function RegisterPage() {
   const [ssoLoading, setSsoLoading] = useState<"google" | "microsoft" | null>(null);
   const router = useRouter();
 
+  const brandingPanelStyle = isDark
+    ? {
+        background: "linear-gradient(180deg, #1B2A4A 0%, #16233E 100%)",
+      }
+    : {
+        background: "linear-gradient(180deg, #E7EEF8 0%, #D8E3F4 100%)",
+      };
+
+  const authMascotSrc = "/brand/tukan.png";
+
+  const formShellStyle = isDark
+    ? {
+        background: "linear-gradient(180deg, #111116 0%, #0C0D12 100%)",
+        border: "1px solid rgba(79,70,51,0.10)",
+        boxShadow: "0 28px 80px rgba(0,0,0,0.34)",
+      }
+    : {
+        background: "linear-gradient(180deg, #FFFFFF 0%, #F8FAFC 100%)",
+        border: "1px solid rgba(15,23,42,0.10)",
+        boxShadow: "0 28px 80px rgba(15,23,42,0.10)",
+      };
+
+  const inputClassName = isDark
+    ? "w-full h-[50px] bg-[#35343a] border border-transparent rounded-lg pl-10 pr-4 text-on-surface placeholder-on-surface/30 text-sm focus:outline-none focus:border-primary/40 focus:ring-1 focus:ring-primary/10 transition-all duration-200"
+    : "w-full h-[50px] bg-[#F3F4F6] border border-[#D7DEE8] rounded-lg pl-10 pr-4 text-[#0F172A] placeholder-[#64748B] text-sm focus:outline-none focus:border-[#B88A00] focus:ring-2 focus:ring-[#E8C24A]/20 transition-all duration-200";
+
+  const subtleTextClass = isDark ? "text-on-surface/50" : "text-[#5B6472]";
+  const labelTextClass = isDark ? "text-on-surface/60" : "text-[#334155]";
+  const dividerClass = isDark ? "bg-[rgba(79,70,51,0.2)]" : "bg-[rgba(148,163,184,0.45)]";
+
   useEffect(() => {
     const token = getToken();
     if (token) {
       router.push("/");
     }
-  }, []);
+  }, [router]);
 
   const handleGoogleSSO = async () => {
     setError("");
@@ -119,42 +152,52 @@ export default function RegisterPage() {
     !isPasswordValid;
 
   return (
-    <main className="min-h-screen flex flex-col md:flex-row bg-background">
+    <main className="min-h-screen flex flex-col md:flex-row bg-background font-['Manrope']">
 
       {/* ── LEFT COLUMN — Branding (55%) ── */}
-      <div className="hidden md:flex md:w-[55%] min-h-screen flex-col justify-between relative overflow-hidden bg-[#1B2A4A]">
+      <div className="hidden md:flex md:w-[55%] min-h-screen flex-col justify-between relative overflow-hidden" style={brandingPanelStyle}>
         {/* Overlay gradient */}
-        <div className="absolute inset-0 bg-gradient-to-br from-[#1B2A4A] via-[#162240] to-[#0d1829] pointer-events-none" />
+        <div className="absolute inset-0 pointer-events-none" style={{ background: isDark ? "linear-gradient(135deg, rgba(27,42,74,0.92) 0%, rgba(22,34,64,0.96) 58%, rgba(13,24,41,1) 100%)" : "linear-gradient(135deg, rgba(231,238,248,0.94) 0%, rgba(216,227,244,0.98) 58%, rgba(199,213,234,1) 100%)" }} />
         {/* Gold glow blobs */}
-        <div className="absolute top-16 right-16 w-80 h-80 bg-primary/6 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute bottom-24 left-12 w-56 h-56 bg-primary/4 rounded-full blur-3xl pointer-events-none" />
-        {/* Fine diagonal lines texture */}
+        <div className={`absolute top-16 right-16 w-80 h-80 rounded-full blur-3xl pointer-events-none ${isDark ? "bg-primary/6" : "bg-[#F8D76B]/20"}`} />
+        <div className={`absolute bottom-24 left-12 w-56 h-56 rounded-full blur-3xl pointer-events-none ${isDark ? "bg-primary/4" : "bg-[#93C5FD]/20"}`} />
+        {/* Soft atmospheric glow — avoid noisy line texture */}
         <div
-          className="absolute inset-0 pointer-events-none opacity-[0.03]"
+          className="absolute inset-0 pointer-events-none"
           style={{
-            backgroundImage: "repeating-linear-gradient(45deg, var(--primary) 0px, var(--primary) 1px, transparent 1px, transparent 12px)",
+            background: isDark
+              ? "radial-gradient(circle at 22% 18%, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.00) 24%), radial-gradient(circle at 78% 24%, rgba(234,179,8,0.08) 0%, rgba(234,179,8,0.00) 26%), radial-gradient(circle at 52% 82%, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.00) 28%)"
+              : "radial-gradient(circle at 22% 18%, rgba(255,255,255,0.22) 0%, rgba(255,255,255,0.00) 24%), radial-gradient(circle at 78% 24%, rgba(184,138,0,0.10) 0%, rgba(184,138,0,0.00) 26%), radial-gradient(circle at 52% 82%, rgba(255,255,255,0.16) 0%, rgba(255,255,255,0.00) 28%)",
           }}
         />
 
         {/* Top: logo */}
-        <div className="relative z-10 pt-14 pl-14">
-          <Image
-            src="/brand/logo-full.png"
-            alt="TukiJuris"
-            width={180}
-            height={64}
-            className="object-contain"
-            priority
-          />
+        <div className="relative z-10 pt-12 pl-14">
+          <div className="inline-flex flex-col items-center px-4 py-3" style={isDark ? { background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.04)", borderRadius: "1.75rem", boxShadow: "0 18px 60px rgba(15,23,42,0.12)" } : undefined}>
+            <Image
+              src={authMascotSrc}
+              alt="Mascota TukiJuris"
+              width={220}
+              height={220}
+              className="w-36 h-auto object-contain"
+              priority
+            />
+            <div className={`mt-2 font-['Newsreader'] text-[2rem] leading-none tracking-[-0.05em] font-bold ${isDark ? "text-primary" : "text-[#1B2A4A]"}`}>
+              TukiJuris
+            </div>
+            <div className={`mt-1 text-[0.6rem] uppercase tracking-[0.42em] ${isDark ? "text-on-surface/55" : "text-[#51627E]"}`}>
+              Abogados
+            </div>
+          </div>
         </div>
 
         {/* Center: headline */}
         <div className="relative z-10 px-14 flex flex-col gap-6">
-          <h1 className="font-['Newsreader'] text-5xl leading-tight text-white">
+          <h1 className={`font-['Newsreader'] text-5xl leading-tight ${isDark ? "text-white" : "text-[#0F172A]"}`}>
             Únete a la plataforma<br />
-            <span className="text-primary">jurídica del futuro</span>
+            <span className={isDark ? "text-primary" : "text-[#A67C00]"}>jurídica del futuro</span>
           </h1>
-          <p className="text-[#7a9cc4] text-base max-w-sm leading-relaxed">
+          <p className={`text-base max-w-sm leading-relaxed ${isDark ? "text-[#7a9cc4]" : "text-[#52627A]"}`}>
             Inteligencia artificial entrenada en derecho peruano. Automatiza contratos, analiza jurisprudencia y potencia tu práctica legal.
           </p>
 
@@ -166,8 +209,8 @@ export default function RegisterPage() {
               { value: "100%", label: "seguro" },
             ].map(({ value, label }) => (
               <div key={label} className="flex flex-col">
-                <span className="text-primary font-bold text-sm uppercase tracking-widest">{value}</span>
-                <span className="text-[#7a9cc4] text-xs uppercase tracking-wider mt-0.5">{label}</span>
+                <span className={`font-bold text-sm uppercase tracking-widest ${isDark ? "text-primary" : "text-[#A67C00]"}`}>{value}</span>
+                <span className={`text-xs uppercase tracking-wider mt-0.5 ${isDark ? "text-[#7a9cc4]" : "text-[#52627A]"}`}>{label}</span>
               </div>
             ))}
           </div>
@@ -175,40 +218,48 @@ export default function RegisterPage() {
 
         {/* Bottom: latin quote */}
         <div className="relative z-10 pb-12 px-14">
-          <div className="border-t border-[rgba(79,70,51,0.15)] pt-8">
-            <p className="font-['Newsreader'] italic text-[#7a9cc4]/70 text-sm leading-relaxed">
+          <div className={`border-t pt-8 ${isDark ? "border-[rgba(79,70,51,0.15)]" : "border-[rgba(148,163,184,0.45)]"}`}>
+            <p className={`font-['Newsreader'] italic text-sm leading-relaxed ${isDark ? "text-[#7a9cc4]/70" : "text-[#64748B]"}`}>
               &ldquo;Lex est ratio summa, insita in natura, quae iubet ea quae facienda sunt.&rdquo;
             </p>
-            <p className="text-primary/50 text-xs uppercase tracking-widest mt-2">— Cicerón, De Legibus</p>
+            <p className={`text-xs uppercase tracking-widest mt-2 ${isDark ? "text-primary/50" : "text-[#8A6A00]"}`}>— Cicerón, De Legibus</p>
           </div>
         </div>
       </div>
 
       {/* ── MOBILE HEADER ── */}
-      <div className="flex md:hidden flex-col items-center pt-10 pb-6 px-6 bg-[#1B2A4A]">
+      <div className="flex md:hidden flex-col items-center pt-10 pb-6 px-6" style={brandingPanelStyle}>
         <Image
-          src="/brand/logo-full.png"
-          alt="TukiJuris"
-          width={128}
-          height={48}
-          className="w-32 object-contain mb-3"
+          src={authMascotSrc}
+          alt="Mascota TukiJuris"
+          width={148}
+          height={148}
+          className="w-24 h-auto object-contain mb-2"
           priority
         />
-        <p className="text-sm text-[#7a9cc4] text-center font-['Newsreader'] italic">
+        <div className={`font-['Newsreader'] text-3xl leading-none tracking-[-0.05em] font-bold ${isDark ? "text-primary" : "text-[#1B2A4A]"}`}>
+          TukiJuris
+        </div>
+        <div className={`mt-1 text-[0.65rem] uppercase tracking-[0.38em] ${isDark ? "text-on-surface/55" : "text-[#51627E]"}`}>
+          Abogados
+        </div>
+        <p className={`text-sm text-center font-['Newsreader'] italic ${isDark ? "text-[#7a9cc4]" : "text-[#334155]"}`}>
           Crea tu cuenta en TukiJuris
         </p>
       </div>
 
       {/* ── RIGHT COLUMN — Form (45%) ── */}
-      <div className="flex-1 md:w-[45%] bg-surface-container-lowest min-h-screen flex flex-col justify-center px-6 md:px-14">
+      <div className="flex-1 md:w-[45%] bg-background min-h-screen flex flex-col justify-center px-6 md:px-14">
         <div className="w-full max-w-[420px] mx-auto py-10 md:py-0">
+
+          <div className="rounded-[1.75rem] p-8 md:p-10" style={formShellStyle}>
 
           {/* Title */}
           <div className="mb-8">
-            <h2 className="font-['Newsreader'] text-4xl text-white mb-2">
+            <h2 className={`font-['Newsreader'] text-4xl mb-2 ${isDark ? "text-white" : "text-[#A67C00]"}`}>
               Crear cuenta
             </h2>
-            <p className="text-on-surface-variant/60 text-sm">
+            <p className={`text-sm ${subtleTextClass}`}>
               Comienza gratis y transformá tu práctica legal
             </p>
           </div>
@@ -231,18 +282,18 @@ export default function RegisterPage() {
             <div>
               <label
                 htmlFor="register-name"
-                className="block text-xs uppercase tracking-widest text-on-surface-variant ml-1 mb-2"
+                className={`block text-xs uppercase tracking-widest ml-1 mb-2 ${labelTextClass}`}
               >
                 Nombre completo
               </label>
               <div className="relative">
-                <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-on-surface-variant/40 pointer-events-none" />
+                <User className={`absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none ${isDark ? "text-on-surface-variant/40" : "text-[#64748B]"}`} />
                 <input
                   id="register-name"
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="w-full h-[50px] bg-[#35343a] border border-transparent rounded-lg pl-10 pr-4 text-on-surface placeholder-on-surface/30 text-sm focus:outline-none focus:border-primary/40 focus:ring-1 focus:ring-primary/10 transition-all duration-200"
+                  className={inputClassName}
                   placeholder="Tu nombre"
                   autoComplete="name"
                 />
@@ -253,18 +304,18 @@ export default function RegisterPage() {
             <div>
               <label
                 htmlFor="register-email"
-                className="block text-xs uppercase tracking-widest text-on-surface-variant ml-1 mb-2"
+                className={`block text-xs uppercase tracking-widest ml-1 mb-2 ${labelTextClass}`}
               >
                 Correo electrónico
               </label>
               <div className="relative">
-                <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-on-surface-variant/40 pointer-events-none" />
+                <Mail className={`absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none ${isDark ? "text-on-surface-variant/40" : "text-[#64748B]"}`} />
                 <input
                   id="register-email"
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full h-[50px] bg-[#35343a] border border-transparent rounded-lg pl-10 pr-4 text-on-surface placeholder-on-surface/30 text-sm focus:outline-none focus:border-primary/40 focus:ring-1 focus:ring-primary/10 transition-all duration-200"
+                  className={inputClassName}
                   placeholder="tu@email.com"
                   required
                   autoComplete="email"
@@ -276,18 +327,18 @@ export default function RegisterPage() {
             <div>
               <label
                 htmlFor="register-password"
-                className="block text-xs uppercase tracking-widest text-on-surface-variant ml-1 mb-2"
+                className={`block text-xs uppercase tracking-widest ml-1 mb-2 ${labelTextClass}`}
               >
                 Contraseña
               </label>
               <div className="relative">
-                <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-on-surface-variant/40 pointer-events-none" />
+                <Lock className={`absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none ${isDark ? "text-on-surface-variant/40" : "text-[#64748B]"}`} />
                 <input
                   id="register-password"
                   type={showPassword ? "text" : "password"}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full h-[50px] bg-[#35343a] border border-transparent rounded-lg pl-10 pr-12 text-on-surface placeholder-on-surface/30 text-sm focus:outline-none focus:border-primary/40 focus:ring-1 focus:ring-primary/10 transition-all duration-200"
+                  className={`${inputClassName} pr-12`}
                   placeholder="Mín. 8 caracteres"
                   required
                   autoComplete="new-password"
@@ -295,7 +346,7 @@ export default function RegisterPage() {
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-on-surface-variant/40 hover:text-on-surface-variant/80 transition-colors duration-200 p-1"
+                  className={`absolute right-3.5 top-1/2 -translate-y-1/2 transition-colors duration-200 p-1 ${isDark ? "text-on-surface-variant/40 hover:text-on-surface-variant/80" : "text-[#64748B] hover:text-[#0F172A]"}`}
                   aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
                 >
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -319,7 +370,7 @@ export default function RegisterPage() {
                         )}
                         <span
                           className={`text-[11px] uppercase tracking-wider ${
-                            passes ? "text-[#4ade80]" : "text-on-surface/60"
+                            passes ? "text-[#4ade80]" : isDark ? "text-on-surface/60" : "text-[#64748B]"
                           }`}
                         >
                           {rule.label}
@@ -338,7 +389,7 @@ export default function RegisterPage() {
                   type="checkbox"
                   checked={termsAccepted}
                   onChange={(e) => setTermsAccepted(e.target.checked)}
-                  className="peer appearance-none w-4 h-4 rounded border border-[rgba(79,70,51,0.4)] bg-[#35343a] checked:bg-primary checked:border-primary transition-all cursor-pointer focus:outline-none focus:ring-1 focus:ring-primary/20"
+                  className={`peer appearance-none w-4 h-4 rounded transition-all cursor-pointer focus:outline-none ${isDark ? "border border-[rgba(79,70,51,0.4)] bg-[#35343a] checked:bg-primary checked:border-primary focus:ring-1 focus:ring-primary/20" : "border border-[#CBD5E1] bg-[#F8FAFC] checked:bg-[#B88A00] checked:border-[#B88A00] focus:ring-2 focus:ring-[#E8C24A]/20"}`}
                 />
                 <svg
                   className="absolute top-0.5 left-0.5 w-3 h-3 text-on-primary opacity-0 peer-checked:opacity-100 pointer-events-none"
@@ -348,18 +399,18 @@ export default function RegisterPage() {
                   <path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
               </div>
-              <span className="text-sm text-on-surface-variant/70 leading-relaxed">
+              <span className={`text-sm leading-relaxed ${isDark ? "text-on-surface-variant/70" : "text-[#475569]"}`}>
                 Acepto los{" "}
                 <a
                   href="/terminos"
-                  className="text-primary font-bold uppercase tracking-widest hover:text-[#ffdf9a] transition-colors duration-200 text-xs"
+                  className={`font-bold uppercase tracking-widest transition-colors duration-200 text-xs ${isDark ? "text-primary hover:text-[#ffdf9a]" : "text-[#A67C00] hover:text-[#8A6A00]"}`}
                 >
                   Términos
                 </a>{" "}
                 y la{" "}
                 <a
                   href="/privacidad"
-                  className="text-primary font-bold uppercase tracking-widest hover:text-[#ffdf9a] transition-colors duration-200 text-xs"
+                  className={`font-bold uppercase tracking-widest transition-colors duration-200 text-xs ${isDark ? "text-primary hover:text-[#ffdf9a]" : "text-[#A67C00] hover:text-[#8A6A00]"}`}
                 >
                   Privacidad
                 </a>
@@ -370,7 +421,7 @@ export default function RegisterPage() {
             <button
               type="submit"
               disabled={isSubmitDisabled}
-              className="w-full h-[50px] bg-gradient-to-br from-primary to-primary-container text-on-primary font-bold rounded-lg shadow-lg shadow-primary/10 uppercase tracking-widest text-sm flex items-center justify-center gap-2 transition-all duration-200 hover:shadow-primary/20 hover:brightness-105 disabled:opacity-40 disabled:cursor-not-allowed mt-2"
+              className={`w-full h-[50px] text-on-primary font-bold rounded-lg uppercase tracking-widest text-sm flex items-center justify-center gap-2 transition-all duration-200 hover:brightness-105 disabled:opacity-40 disabled:cursor-not-allowed mt-2 ${isDark ? "bg-gradient-to-br from-primary to-primary-container shadow-lg shadow-primary/10 hover:shadow-primary/20" : "bg-gradient-to-br from-[#B88A00] to-[#E8C24A] shadow-lg shadow-[#E8C24A]/10 hover:shadow-[#E8C24A]/20"}`}
             >
               {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
               {loading ? "Creando cuenta..." : "Crear Cuenta Gratis"}
@@ -379,9 +430,9 @@ export default function RegisterPage() {
 
           {/* Divider */}
           <div className="flex items-center gap-4 my-7">
-            <div className="flex-1 h-px bg-[rgba(79,70,51,0.2)]" />
-            <span className="text-xs text-on-surface-variant/40 uppercase tracking-widest">o registrarse con</span>
-            <div className="flex-1 h-px bg-[rgba(79,70,51,0.2)]" />
+            <div className={`flex-1 h-px ${dividerClass}`} />
+            <span className={`text-xs uppercase tracking-widest ${isDark ? "text-on-surface-variant/40" : "text-[#64748B]"}`}>o registrarse con</span>
+            <div className={`flex-1 h-px ${dividerClass}`} />
           </div>
 
           {/* SSO buttons */}
@@ -392,7 +443,7 @@ export default function RegisterPage() {
               onClick={handleGoogleSSO}
               disabled={ssoLoading !== null}
               aria-label="Registrarse con Google"
-              className="h-[46px] bg-transparent border border-[rgba(79,70,51,0.3)] rounded-lg hover:border-primary/40 hover:bg-primary/5 transition-all duration-200 flex items-center justify-center gap-2.5 text-on-surface-variant text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              className={`h-[46px] border rounded-lg transition-all duration-200 flex items-center justify-center gap-2.5 text-sm disabled:opacity-50 disabled:cursor-not-allowed ${isDark ? "bg-transparent border-[rgba(79,70,51,0.3)] hover:border-primary/40 hover:bg-primary/5 text-on-surface-variant" : "bg-white border-[#D7DEE8] hover:border-[#B88A00]/40 text-[#334155]"}`}
             >
               {ssoLoading === "google" ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
@@ -413,7 +464,7 @@ export default function RegisterPage() {
               onClick={handleMicrosoftSSO}
               disabled={ssoLoading !== null}
               aria-label="Registrarse con Microsoft"
-              className="h-[46px] bg-transparent border border-[rgba(79,70,51,0.3)] rounded-lg hover:border-primary/40 hover:bg-primary/5 transition-all duration-200 flex items-center justify-center gap-2.5 text-on-surface-variant text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              className={`h-[46px] border rounded-lg transition-all duration-200 flex items-center justify-center gap-2.5 text-sm disabled:opacity-50 disabled:cursor-not-allowed ${isDark ? "bg-transparent border-[rgba(79,70,51,0.3)] hover:border-primary/40 hover:bg-primary/5 text-on-surface-variant" : "bg-white border-[#D7DEE8] hover:border-[#B88A00]/40 text-[#334155]"}`}
             >
               {ssoLoading === "microsoft" ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
@@ -430,15 +481,16 @@ export default function RegisterPage() {
           </div>
 
           {/* Login link */}
-          <p className="text-center text-on-surface-variant/50 text-sm mt-8">
+          <p className={`text-center text-sm mt-8 ${isDark ? "text-on-surface-variant/50" : "text-[#64748B]"}`}>
             ¿Ya tenés cuenta?{" "}
             <Link
               href="/auth/login"
-              className="text-primary font-bold uppercase tracking-widest hover:text-[#ffdf9a] transition-colors duration-200 text-xs"
+              className={`font-bold uppercase tracking-widest transition-colors duration-200 text-xs ${isDark ? "text-primary hover:text-[#ffdf9a]" : "text-[#A67C00] hover:text-[#8A6A00]"}`}
             >
               Iniciar sesión
             </Link>
           </p>
+          </div>
         </div>
       </div>
     </main>

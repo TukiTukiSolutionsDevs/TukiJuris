@@ -1,5 +1,7 @@
 "use client";
 
+import Image from "next/image";
+import Link from "next/link";
 import { useState, useEffect } from "react";
 import {
   MessageSquare,
@@ -18,11 +20,8 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Bell,
-  Menu,
-  X,
 } from "lucide-react";
 import { getToken, logout } from "@/lib/auth";
-import { useTheme } from "./ThemeProvider";
 import { ThemeToggle } from "./ThemeToggle";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
@@ -41,6 +40,8 @@ interface NavItem {
 interface AppSidebarProps {
   currentPath: string;
   children?: React.ReactNode;
+  mode?: "desktop" | "mobile";
+  onNavigate?: () => void;
 }
 
 interface UserInfo {
@@ -166,13 +167,16 @@ function getPlanLabel(plan?: string | null): string {
 // AppSidebar
 // ---------------------------------------------------------------------------
 
-export function AppSidebar({ currentPath, children }: AppSidebarProps) {
-  const [mobileOpen, setMobileOpen] = useState(false);
+export function AppSidebar({
+  currentPath,
+  children,
+  mode = "desktop",
+  onNavigate,
+}: AppSidebarProps) {
   const [expanded, setExpanded] = useState(true);
   const [user, setUser] = useState<UserInfo | null>(null);
   const [unreadCount, setUnreadCount] = useState(0);
-  const { theme } = useTheme();
-  const logoSrc = theme === "dark" ? "/brand/logo-full.png" : "/brand/logo-negro.png";
+  const isMobile = mode === "mobile";
 
   // Fetch user info on mount
   useEffect(() => {
@@ -181,8 +185,15 @@ export function AppSidebar({ currentPath, children }: AppSidebarProps) {
 
     fetch(`${API_URL}/api/auth/me`, {
       headers: { Authorization: `Bearer ${token}` },
+      cache: "no-store",
     })
-      .then((r) => (r.ok ? r.json() : null))
+      .then((r) => {
+        if (r.status === 401 || r.status === 403) {
+          logout();
+          return null;
+        }
+        return r.ok ? r.json() : null;
+      })
       .then((data) => {
         if (data) setUser(data);
       })
@@ -191,6 +202,7 @@ export function AppSidebar({ currentPath, children }: AppSidebarProps) {
     // Fetch unread notification count
     fetch(`${API_URL}/api/notifications/unread-count`, {
       headers: { Authorization: `Bearer ${token}` },
+      cache: "no-store",
     })
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
@@ -199,43 +211,51 @@ export function AppSidebar({ currentPath, children }: AppSidebarProps) {
       .catch(() => null);
   }, []);
 
-  // Close mobile sidebar on route change
-  useEffect(() => {
-    setMobileOpen(false);
-  }, [currentPath]);
-
-  const closeMobile = () => setMobileOpen(false);
   const toggleCollapse = () => setExpanded((v) => !v);
 
   // ---------------------------------------------------------------------------
   // Sidebar core content (reused for desktop + mobile)
   // ---------------------------------------------------------------------------
 
-  const sidebarCore = (isMobile = false) => (
+  return (
     <aside
       role="navigation"
       aria-label="Menu principal"
-      className={`bg-surface flex flex-col h-full transition-all duration-300 ease-in-out ${
-        isMobile ? "w-72" : expanded ? "w-64" : "w-20"
+      className={`panel-base bg-surface flex flex-col h-full border-r border-[rgba(79,70,51,0.12)] transition-all duration-300 ease-in-out ${
+        isMobile ? "w-72 max-w-[88vw]" : expanded ? "w-64" : "w-20"
       }`}
     >
       {/* ------------------------------------------------------------------- */}
       {/* Logo area                                                            */}
       {/* ------------------------------------------------------------------- */}
       {expanded || isMobile ? (
-        <div className="px-5 py-5">
-          <a href="/" className="flex items-center gap-3">
-            <img src={logoSrc} alt="TukiJuris" className="h-9 w-9 rounded-lg object-contain flex-shrink-0" />
-            <span className="font-['Newsreader'] text-2xl font-bold text-primary tracking-tight">
-              TukiJuris
-            </span>
-          </a>
+        <div className="px-4 pt-4 pb-5">
+          <Link
+            href="/"
+            className="group panel-base flex items-center gap-2.5 rounded-2xl px-4 py-3 transition-all duration-200 hover:border-primary/30 hover:bg-surface-container"
+          >
+            <Image
+              src="/brand/logo-icon.png"
+              alt="TukiJuris"
+              className="h-13 w-13 shrink-0 object-contain transition-transform duration-200 group-hover:scale-[1.03]"
+              width={52}
+              height={52}
+            />
+            <div className="min-w-0">
+              <p className="font-['Newsreader'] text-[1.15rem] font-bold tracking-[-0.03em] text-on-surface">TukiJuris</p>
+              <p className="section-eyebrow mt-1 text-on-surface/35">Abogados</p>
+            </div>
+          </Link>
         </div>
       ) : (
-        <div className="px-3 py-5 flex justify-center">
-          <a href="/" title="TukiJuris">
-            <img src={logoSrc} alt="TukiJuris" className="h-9 w-9 rounded-lg object-contain" />
-          </a>
+        <div className="px-3 py-4 flex justify-center">
+          <Link
+            href="/"
+            title="TukiJuris"
+            className="flex h-14 w-14 items-center justify-center rounded-2xl bg-surface shadow-[0_10px_24px_rgba(0,0,0,0.08)] ring-1 ring-[rgba(79,70,51,0.08)] transition-all duration-200 hover:scale-[1.02]"
+          >
+            <Image src="/brand/logo-icon.png" alt="TukiJuris" className="h-10 w-10 object-contain" width={40} height={40} />
+          </Link>
         </div>
       )}
 
@@ -252,7 +272,7 @@ export function AppSidebar({ currentPath, children }: AppSidebarProps) {
               item={item}
               currentPath={currentPath}
               expanded={expanded || isMobile}
-              onClick={isMobile ? closeMobile : undefined}
+              onClick={isMobile ? onNavigate : undefined}
             />
           ))}
         </div>
@@ -266,7 +286,7 @@ export function AppSidebar({ currentPath, children }: AppSidebarProps) {
               item={item}
               currentPath={currentPath}
               expanded={expanded || isMobile}
-              onClick={isMobile ? closeMobile : undefined}
+              onClick={isMobile ? onNavigate : undefined}
             />
           ))}
         </div>
@@ -280,7 +300,7 @@ export function AppSidebar({ currentPath, children }: AppSidebarProps) {
               item={item}
               currentPath={currentPath}
               expanded={expanded || isMobile}
-              onClick={isMobile ? closeMobile : undefined}
+              onClick={isMobile ? onNavigate : undefined}
             />
           ))}
         </div>
@@ -294,7 +314,7 @@ export function AppSidebar({ currentPath, children }: AppSidebarProps) {
               item={item}
               currentPath={currentPath}
               expanded={expanded || isMobile}
-              onClick={isMobile ? closeMobile : undefined}
+              onClick={isMobile ? onNavigate : undefined}
             />
           ))}
         </div>
@@ -309,7 +329,7 @@ export function AppSidebar({ currentPath, children }: AppSidebarProps) {
                 item={item}
                 currentPath={currentPath}
                 expanded={expanded || isMobile}
-                onClick={isMobile ? closeMobile : undefined}
+                onClick={isMobile ? onNavigate : undefined}
               />
             ))}
           </div>
@@ -317,16 +337,13 @@ export function AppSidebar({ currentPath, children }: AppSidebarProps) {
 
         {/* Page-specific children (chat history, etc.) */}
         {children && (expanded || isMobile) && (
-          <div className="bg-surface-container-low mt-2 pt-2">
+          <div className="mt-3 rounded-2xl bg-surface-container-low/75 pt-2">
             {children}
           </div>
         )}
       </div>
 
-      {/* ------------------------------------------------------------------- */}
-      {/* User section (bottom)                                                */}
-      {/* ------------------------------------------------------------------- */}
-      <div className="mt-auto bg-surface-container-low px-4 py-4">
+      <div className="mt-auto border-t border-[rgba(79,70,51,0.12)] bg-surface-container-low/80 px-4 py-4">
         {expanded || isMobile ? (
           <>
             {/* User info row */}
@@ -396,7 +413,6 @@ export function AppSidebar({ currentPath, children }: AppSidebarProps) {
             </div>
           </>
         ) : (
-          // Collapsed state
           <div className="flex flex-col items-center gap-3">
             {/* Avatar */}
             <div className="w-9 h-9 rounded-lg bg-secondary-container flex items-center justify-center text-sm font-medium text-secondary">
@@ -434,44 +450,5 @@ export function AppSidebar({ currentPath, children }: AppSidebarProps) {
         )}
       </div>
     </aside>
-  );
-
-  return (
-    <>
-      {/* Hamburger button — mobile only */}
-      <button
-        onClick={() => setMobileOpen(true)}
-        aria-label="Abrir menu"
-        className="fixed top-3 left-3 z-50 p-2 rounded-lg bg-surface text-on-surface/60 hover:text-on-surface transition-colors md:hidden"
-      >
-        <Menu className="w-5 h-5" />
-      </button>
-
-      {/* Mobile overlay */}
-      {mobileOpen && (
-        <div className="fixed inset-0 z-50 md:hidden">
-          {/* Backdrop */}
-          <div
-            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-            onClick={closeMobile}
-            aria-hidden="true"
-          />
-          {/* Sidebar panel */}
-          <div className="relative h-full flex">
-            {sidebarCore(true)}
-            <button
-              onClick={closeMobile}
-              aria-label="Cerrar menu"
-              className="absolute top-4 right-4 p-1.5 rounded-lg text-on-surface/40 hover:text-on-surface transition-colors"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Desktop sidebar — always visible */}
-      <div className="hidden md:flex h-full">{sidebarCore(false)}</div>
-    </>
   );
 }

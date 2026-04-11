@@ -7,16 +7,20 @@ import {
   Loader2,
   AlertCircle,
   CheckCircle2,
+  ArrowLeft,
   X,
 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
-import { useRouter } from "next/navigation";
-import { login, getToken } from "@/lib/auth";
+import { useRouter, useSearchParams } from "next/navigation";
+import { clearAuth, login, validateSession } from "@/lib/auth";
+import { useTheme } from "@/components/ThemeProvider";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 export default function LoginPage() {
+  const { theme } = useTheme();
+  const isDark = theme === "dark";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -27,13 +31,72 @@ export default function LoginPage() {
   const [resetEmail, setResetEmail] = useState("");
   const [resetStatus, setResetStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  const brandingPanelStyle = isDark
+    ? {
+        background: "linear-gradient(180deg, #1B2A4A 0%, #16233E 100%)",
+      }
+    : {
+        background: "linear-gradient(180deg, #E7EEF8 0%, #D8E3F4 100%)",
+      };
+
+  const authMascotSrc = "/brand/tukan.png";
+
+  const formShellStyle = isDark
+    ? {
+        background: "linear-gradient(180deg, #111116 0%, #0C0D12 100%)",
+        border: "1px solid rgba(79,70,51,0.10)",
+        boxShadow: "0 28px 80px rgba(0,0,0,0.34)",
+      }
+    : {
+        background: "linear-gradient(180deg, #FFFFFF 0%, #F8FAFC 100%)",
+        border: "1px solid rgba(15,23,42,0.10)",
+        boxShadow: "0 28px 80px rgba(15,23,42,0.10)",
+      };
+
+  const inputClassName = isDark
+    ? "w-full h-12 bg-[#35343a] border border-transparent rounded-lg px-4 text-on-surface placeholder-on-surface/30 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 transition-all duration-200"
+    : "w-full h-12 bg-[#F3F4F6] border border-[#D7DEE8] rounded-lg px-4 text-[#0F172A] placeholder-[#64748B] focus:outline-none focus:border-[#B88A00] focus:ring-2 focus:ring-[#E8C24A]/20 transition-all duration-200";
+
+  const subtleTextClass = isDark ? "text-on-surface/50" : "text-[#5B6472]";
+  const labelTextClass = isDark ? "text-on-surface/60" : "text-[#334155]";
+  const dividerClass = isDark ? "border-[rgba(79,70,51,0.15)]" : "border-[rgba(148,163,184,0.45)]";
+  const returnTo = searchParams.get("returnTo") || "/";
 
   useEffect(() => {
-    const token = getToken();
-    if (token) {
-      router.push("/");
+    let cancelled = false;
+
+    const verify = async () => {
+      const status = await validateSession();
+      if (cancelled) return;
+
+      if (status === "valid") {
+        router.replace(returnTo);
+        return;
+      }
+
+      if (status === "invalid") {
+        clearAuth();
+      }
+    };
+
+    verify();
+
+    const handleOnline = () => { void verify(); };
+    window.addEventListener("online", handleOnline);
+
+    let interval: number | null = null;
+    if (searchParams.get("reason") === "offline") {
+      interval = window.setInterval(() => { void verify(); }, 5000);
     }
-  }, []);
+
+    return () => {
+      cancelled = true;
+      window.removeEventListener("online", handleOnline);
+      if (interval) window.clearInterval(interval);
+    };
+  }, [router, returnTo, searchParams]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -41,7 +104,7 @@ export default function LoginPage() {
     setLoading(true);
     try {
       await login(email, password);
-      router.push("/");
+      router.push(returnTo);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error al iniciar sesión");
     } finally {
@@ -110,45 +173,48 @@ export default function LoginPage() {
     <main className="min-h-screen flex flex-col md:flex-row font-['Manrope']">
 
       {/* ── LEFT COLUMN — Branding ── */}
-      <div className="hidden md:flex md:w-1/2 bg-[#1B2A4A] min-h-screen flex-col justify-center items-center px-16 relative overflow-hidden">
+      <div className="hidden md:flex md:w-1/2 min-h-screen flex-col justify-center items-center px-16 relative overflow-hidden" style={brandingPanelStyle}>
         {/* Subtle radial glows */}
-        <div className="absolute top-0 right-0 w-96 h-96 bg-primary/5 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute bottom-0 left-0 w-64 h-64 bg-primary/3 rounded-full blur-3xl pointer-events-none" />
+        <div className={`absolute top-0 right-0 w-96 h-96 rounded-full blur-3xl pointer-events-none ${isDark ? "bg-primary/5" : "bg-[#F8D76B]/20"}`} />
+        <div className={`absolute bottom-0 left-0 w-64 h-64 rounded-full blur-3xl pointer-events-none ${isDark ? "bg-primary/3" : "bg-[#93C5FD]/20"}`} />
 
         <div className="relative z-10 flex flex-col items-center text-center max-w-sm">
-          {/* Logo image */}
-          <div className="mb-8">
-            <Image
-              src="/brand/logo-full.png"
-              alt="TukiJuris"
-              width={256}
-              height={96}
-              className="w-56 object-contain"
-              priority
-            />
+          {/* Mascot + wordmark */}
+          <div className="mb-8 px-8 py-4" style={isDark ? { background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.04)", borderRadius: "2rem", boxShadow: "0 18px 60px rgba(15,23,42,0.12)" } : undefined}>
+            <div className="flex flex-col items-center text-center">
+              <Image
+                src={authMascotSrc}
+                alt="Mascota TukiJuris"
+                width={220}
+                height={220}
+                className="w-36 h-auto object-contain"
+                priority
+              />
+              <div className={`mt-3 font-['Newsreader'] text-[2.8rem] leading-none tracking-[-0.05em] font-bold ${isDark ? "text-primary" : "text-[#1B2A4A]"}`}>
+                TukiJuris
+              </div>
+              <div className={`mt-1 text-[0.72rem] uppercase tracking-[0.42em] ${isDark ? "text-on-surface/60" : "text-[#51627E]"}`}>
+                Abogados
+              </div>
+            </div>
           </div>
 
-          {/* Brand name */}
-          <h1 className="font-['Newsreader'] text-6xl font-bold text-primary leading-none tracking-tight">
-            TukiJuris
-          </h1>
-
           {/* Gold divider */}
-          <div className="w-24 h-px bg-primary/30 my-5" />
+          <div className={`w-24 h-px my-5 ${isDark ? "bg-primary/30" : "bg-[#B88A00]/35"}`} />
 
           {/* Subtitle */}
-          <p className="font-['Newsreader'] italic text-xl text-on-surface/80 leading-snug">
+          <p className={`font-['Newsreader'] italic text-xl leading-snug ${isDark ? "text-on-surface/80" : "text-[#1E293B]"}`}>
             Asistente Legal IA
           </p>
 
           {/* Description */}
-          <p className="text-on-surface/50 text-sm text-center mt-4 leading-relaxed">
+          <p className={`text-sm text-center mt-4 leading-relaxed ${subtleTextClass}`}>
             Consultas legales inteligentes con respuestas citadas del derecho peruano.
           </p>
 
           {/* Trust words */}
-          <div className="mt-10 pt-8 border-t border-[rgba(79,70,51,0.15)] w-full">
-            <p className="text-xs text-primary/50 text-center tracking-widest uppercase">
+          <div className={`mt-10 pt-8 border-t w-full ${dividerClass}`}>
+            <p className={`text-xs text-center tracking-widest uppercase ${isDark ? "text-primary/50" : "text-[#8A6A00]"}`}>
               Precisión · Autoridad · Eficiencia
             </p>
           </div>
@@ -160,23 +226,29 @@ export default function LoginPage() {
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75" />
             <span className="relative inline-flex rounded-full h-2 w-2 bg-primary" />
           </span>
-          <span className="text-xs uppercase tracking-widest text-on-surface/40">
+          <span className={`text-xs uppercase tracking-widest ${isDark ? "text-on-surface/40" : "text-[#475569]"}`}>
             Sistemas Operativos
           </span>
         </div>
       </div>
 
       {/* ── MOBILE HEADER (small screens) ── */}
-      <div className="flex md:hidden flex-col items-center pt-10 pb-6 px-6 bg-[#1B2A4A]">
+      <div className="flex md:hidden flex-col items-center pt-10 pb-6 px-6" style={brandingPanelStyle}>
         <Image
-          src="/brand/logo-full.png"
-          alt="TukiJuris"
-          width={128}
-          height={48}
-          className="w-32 object-contain mb-3"
+          src={authMascotSrc}
+          alt="Mascota TukiJuris"
+          width={148}
+          height={148}
+          className="w-24 h-auto object-contain mb-2"
           priority
         />
-        <p className="font-['Newsreader'] italic text-base text-on-surface/70 text-center">
+        <div className={`font-['Newsreader'] text-3xl leading-none tracking-[-0.05em] font-bold ${isDark ? "text-primary" : "text-[#1B2A4A]"}`}>
+          TukiJuris
+        </div>
+        <div className={`mt-1 text-[0.65rem] uppercase tracking-[0.38em] ${isDark ? "text-on-surface/55" : "text-[#51627E]"}`}>
+          Abogados
+        </div>
+        <p className={`font-['Newsreader'] italic text-base text-center ${isDark ? "text-on-surface/70" : "text-[#334155]"}`}>
           Asistente Legal IA
         </p>
       </div>
@@ -186,17 +258,24 @@ export default function LoginPage() {
         <div className="w-full max-w-lg mx-auto py-10 md:py-0">
 
           {/* Form card */}
-          <div className="bg-[#111116] p-8 md:p-12 border border-[rgba(79,70,51,0.1)] rounded-lg">
+          <div className="p-8 md:p-12 rounded-[1.75rem]" style={formShellStyle}>
 
             {/* Title area */}
             <div className="mb-8">
-              <h2 className="font-['Newsreader'] text-3xl text-primary mb-1">
-                Iniciar Sesión
-              </h2>
-              <p className="text-xs uppercase tracking-widest text-on-surface/50 mt-2">
-                Ingresá a tu cuenta para continuar
-              </p>
-            </div>
+                <Link
+                  href="/landing"
+                  className={`mb-4 inline-flex items-center gap-2 text-xs uppercase tracking-widest transition-colors ${isDark ? "text-on-surface/45 hover:text-primary" : "text-[#64748B] hover:text-[#A67C00]"}`}
+                >
+                  <ArrowLeft className="w-3.5 h-3.5" />
+                  Volver al inicio
+                </Link>
+                <h2 className={`font-['Newsreader'] text-3xl mb-1 ${isDark ? "text-primary" : "text-[#A67C00]"}`}>
+                  Iniciar Sesión
+                </h2>
+                <p className={`text-xs uppercase tracking-widest mt-2 ${subtleTextClass}`}>
+                  Ingresá a tu cuenta para continuar
+                </p>
+              </div>
 
             {/* Error display */}
             {error && (
@@ -216,7 +295,7 @@ export default function LoginPage() {
               <div>
                 <label
                   htmlFor="login-email"
-                  className="block text-xs uppercase tracking-widest text-on-surface/60 mb-2"
+                  className={`block text-xs uppercase tracking-widest mb-2 ${labelTextClass}`}
                 >
                   Correo electrónico
                 </label>
@@ -225,7 +304,7 @@ export default function LoginPage() {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full h-12 bg-[#35343a] border border-transparent rounded-lg px-4 text-on-surface placeholder-on-surface/30 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 transition-all duration-200"
+                  className={inputClassName}
                   placeholder="tu@email.com"
                   required
                   autoComplete="email"
@@ -236,7 +315,7 @@ export default function LoginPage() {
               <div>
                 <label
                   htmlFor="login-password"
-                  className="block text-xs uppercase tracking-widest text-on-surface/60 mb-2"
+                  className={`block text-xs uppercase tracking-widest mb-2 ${labelTextClass}`}
                 >
                   Contraseña
                 </label>
@@ -246,7 +325,7 @@ export default function LoginPage() {
                     type={showPassword ? "text" : "password"}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="w-full h-12 bg-[#35343a] border border-transparent rounded-lg px-4 pr-12 text-on-surface placeholder-on-surface/30 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 transition-all duration-200"
+                    className={`${inputClassName} pr-12`}
                     placeholder="••••••••"
                     required
                     autoComplete="current-password"
@@ -254,7 +333,7 @@ export default function LoginPage() {
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-on-surface/40 hover:text-primary transition-colors duration-200 p-1"
+                    className={`absolute right-3 top-1/2 -translate-y-1/2 transition-colors duration-200 p-1 ${isDark ? "text-on-surface/40 hover:text-primary" : "text-[#64748B] hover:text-[#A67C00]"}`}
                     aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
                   >
                     {showPassword ? (
@@ -271,7 +350,7 @@ export default function LoginPage() {
                 <button
                   type="button"
                   onClick={() => setShowResetForm(true)}
-                  className="text-xs uppercase tracking-widest text-primary/70 hover:text-primary transition-colors duration-200"
+                  className={`text-xs uppercase tracking-widest transition-colors duration-200 ${isDark ? "text-primary/70 hover:text-primary" : "text-[#8A6A00] hover:text-[#A67C00]"}`}
                 >
                   ¿Olvidaste tu contraseña?
                 </button>
@@ -281,7 +360,7 @@ export default function LoginPage() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full h-12 bg-gradient-to-tr from-primary to-primary-container text-on-primary font-bold uppercase tracking-widest text-xs rounded-lg flex items-center justify-center gap-2 transition-all duration-200 hover:opacity-90 hover:shadow-lg hover:shadow-primary/20 disabled:opacity-50 disabled:cursor-not-allowed mt-6"
+                className={`w-full h-12 text-on-primary font-bold uppercase tracking-widest text-xs rounded-lg flex items-center justify-center gap-2 transition-all duration-200 hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed mt-6 ${isDark ? "bg-gradient-to-tr from-primary to-primary-container hover:shadow-lg hover:shadow-primary/20" : "bg-gradient-to-tr from-[#B88A00] to-[#E8C24A] hover:shadow-lg hover:shadow-[#E8C24A]/20"}`}
               >
                 {loading ? (
                   <Loader2 className="w-4 h-4 animate-spin" />
@@ -292,11 +371,11 @@ export default function LoginPage() {
 
             {/* Divider */}
             <div className="relative flex items-center my-8">
-              <div className="flex-1 border-t border-[rgba(79,70,51,0.15)]" />
-              <span className="mx-4 text-xs uppercase tracking-widest text-on-surface/30">
+              <div className={`flex-1 border-t ${dividerClass}`} />
+              <span className={`mx-4 text-xs uppercase tracking-widest ${isDark ? "text-on-surface/30" : "text-[#64748B]"}`}>
                 o continuar con
               </span>
-              <div className="flex-1 border-t border-[rgba(79,70,51,0.15)]" />
+              <div className={`flex-1 border-t ${dividerClass}`} />
             </div>
 
             {/* SSO buttons */}
@@ -307,7 +386,7 @@ export default function LoginPage() {
                 onClick={handleGoogleLogin}
                 disabled={ssoLoading !== null}
                 aria-label="Iniciar sesión con Google"
-                className="h-12 bg-[#111116] border border-[rgba(79,70,51,0.2)] rounded-lg hover:border-primary/40 transition-all duration-200 flex items-center justify-center gap-3 text-xs uppercase tracking-widest text-on-surface/70 hover:text-on-surface disabled:opacity-50 disabled:cursor-not-allowed"
+                className={`h-12 border rounded-lg transition-all duration-200 flex items-center justify-center gap-3 text-xs uppercase tracking-widest disabled:opacity-50 disabled:cursor-not-allowed ${isDark ? "bg-[#111116] border-[rgba(79,70,51,0.2)] hover:border-primary/40 text-on-surface/70 hover:text-on-surface" : "bg-white border-[#D7DEE8] hover:border-[#B88A00]/40 text-[#334155] hover:text-[#0F172A]"}`}
               >
                 {ssoLoading === "google" ? (
                   <Loader2 className="w-4 h-4 animate-spin" />
@@ -340,7 +419,7 @@ export default function LoginPage() {
                 onClick={handleMicrosoftLogin}
                 disabled={ssoLoading !== null}
                 aria-label="Iniciar sesión con Microsoft"
-                className="h-12 bg-[#111116] border border-[rgba(79,70,51,0.2)] rounded-lg hover:border-primary/40 transition-all duration-200 flex items-center justify-center gap-3 text-xs uppercase tracking-widest text-on-surface/70 hover:text-on-surface disabled:opacity-50 disabled:cursor-not-allowed"
+                className={`h-12 border rounded-lg transition-all duration-200 flex items-center justify-center gap-3 text-xs uppercase tracking-widest disabled:opacity-50 disabled:cursor-not-allowed ${isDark ? "bg-[#111116] border-[rgba(79,70,51,0.2)] hover:border-primary/40 text-on-surface/70 hover:text-on-surface" : "bg-white border-[#D7DEE8] hover:border-[#B88A00]/40 text-[#334155] hover:text-[#0F172A]"}`}
               >
                 {ssoLoading === "microsoft" ? (
                   <Loader2 className="w-4 h-4 animate-spin" />
@@ -357,11 +436,11 @@ export default function LoginPage() {
             </div>
 
             {/* Register link */}
-            <p className="text-center text-on-surface/40 text-xs uppercase tracking-widest mt-8">
+            <p className={`text-center text-xs uppercase tracking-widest mt-8 ${isDark ? "text-on-surface/40" : "text-[#64748B]"}`}>
               ¿No tienes cuenta?{" "}
               <Link
                 href="/auth/register"
-                className="font-['Newsreader'] italic normal-case tracking-normal text-sm text-primary/80 hover:text-primary transition-colors duration-200"
+                className={`font-['Newsreader'] italic normal-case tracking-normal text-sm transition-colors duration-200 ${isDark ? "text-primary/80 hover:text-primary" : "text-[#A67C00] hover:text-[#8A6A00]"}`}
               >
                 Regístrate
               </Link>
@@ -374,7 +453,7 @@ export default function LoginPage() {
       {/* ── PASSWORD RESET OVERLAY ── */}
       {showResetForm && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 px-4">
-          <div className="w-full max-w-md bg-[#111116] border border-[rgba(79,70,51,0.15)] rounded-lg p-8 relative shadow-2xl shadow-black/60">
+          <div className="w-full max-w-md rounded-[1.5rem] p-8 relative" style={formShellStyle}>
 
             {/* Close button */}
             <button
@@ -384,18 +463,18 @@ export default function LoginPage() {
                 setResetStatus("idle");
                 setResetEmail("");
               }}
-              className="absolute top-4 right-4 text-on-surface/40 hover:text-on-surface transition-colors duration-200 p-1 rounded-lg hover:bg-[#35343a]"
+              className={`absolute top-4 right-4 transition-colors duration-200 p-1 rounded-lg ${isDark ? "text-on-surface/40 hover:text-on-surface hover:bg-[#35343a]" : "text-[#64748B] hover:text-[#0F172A] hover:bg-[#EEF2F7]"}`}
               aria-label="Cerrar"
             >
               <X className="w-5 h-5" />
             </button>
 
-            <h2 className="font-['Newsreader'] text-2xl text-primary mb-1">
+            <h2 className={`font-['Newsreader'] text-2xl mb-1 ${isDark ? "text-primary" : "text-[#A67C00]"}`}>
               Recuperar contraseña
             </h2>
             {/* Thin gold divider */}
-            <div className="w-16 h-px bg-primary/30 mb-4" />
-            <p className="text-xs uppercase tracking-widest text-on-surface/50 mb-6">
+            <div className={`w-16 h-px mb-4 ${isDark ? "bg-primary/30" : "bg-[#B88A00]/35"}`} />
+            <p className={`text-xs uppercase tracking-widest mb-6 ${subtleTextClass}`}>
               Te enviamos un enlace para restablecer tu contraseña.
             </p>
 
@@ -420,7 +499,7 @@ export default function LoginPage() {
                 <div>
                   <label
                     htmlFor="reset-email"
-                    className="block text-xs uppercase tracking-widest text-on-surface/60 mb-2"
+                    className={`block text-xs uppercase tracking-widest mb-2 ${labelTextClass}`}
                   >
                     Correo electrónico
                   </label>
@@ -429,7 +508,7 @@ export default function LoginPage() {
                     type="email"
                     value={resetEmail}
                     onChange={(e) => setResetEmail(e.target.value)}
-                    className="w-full h-12 bg-[#35343a] border border-transparent rounded-lg px-4 text-on-surface placeholder-on-surface/30 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 transition-all duration-200"
+                    className={inputClassName}
                     placeholder="tu@email.com"
                     required
                     autoComplete="email"
@@ -439,7 +518,7 @@ export default function LoginPage() {
                 <button
                   type="submit"
                   disabled={resetStatus === "sending"}
-                  className="w-full h-12 bg-gradient-to-tr from-primary to-primary-container text-on-primary font-bold uppercase tracking-widest text-xs rounded-lg flex items-center justify-center gap-2 transition-all duration-200 hover:opacity-90 hover:shadow-lg hover:shadow-primary/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className={`w-full h-12 text-on-primary font-bold uppercase tracking-widest text-xs rounded-lg flex items-center justify-center gap-2 transition-all duration-200 hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed ${isDark ? "bg-gradient-to-tr from-primary to-primary-container hover:shadow-lg hover:shadow-primary/20" : "bg-gradient-to-tr from-[#B88A00] to-[#E8C24A] hover:shadow-lg hover:shadow-[#E8C24A]/20"}`}
                 >
                   {resetStatus === "sending" && (
                     <Loader2 className="w-4 h-4 animate-spin" />

@@ -361,7 +361,7 @@ export default function GuiaPage() {
 
   return (
     <AppLayout>
-      <div className="min-h-full text-on-surface">
+      <div className="flex min-h-full flex-col text-on-surface">
         {/* Top bar */}
         <div
           className="px-4 py-4 flex items-center gap-3 sticky top-0 z-10 bg-surface-container-lowest"

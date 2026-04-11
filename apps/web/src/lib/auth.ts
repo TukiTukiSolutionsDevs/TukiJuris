@@ -6,6 +6,8 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 const TOKEN_KEY = "agente_derecho_token";
 const USER_KEY = "agente_derecho_user";
 
+export type SessionStatus = "valid" | "invalid" | "offline";
+
 export interface AuthUser {
   id: string;
   email: string;
@@ -33,9 +35,56 @@ export function setUser(user: AuthUser): void {
 }
 
 export function logout(): void {
+  clearAuth();
+  window.location.href = "/auth/login";
+}
+
+export function clearAuth(): void {
   localStorage.removeItem(TOKEN_KEY);
   localStorage.removeItem(USER_KEY);
-  window.location.href = "/auth/login";
+}
+
+export function buildReturnTo(pathname?: string | null, search?: string | null): string {
+  const safePathname = pathname && pathname.startsWith("/") ? pathname : "/";
+  const safeSearch = search && search.startsWith("?") ? search : "";
+  return `${safePathname}${safeSearch}`;
+}
+
+export function redirectToPublic(reason: "missing" | "expired" | "offline", returnTo?: string): void {
+  if (typeof window === "undefined") return;
+
+  if (reason === "missing") {
+    window.location.href = "/landing";
+    return;
+  }
+
+  const target = "/auth/login";
+  const url = new URL(target, window.location.origin);
+  if (returnTo) url.searchParams.set("returnTo", returnTo);
+  url.searchParams.set("reason", reason);
+  window.location.href = url.toString();
+}
+
+export async function validateSession(): Promise<SessionStatus> {
+  const token = getToken();
+  if (!token) return "invalid";
+
+  try {
+    const res = await fetch(`${API_URL}/api/auth/me`, {
+      headers: { Authorization: `Bearer ${token}` },
+      cache: "no-store",
+    });
+
+    if (res.ok) return "valid";
+    if (res.status === 401 || res.status === 403) {
+      clearAuth();
+      return "invalid";
+    }
+
+    return "offline";
+  } catch {
+    return "offline";
+  }
 }
 
 export function authHeaders(): Record<string, string> {
@@ -62,8 +111,7 @@ export async function authFetch(
 
   if (res.status === 401) {
     // Token expired or invalid — clean up and redirect
-    localStorage.removeItem(TOKEN_KEY);
-    localStorage.removeItem(USER_KEY);
+    clearAuth();
     if (typeof window !== "undefined" && !window.location.pathname.startsWith("/auth")) {
       window.location.href = "/auth/login?expired=1";
     }

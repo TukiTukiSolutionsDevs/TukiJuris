@@ -15,25 +15,18 @@ import {
   EyeOff,
   Save,
   LogOut,
-  BookOpen,
   Shield,
-  Briefcase,
-  Landmark,
-  Gavel,
-  ScrollText,
-  FileCheck,
-  Globe,
   BadgeCheck,
   Brain,
   Trash2,
-  ToggleLeft,
-  ToggleRight,
   Plus,
   ExternalLink,
 } from "lucide-react";
 import Link from "next/link";
 import { getToken, logout } from "@/lib/auth";
 import { AppLayout } from "@/components/AppLayout";
+import { InternalPageHeader } from "@/components/shell/InternalPageHeader";
+import { ShellUtilityActions } from "@/components/shell/ShellUtilityActions";
 import { MODEL_CATALOG } from "@/lib/models";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
@@ -294,7 +287,6 @@ export default function ConfiguracionPage() {
     } finally {
       setLoading(false);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -404,7 +396,6 @@ export default function ConfiguracionPage() {
     } finally {
       setLoadingMemories(false);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleToggleMemory = async (memoryId: string, isActive: boolean) => {
@@ -451,7 +442,6 @@ export default function ConfiguracionPage() {
     } finally {
       setLoadingLlmKeys(false);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -511,7 +501,11 @@ export default function ConfiguracionPage() {
 
   const handleTestKey = async (providerId: string) => {
     setTestingProvider(providerId);
-    setTestResults((prev) => ({ ...prev, [providerId]: undefined as any }));
+    setTestResults((prev) => {
+      const next = { ...prev };
+      delete next[providerId];
+      return next;
+    });
     try {
       const res = await fetch(`${API_URL}/api/keys/llm-keys/test`, {
         method: "POST",
@@ -555,16 +549,16 @@ export default function ConfiguracionPage() {
 
   return (
     <AppLayout>
-      <div className="min-h-full text-on-surface">
-        {/* Header */}
-        <div className="border-b border-[rgba(79,70,51,0.15)] px-4 lg:px-6 py-5 flex items-center gap-3 sticky top-0 z-10 bg-[#0e0e14]">
-          <Settings className="w-4 h-4 text-primary" />
-          <span className="text-primary text-xs uppercase tracking-[0.2em] font-bold">Cuenta</span>
-          <span className="text-on-surface/20 mx-1">·</span>
-          <h1 className="font-['Newsreader'] text-xl font-bold text-on-surface">Configuración</h1>
-        </div>
+      <div className="flex min-h-full flex-col text-on-surface">
+        <InternalPageHeader
+          icon={<Settings className="w-5 h-5 text-primary" />}
+          eyebrow="Cuenta"
+          title="Configuración"
+          description="Administrá perfil, seguridad, claves y preferencias desde una estructura consistente con el resto del producto."
+          utilitySlot={<div className="hidden md:flex"><ShellUtilityActions showSettingsLink={false} /></div>}
+        />
 
-        <div className="max-w-5xl mx-auto px-4 lg:px-6 py-6 sm:py-8">
+        <div className="w-full px-4 py-6 sm:py-8 lg:px-6 xl:px-8">
           {/* Alerts */}
           {error && (
             <div className="flex items-center gap-3 bg-[#93000a]/20 border border-[#ffb4ab]/30 text-[#ffb4ab] rounded-lg px-4 py-3 mb-6 text-sm">
@@ -585,12 +579,12 @@ export default function ConfiguracionPage() {
               <p className="text-sm text-on-surface/40">Cargando configuracion...</p>
             </div>
           ) : (
-            <div className="flex flex-col lg:flex-row gap-4 sm:gap-6">
+            <div className="flex flex-col gap-4 sm:gap-6 lg:flex-row xl:gap-8">
               {/* Sidebar */}
-              <aside className="lg:w-52 shrink-0 lg:sticky lg:top-20 lg:self-start">
+              <aside className="shrink-0 lg:sticky lg:top-20 lg:w-60 xl:w-64 lg:self-start">
                 {/* Mobile: horizontal scroll tabs */}
                 <div className="lg:hidden overflow-x-auto">
-                  <div className="flex gap-1 bg-surface-container-low border border-[rgba(79,70,51,0.15)] rounded-lg p-1 min-w-max">
+                  <div className="panel-base flex gap-1 rounded-xl p-1 min-w-max">
                     {TABS.map((tab) => {
                       const Icon = tab.icon;
                       return (
@@ -619,7 +613,7 @@ export default function ConfiguracionPage() {
                 </div>
 
                 {/* Desktop: vertical sidebar */}
-                <nav className="hidden lg:block bg-surface-container-low border border-[rgba(79,70,51,0.15)] rounded-lg overflow-hidden">
+                <nav className="panel-base hidden lg:block rounded-xl overflow-hidden">
                   {TABS.map((tab) => {
                     const Icon = tab.icon;
                     return (
@@ -654,7 +648,7 @@ export default function ConfiguracionPage() {
                 {/* --- PERFIL TAB --- */}
                 {activeTab === "perfil" && (
                   <div className="space-y-4">
-                    <div className="bg-surface-container-low border border-[rgba(79,70,51,0.15)] rounded-lg p-6">
+                    <div className="panel-base rounded-xl p-6">
                       <h2 className="font-['Newsreader'] text-lg font-bold text-on-surface mb-5 flex items-center gap-2">
                         <User className="w-4 h-4 text-primary" />
                         Informacion del perfil
@@ -681,14 +675,14 @@ export default function ConfiguracionPage() {
                             value={profileName}
                             onChange={(e) => setProfileName(e.target.value)}
                             placeholder="Tu nombre completo"
-                            className="w-full bg-[#35343a] border border-transparent rounded-lg px-3 py-3 text-sm text-on-surface placeholder-on-surface/30 focus:outline-none focus:border-primary transition-colors"
+                             className="control-surface w-full rounded-xl px-3 py-3 text-sm text-on-surface placeholder-on-surface/30 focus:outline-none focus:border-primary transition-colors"
                           />
                         </div>
                         <div className="flex justify-end">
                           <button
                             type="submit"
                             disabled={savingProfile}
-                            className="bg-gradient-to-br from-primary to-primary-container disabled:opacity-40 text-on-primary rounded-lg px-5 py-2.5 text-sm font-bold flex items-center gap-2 transition-opacity"
+                            className="gold-gradient disabled:opacity-40 text-on-primary rounded-xl px-5 py-2.5 text-sm font-bold flex items-center gap-2 shadow-[0_12px_24px_rgba(0,0,0,0.14)] transition-opacity"
                           >
                             {savingProfile ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
                             Guardar cambios
@@ -697,7 +691,7 @@ export default function ConfiguracionPage() {
                       </form>
                     </div>
 
-                    <div className="bg-surface-container-low border border-[rgba(79,70,51,0.15)] rounded-lg p-6">
+                    <div className="panel-base rounded-xl p-6">
                       <h2 className="font-['Newsreader'] text-lg font-bold text-on-surface mb-5 flex items-center gap-2">
                         <Lock className="w-4 h-4 text-primary" />
                         Cambiar contrasena
@@ -713,7 +707,7 @@ export default function ConfiguracionPage() {
                               value={currentPassword}
                               onChange={(e) => setCurrentPassword(e.target.value)}
                               placeholder="••••••••"
-                              className="w-full bg-[#35343a] border border-transparent rounded-lg px-3 py-3 pr-10 text-sm text-on-surface placeholder-on-surface/30 focus:outline-none focus:border-primary transition-colors"
+                              className="control-surface w-full rounded-xl px-3 py-3 pr-10 text-sm text-on-surface placeholder-on-surface/30 focus:outline-none focus:border-primary transition-colors"
                               required
                             />
                             <button
@@ -735,7 +729,7 @@ export default function ConfiguracionPage() {
                               value={newPassword}
                               onChange={(e) => setNewPassword(e.target.value)}
                               placeholder="Minimo 8 caracteres"
-                              className="w-full bg-[#35343a] border border-transparent rounded-lg px-3 py-3 pr-10 text-sm text-on-surface placeholder-on-surface/30 focus:outline-none focus:border-primary transition-colors"
+                              className="control-surface w-full rounded-xl px-3 py-3 pr-10 text-sm text-on-surface placeholder-on-surface/30 focus:outline-none focus:border-primary transition-colors"
                               required
                               minLength={8}
                             />
