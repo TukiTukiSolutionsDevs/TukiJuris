@@ -21,7 +21,7 @@ dependencies = [
     "bcrypt>=4.2.0",
     # AI / LLM
     "litellm>=1.55.0",
-    "langgraph>=0.2.60",
+    "langgraph>=1.1.6",
     "langchain>=0.3.12",
     "langchain-core>=0.3.25",
     "langchain-community>=0.3.12",
