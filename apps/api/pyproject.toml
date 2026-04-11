@@ -42,7 +42,7 @@ dependencies = [
     # Payments
     "mercadopago>=2.2.0",
     # PDF generation (zero system dependencies, pure Python)
-    "reportlab>=4.0.0",
+    "reportlab>=4.4.10",
 ]
 
 [project.optional-dependencies]
