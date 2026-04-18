@@ -167,10 +167,10 @@ function SkeletonCard() {
     <div className="panel-base rounded-xl p-5 animate-pulse">
       <div className="flex justify-between gap-4 mb-3">
         <div className="flex-1">
-          <div className="h-4 bg-[#35343a] rounded w-3/4 mb-2" />
+          <div className="h-4 bg-surface-container-high rounded w-3/4 mb-2" />
           <div className="h-3 bg-surface rounded w-1/3" />
         </div>
-        <div className="h-5 bg-[#35343a] rounded w-20 shrink-0" />
+        <div className="h-5 bg-surface-container-high rounded w-20 shrink-0" />
       </div>
       <div className="space-y-1.5">
         <div className="h-3 bg-surface rounded w-full" />
@@ -559,7 +559,7 @@ function BuscarPage() {
           actions={
             <button
               onClick={() => setShowFilters((v) => !v)}
-              className="sm:hidden flex items-center gap-1.5 text-sm text-on-surface/60 hover:text-on-surface transition-colors bg-surface border border-[rgba(79,70,51,0.15)] rounded-lg px-3 py-2"
+              className="sm:hidden flex items-center gap-1.5 text-sm text-on-surface/60 hover:text-on-surface transition-colors bg-surface border border-outline-variant/30 rounded-lg px-3 py-2"
             >
               <SlidersHorizontal className="w-4 h-4" />
               Filtros
@@ -608,12 +608,12 @@ function BuscarPage() {
 
             {/* Auto-suggest dropdown */}
             {showSuggestions && suggestions.length > 0 && (
-              <div className="absolute top-full left-0 right-0 mt-1 bg-surface-container-low border border-[rgba(79,70,51,0.15)] rounded-lg shadow-2xl z-50 overflow-hidden">
+              <div className="absolute top-full left-0 right-0 mt-1 bg-surface-container-low border border-outline-variant/30 rounded-lg shadow-2xl z-50 overflow-hidden">
                 {suggestions.map((s, i) => (
                   <button
                     key={i}
                     onMouseDown={() => pickSuggestion(s)}
-                    className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-on-surface hover:bg-surface-container hover:text-white transition-colors text-left"
+                    className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-on-surface hover:bg-surface-container hover:text-on-surface transition-colors text-left"
                   >
                     <Search className="w-3.5 h-3.5 text-on-surface/30 shrink-0" />
                     <span>{s}</span>
@@ -642,7 +642,7 @@ function BuscarPage() {
 
               <div className={`
                 ${showFilters ? "fixed right-0 top-0 bottom-0 w-80 z-50 overflow-y-auto sm:relative sm:inset-auto sm:w-auto sm:overflow-visible" : ""}
-                bg-surface-container-low sm:bg-transparent border border-[rgba(79,70,51,0.15)] sm:border-0 rounded-lg sm:rounded-none p-4
+                bg-surface-container-low sm:bg-transparent border border-outline-variant/30 sm:border-0 rounded-lg sm:rounded-none p-4
               `}>
                 {/* Mobile header */}
                 <div className="flex items-center justify-between mb-4 sm:hidden">
@@ -675,7 +675,7 @@ function BuscarPage() {
                               type="checkbox"
                               checked={checked}
                               onChange={() => toggleArea(area.id)}
-                              className="rounded border-[rgba(79,70,51,0.15)] bg-[#35343a] text-primary focus:ring-primary/50 focus:ring-1 w-3.5 h-3.5"
+                              className="rounded border-outline-variant/30 bg-surface-container-high text-primary focus:ring-primary/50 focus:ring-1 w-3.5 h-3.5"
                             />
                             <Icon className={`w-3.5 h-3.5 ${area.color}`} />
                             {area.name}
@@ -694,7 +694,7 @@ function BuscarPage() {
                       <select
                         value={filters.document_type}
                         onChange={(e) => setFilters((p) => ({ ...p, document_type: e.target.value }))}
-                        className="w-full bg-[#35343a] border border-transparent rounded-lg px-3 py-2.5 text-sm text-on-surface focus:outline-none focus:border-primary appearance-none pr-8 transition-colors"
+                        className="w-full bg-surface-container-high border border-transparent rounded-lg px-3 py-2.5 text-sm text-on-surface focus:outline-none focus:border-primary appearance-none pr-8 transition-colors"
                       >
                         {DOCUMENT_TYPES.map((t) => (
                           <option key={t.id} value={t.id}>{t.name}</option>
@@ -713,7 +713,7 @@ function BuscarPage() {
                       <select
                         value={filters.hierarchy}
                         onChange={(e) => setFilters((p) => ({ ...p, hierarchy: e.target.value }))}
-                        className="w-full bg-[#35343a] border border-transparent rounded-lg px-3 py-2.5 text-sm text-on-surface focus:outline-none focus:border-primary appearance-none pr-8 transition-colors"
+                        className="w-full bg-surface-container-high border border-transparent rounded-lg px-3 py-2.5 text-sm text-on-surface focus:outline-none focus:border-primary appearance-none pr-8 transition-colors"
                       >
                         {HIERARCHY_OPTIONS.map((h) => (
                           <option key={h.id} value={h.id}>{h.name}</option>
@@ -735,7 +735,7 @@ function BuscarPage() {
                           type="date"
                           value={filters.date_from}
                           onChange={(e) => setFilters((p) => ({ ...p, date_from: e.target.value }))}
-                          className="w-full bg-[#35343a] border border-transparent rounded-lg pl-8 pr-3 py-2.5 text-sm text-on-surface focus:outline-none focus:border-primary transition-colors"
+                          className="w-full bg-surface-container-high border border-transparent rounded-lg pl-8 pr-3 py-2.5 text-sm text-on-surface focus:outline-none focus:border-primary transition-colors"
                         />
                       </div>
                       <div className="relative">
@@ -744,7 +744,7 @@ function BuscarPage() {
                           type="date"
                           value={filters.date_to}
                           onChange={(e) => setFilters((p) => ({ ...p, date_to: e.target.value }))}
-                          className="w-full bg-[#35343a] border border-transparent rounded-lg pl-8 pr-3 py-2.5 text-sm text-on-surface focus:outline-none focus:border-primary transition-colors"
+                          className="w-full bg-surface-container-high border border-transparent rounded-lg pl-8 pr-3 py-2.5 text-sm text-on-surface focus:outline-none focus:border-primary transition-colors"
                         />
                       </div>
                     </div>
@@ -754,7 +754,7 @@ function BuscarPage() {
                   {hasActiveFilters && (
                     <button
                       onClick={clearFilters}
-                      className="w-full flex items-center justify-center gap-2 text-sm text-on-surface/60 hover:text-on-surface border border-[rgba(79,70,51,0.15)] hover:border-primary/30 rounded-lg py-2.5 transition-colors"
+                      className="w-full flex items-center justify-center gap-2 text-sm text-on-surface/60 hover:text-on-surface border border-outline-variant/30 hover:border-primary/30 rounded-lg py-2.5 transition-colors"
                     >
                       <RotateCcw className="w-3.5 h-3.5" />
                       Limpiar filtros
@@ -792,7 +792,7 @@ function BuscarPage() {
                     <select
                       value={sort}
                       onChange={(e) => handleSortChange(e.target.value)}
-                      className="bg-surface-container-low border border-[rgba(79,70,51,0.15)] rounded-lg pl-3 pr-8 py-1.5 text-sm text-on-surface focus:outline-none focus:border-primary appearance-none transition-colors"
+                      className="bg-surface-container-low border border-outline-variant/30 rounded-lg pl-3 pr-8 py-1.5 text-sm text-on-surface focus:outline-none focus:border-primary appearance-none transition-colors"
                     >
                       {SORT_OPTIONS.map((s) => (
                         <option key={s.id} value={s.id}>{s.name}</option>
@@ -885,7 +885,7 @@ function BuscarPage() {
                                     {areaInfo.name}
                                   </span>
                                 )}
-                                <span className="text-[10px] px-2 py-0.5 rounded bg-[#35343a] text-on-surface/40">
+                                <span className="text-[10px] px-2 py-0.5 rounded bg-surface-container-high text-on-surface/40">
                                   {doc.document_type.replace("_", " ")}
                                 </span>
                               </div>
@@ -932,7 +932,7 @@ function BuscarPage() {
                                 {areaInfo.name}
                               </span>
                             )}
-                            <span className="text-[10px] px-2 py-0.5 rounded bg-[#35343a] text-on-surface/40">
+                            <span className="text-[10px] px-2 py-0.5 rounded bg-surface-container-high text-on-surface/40">
                               {result.document_type.replace("_", " ")}
                             </span>
                           </div>
@@ -983,7 +983,7 @@ function BuscarPage() {
                   <button
                     onClick={() => handlePageChange(page - 1)}
                     disabled={page <= 1}
-                    className="px-3 py-1.5 text-sm border border-[rgba(79,70,51,0.15)] rounded-lg text-on-surface/60 hover:text-on-surface hover:border-primary/30 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                    className="px-3 py-1.5 text-sm border border-outline-variant/30 rounded-lg text-on-surface/60 hover:text-on-surface hover:border-primary/30 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                   >
                     Anterior
                   </button>
@@ -1006,7 +1006,7 @@ function BuscarPage() {
                         className={`w-9 h-9 text-sm rounded-lg transition-colors ${
                           pageNum === page
                             ? "bg-gradient-to-br from-primary to-primary-container text-on-primary font-bold"
-                            : "border border-[rgba(79,70,51,0.15)] text-on-surface/60 hover:text-on-surface hover:border-primary/30"
+                            : "border border-outline-variant/30 text-on-surface/60 hover:text-on-surface hover:border-primary/30"
                         }`}
                       >
                         {pageNum}
@@ -1017,7 +1017,7 @@ function BuscarPage() {
                   <button
                     onClick={() => handlePageChange(page + 1)}
                     disabled={page >= totalPages}
-                    className="px-3 py-1.5 text-sm border border-[rgba(79,70,51,0.15)] rounded-lg text-on-surface/60 hover:text-on-surface hover:border-primary/30 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                    className="px-3 py-1.5 text-sm border border-outline-variant/30 rounded-lg text-on-surface/60 hover:text-on-surface hover:border-primary/30 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                   >
                     Siguiente
                   </button>
@@ -1031,7 +1031,7 @@ function BuscarPage() {
               {isLoggedIn && query.trim() && searched && (
                 <button
                   onClick={() => setSaveModalOpen(true)}
-                  className="w-full flex items-center justify-center gap-2 text-sm border border-dashed border-[rgba(79,70,51,0.15)] hover:border-primary/40 text-on-surface/40 hover:text-primary rounded-lg py-2.5 transition-colors"
+                  className="w-full flex items-center justify-center gap-2 text-sm border border-dashed border-outline-variant/30 hover:border-primary/40 text-on-surface/40 hover:text-primary rounded-lg py-2.5 transition-colors"
                 >
                   <Bookmark className="w-4 h-4" />
                   Guardar esta busqueda
@@ -1040,7 +1040,7 @@ function BuscarPage() {
 
               {/* Saved searches */}
               {isLoggedIn && savedSearches.length > 0 && (
-                <div className="bg-surface-container-low border border-[rgba(79,70,51,0.15)] rounded-lg p-4">
+                <div className="bg-surface-container-low border border-outline-variant/30 rounded-lg p-4">
                   <div className="flex items-center gap-2 mb-3">
                     <BookmarkCheck className="w-3.5 h-3.5 text-primary" />
                     <h3 className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">
@@ -1052,14 +1052,14 @@ function BuscarPage() {
                       <div key={s.id} className="flex items-center gap-1 group">
                         <button
                           onClick={() => applySaved(s)}
-                          className="flex-1 text-left text-sm text-on-surface hover:text-white truncate py-1 px-2 rounded-lg hover:bg-surface-container transition-colors"
+                          className="flex-1 text-left text-sm text-on-surface hover:text-on-surface truncate py-1 px-2 rounded-lg hover:bg-surface-container transition-colors"
                           title={s.query}
                         >
                           {s.name}
                         </button>
                         <button
                           onClick={() => handleDeleteSaved(s.id)}
-                          className="opacity-0 group-hover:opacity-100 p-1 text-on-surface/30 hover:text-[#ffb4ab] transition-all"
+                          className="opacity-0 group-hover:opacity-100 p-1 text-on-surface/30 hover:text-error transition-all"
                         >
                           <X className="w-3 h-3" />
                         </button>
@@ -1071,7 +1071,7 @@ function BuscarPage() {
 
               {/* Search history */}
               {isLoggedIn && history.length > 0 && (
-                <div className="bg-surface-container-low border border-[rgba(79,70,51,0.15)] rounded-lg p-4">
+                <div className="bg-surface-container-low border border-outline-variant/30 rounded-lg p-4">
                   <div className="flex items-center gap-2 mb-3">
                     <Clock className="w-3.5 h-3.5 text-on-surface/30" />
                     <h3 className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">
@@ -1101,7 +1101,7 @@ function BuscarPage() {
 
               {/* Not logged in hint */}
               {!isLoggedIn && (
-                <div className="bg-surface-container-low border border-[rgba(79,70,51,0.15)] rounded-lg p-4 text-center">
+                <div className="bg-surface-container-low border border-outline-variant/30 rounded-lg p-4 text-center">
                   <Filter className="w-8 h-8 mx-auto mb-2 text-on-surface/10" />
                   <p className="text-xs text-on-surface/30 mb-3">
                     Inicia sesion para guardar busquedas y ver tu historial
@@ -1125,7 +1125,7 @@ function BuscarPage() {
               className="absolute inset-0 bg-black/70"
               onClick={() => setSaveModalOpen(false)}
             />
-            <div className="relative bg-surface-container-low border border-[rgba(79,70,51,0.15)] rounded-lg p-6 w-full max-w-sm shadow-2xl">
+            <div className="relative bg-surface-container-low border border-outline-variant/30 rounded-lg p-6 w-full max-w-sm shadow-2xl">
               <h2 className="font-['Newsreader'] text-xl font-bold text-on-surface mb-1">Guardar busqueda</h2>
               <p className="text-sm text-on-surface/40 mb-4 truncate">
                 &ldquo;{query}&rdquo;
@@ -1136,13 +1136,13 @@ function BuscarPage() {
                 onChange={(e) => setSaveName(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleSaveSearch()}
                 placeholder="Nombre para esta busqueda..."
-                className="w-full bg-[#35343a] border border-transparent rounded-lg px-3 py-3 text-sm placeholder-on-surface/30 text-on-surface focus:outline-none focus:border-primary mb-4 transition-colors"
+                className="w-full bg-surface-container-high border border-transparent rounded-lg px-3 py-3 text-sm placeholder-on-surface/30 text-on-surface focus:outline-none focus:border-primary mb-4 transition-colors"
                 autoFocus
               />
               <div className="flex gap-3">
                 <button
                   onClick={() => setSaveModalOpen(false)}
-                  className="flex-1 border border-[rgba(79,70,51,0.15)] rounded-lg py-2.5 text-sm text-on-surface/60 hover:text-on-surface transition-colors"
+                  className="flex-1 border border-outline-variant/30 rounded-lg py-2.5 text-sm text-on-surface/60 hover:text-on-surface transition-colors"
                 >
                   Cancelar
                 </button>
