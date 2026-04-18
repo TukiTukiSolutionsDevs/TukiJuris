@@ -16,6 +16,7 @@ from app.api.middleware import RateLimitMiddleware, SecurityHeadersMiddleware
 from app.api.routes import (
     admin,
     analysis,
+    rbac_admin,
     analytics,
     api_keys,
     auth,
@@ -34,6 +35,7 @@ from app.api.routes import (
     notifications,
     oauth,
     organizations,
+    rbac_admin,
     search,
     shared,
     stream,
@@ -42,6 +44,7 @@ from app.api.routes import (
 )
 from app.config import settings
 from app.core.monitoring import init_sentry
+from app.core.startup_validation import validate_production_config
 
 # Configure logging
 logging.basicConfig(
@@ -54,13 +57,11 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application startup and shutdown events."""
-    # --- Safety: refuse to start in production with default secrets ---
-    if settings.app_env == "production":
-        if "dev-only" in settings.jwt_secret or "change" in settings.jwt_secret:
-            raise RuntimeError(
-                "FATAL: JWT_SECRET is still the default placeholder. "
-                "Set a strong random secret in .env.production before starting in production."
-            )
+    # Refuse to start in production with insecure or incomplete config.
+    # Centralised in app.core.startup_validation — see tests/test_startup_validation.py
+    # for the full set of invariants enforced.
+    validate_production_config(settings)
+
     init_sentry()
     logger.info(f"Starting {settings.app_name} API...")
     logger.info(f"Environment: {settings.app_env}")
@@ -185,6 +186,7 @@ app.include_router(analysis.router, prefix="/api")
 app.include_router(organizations.router, prefix="/api")
 app.include_router(billing.router, prefix="/api")
 app.include_router(admin.router, prefix="/api")
+app.include_router(rbac_admin.router, prefix="/api")
 app.include_router(analytics.router, prefix="/api")
 app.include_router(api_keys.router, prefix="/api")
 app.include_router(notifications.router, prefix="/api")

@@ -19,11 +19,12 @@ class Settings(BaseSettings):
 
     # Redis
     redis_url: str = "redis://redis:6379/0"
+    redis_key_prefix: str = "tukijuris:"  # Namespace prefix for all Redis keys
 
     # Auth
     jwt_secret: str = "dev-only-secret-change-in-production"
     jwt_algorithm: str = "HS256"
-    access_token_expire_minutes: int = 1440  # 24 hours (was 60min — too aggressive for UX)
+    access_token_expire_minutes: int = 15  # 15 min default — override with ACCESS_TOKEN_EXPIRE_MINUTES env var
 
     # LLM
     openai_api_key: str = ""
@@ -37,7 +38,7 @@ class Settings(BaseSettings):
     default_llm_model: str = "gemini/gemini-2.5-flash"
 
     # Free Tier — platform-provided models for users without BYOK keys
-    free_tier_enabled: bool = False
+    free_tier_enabled: bool = True
     free_tier_model: str = "gemini/gemini-2.5-flash"
     free_tier_fallback_models: list[str] = [
         "groq/llama-3.3-70b-versatile",

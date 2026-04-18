@@ -91,3 +91,38 @@ class RateLimiter:
 
 # Module-level singleton — one connection pool for the process lifetime
 rate_limiter = RateLimiter()
+
+# ---------------------------------------------------------------------------
+# Route-level dependency: /auth/refresh specific bucket
+# ---------------------------------------------------------------------------
+
+_REFRESH_REQUESTS_PER_MINUTE = 10
+_REFRESH_WINDOW_SECONDS = 60
+
+
+async def refresh_rate_limit(request: Request) -> None:
+    """Route-level rate limiter for /auth/refresh — 10 req/min per IP.
+
+    Uses a dedicated bucket key ``refresh:ip:{ip}`` that is completely
+    separate from the global anonymous middleware bucket (``ip:{ip}``) and
+    the login attempt bucket (``login:ip:{ip}``).
+
+    Fail-open: if Redis is unavailable the request is allowed through so
+    that an infrastructure outage does not lock users out of token refresh.
+    """
+    client_ip = request.client.host if request.client else "unknown"
+    key = f"refresh:ip:{client_ip}"
+    try:
+        result = await rate_limiter.check_rate_limit(
+            key, _REFRESH_REQUESTS_PER_MINUTE, _REFRESH_WINDOW_SECONDS
+        )
+        if not result["allowed"]:
+            raise HTTPException(
+                status_code=429,
+                detail="Too many refresh requests. Try again later.",
+                headers={"Retry-After": str(_REFRESH_WINDOW_SECONDS)},
+            )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.warning("Refresh rate limiter error (fail-open): %s", exc)

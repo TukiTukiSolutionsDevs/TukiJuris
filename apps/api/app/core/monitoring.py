@@ -91,3 +91,49 @@ class RequestMetrics:
 
 
 metrics = RequestMetrics()
+
+
+# ---------------------------------------------------------------------------
+# Refresh token lifecycle counters
+# ---------------------------------------------------------------------------
+
+
+class RefreshMetrics:
+    """In-memory monotone counters for refresh token lifecycle events.
+
+    Lightweight, zero external deps — incremented inside the service layer.
+    These counters survive process lifetime and can be exposed via
+    /api/health or an internal metrics endpoint.
+    """
+
+    def __init__(self) -> None:
+        self.refresh_rotations_total: int = 0
+        self.refresh_reuse_detected_total: int = 0
+        self.refresh_denylist_hits_total: int = 0
+
+    def record_rotation(self) -> None:
+        """Increment rotation counter (called on every successful token rotation)."""
+        self.refresh_rotations_total += 1
+
+    def record_reuse_detected(self) -> None:
+        """Increment reuse counter (called when a revoked token is presented again)."""
+        self.refresh_reuse_detected_total += 1
+
+    def record_denylist_hit(self) -> None:
+        """Increment denylist counter (called each time a JTI is added to the denylist)."""
+        self.refresh_denylist_hits_total += 1
+
+    def get_stats(self) -> dict:
+        """Return a snapshot of all refresh counters."""
+        return {
+            "refresh_rotations_total": self.refresh_rotations_total,
+            "refresh_reuse_detected_total": self.refresh_reuse_detected_total,
+            "refresh_denylist_hits_total": self.refresh_denylist_hits_total,
+        }
+
+    def reset(self) -> None:
+        """Reset all counters — intended for tests only."""
+        self.__init__()
+
+
+refresh_metrics = RefreshMetrics()
