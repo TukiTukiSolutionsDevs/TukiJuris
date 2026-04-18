@@ -8,10 +8,10 @@
 ## RESUMEN EJECUTIVO
 
 ```
-COMPLETADO                ████████████████████  ~65%
-PENDIENTE TÉCNICO         ████████░░░░░░░░░░░░  ~20%
-EXPANSIÓN MODELOS + FREE  ░░░░░░░░░░░░░░░░░░░░  ~0%   ← NUEVO
-PRODUCTO COMERCIAL        ░░░░░░░░░░░░░░░░░░░░  ~0%
+COMPLETADO                ████████████████████  ~80%
+PENDIENTE TÉCNICO         ████░░░░░░░░░░░░░░░░  ~10%   (solo 2-D, 2-F)
+EXPANSIÓN MODELOS + FREE  ████████████████████  ~90%   Free tier ACTIVADO (14/Abr)
+PRODUCTO COMERCIAL        ████████████░░░░░░░░  ~60%   Pricing done, falta dashboard
 ```
 
 ---
@@ -30,8 +30,8 @@ PRODUCTO COMERCIAL        ░░░░░░░░░░░░░░░░░░
 | 0-X | Dev compose monta migraciones | ✅ | 14 SQL files |
 | 0-Y | Dependencias (sentry, google-generativeai) | ✅ | pyproject.toml |
 | 0-Z | services/ montado en container | ✅ | Pipeline accesible |
-| 0-D | Páginas /terminos y /privacidad | ❌ PENDIENTE | No existen |
-| 0-E | Webhook signature verification | ❌ PENDIENTE | Sin HMAC en payment_service.py |
+| 0-D | Páginas /terminos y /privacidad | ✅ | 271 + 348 líneas, Ley 29733, RUC, ARCO |
+| 0-E | Webhook signature verification | ✅ | HMAC-SHA256 para MP + Culqi |
 
 ### Extras completados (no previstos)
 - ✅ Rediseño completo Lex Aurum (27 pantallas + 4 componentes)
@@ -48,11 +48,11 @@ PRODUCTO COMERCIAL        ░░░░░░░░░░░░░░░░░░
 
 | # | Tarea | Estado | Impacto | Esfuerzo |
 |---|-------|:------:|---------|----------|
-| 1-A | Error boundaries Next.js | ❌ | Estabilidad UX | Bajo |
-| 1-B | Global exception handler FastAPI | ❌ | Estabilidad API | Bajo |
-| 1-C | Free tier con modelo incluido | ❌ | Adquisición | Alto |
+| 1-A | Error boundaries Next.js | ✅ | error.tsx + not-found.tsx Lex Aurum | Bajo |
+| 1-B | Global exception handler FastAPI | ✅ | HTTP + validation + catch-all JSON | Bajo |
+| 1-C | Free tier con Gemini Flash | ✅ | chat.py + stream.py fallback chain | Alto |
 | 1-D | Dashboard del cliente | ❌ | UX | Medio |
-| 1-E | Pricing S/39 + S/99 | ❌ | Revenue | Medio |
+| 1-E | Pricing S/39 + S/99 | ✅ | billing + landing + onboarding | Medio |
 
 ---
 
