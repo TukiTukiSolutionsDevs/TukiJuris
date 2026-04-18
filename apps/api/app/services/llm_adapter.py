@@ -201,6 +201,45 @@ AVAILABLE_MODELS = [
     },
 ]
 
+# ─── Model tier classification — controls access per plan ────────────────
+# Tier 1: Economic ($0.001-0.01/query) — available on all plans
+# Tier 2: Standard ($0.01-0.03/query) — limited on free, unlimited on paid
+# Tier 3: Premium ($0.03-0.07/query) — only on paid plans (limited)
+# Tier 4: Ultra ($0.08-0.12/query) — only on enterprise
+MODEL_TIERS: dict[str, int] = {
+    # Tier 1 — Economic
+    "gemini/gemini-2.5-flash": 1,
+    "groq/llama-3.1-8b-instant": 1,
+    "groq/llama-3.3-70b-versatile": 1,
+    "deepseek/deepseek-chat": 1,
+    "xai/grok-4-1-fast-reasoning": 1,
+    "openai/gpt-5.4-nano": 1,
+    "xai/grok-3-mini-fast-latest": 1,
+    # Tier 2 — Standard (alto razonamiento)
+    "anthropic/claude-haiku-4-5": 2,
+    "openai/gpt-5.4-mini": 2,
+    "deepseek/deepseek-reasoner": 2,
+    "gemini/gemini-2.5-pro": 2,
+    "groq/qwen/qwen3-32b": 2,
+    "gemini/gemini-3.1-flash-lite-preview": 2,
+    # Tier 3 — Premium
+    "anthropic/claude-sonnet-4-6": 3,
+    "openai/gpt-5.4": 3,
+    "gemini/gemini-3.1-pro-preview": 3,
+    "xai/grok-4.20-reasoning-latest": 3,
+    "xai/grok-4-0709": 3,
+    "groq/openai/gpt-oss-120b": 3,
+    "xai/grok-3-fast-latest": 3,
+    # Tier 4 — Ultra
+    "anthropic/claude-opus-4-6": 4,
+}
+
+
+def get_model_tier(model_id: str) -> int:
+    """Return the tier (1-4) for a model ID. Defaults to 2 if unknown."""
+    return MODEL_TIERS.get(model_id, 2)
+
+
 # ─── Free tier models — available without BYOK keys ──────────────────────
 # These are provided by the platform at zero cost to the user.
 # Order matters: first model is the primary, rest are fallbacks.

@@ -28,30 +28,61 @@ _DB_URL = settings.database_url.replace("postgresql+asyncpg://", "postgresql://"
 # queries_month: -1 = unlimited for all plans (kept for backward compat — daily is the real limit)
 # models:        ["*"] = all models available (user's own key determines access)
 # areas:         all 11 legal areas available on all plans
+# Plan limits — tiered model access + query caps.
+#
+# FREE: 10 queries/week, Tier 1 (8/week) + Tier 2 (2/week), NO BYOK
+# BASE (Profesional): 30 queries/day, Tier 1-2 unlimited + Tier 3 (3/day), BYOK enabled
+# ENTERPRISE: 100 queries/day, all tiers + Tier 4 (3/day), BYOK enabled
+#
+# queries_week: weekly limit (free plan only, resets Monday 00:00 UTC)
+# queries_day: daily limit (-1 = unlimited)
+# tier_limits_day: max queries per tier per day (-1 = unlimited within daily cap)
+# tier_limits_week: max queries per tier per week (free plan only)
+# byok_enabled: whether BYOK (bring your own key) is available
+# Plan limits — tiered model access + query caps.
+#
+# FREE:       10/week, Tier 1 (8) + Tier 2 (2), NO BYOK
+# BASE (Pro): 30/day, Tier 1-2 unlimited + Tier 3 (3/day), BYOK ok
+# ENTERPRISE: 100/day, all tiers + Tier 4 (3/day), BYOK ok
 PLAN_LIMITS: dict[str, dict] = {
     "free": {
-        "queries_day": 10,        # 10 consultas/día con modelos gratuitos de la plataforma
-        "queries_month": -1,      # Kept for backward compat
-        "models": ["gemini/gemini-2.5-flash", "groq/llama-3.3-70b-versatile", "groq/llama-3.1-8b-instant"],
-        "areas": 11,
-        "multi_user": False,
-        "description": "Acceso gratuito. 10 consultas/día con modelos incluidos.",
-    },
-    "base": {
-        "queries_day": 100,
-        "queries_month": -1,      # Kept for backward compat (daily is the real limit)
+        "queries_day": -1,
+        "queries_week": 10,
+        "queries_month": -1,
+        "tier_limits_week": {1: 8, 2: 2, 3: 0, 4: 0},
+        "tier_limits_day": {},
+        "byok_enabled": False,
         "models": ["*"],
         "areas": 11,
         "multi_user": False,
-        "description": "Acceso completo. 100 consultas/día. Soporte prioritario.",
+        "price_label": "S/ 0",
+        "description": "10 consultas/semana. Modelos incluidos.",
+    },
+    "base": {
+        "queries_day": 30,
+        "queries_week": -1,
+        "queries_month": -1,
+        "tier_limits_week": {},
+        "tier_limits_day": {1: -1, 2: -1, 3: 3, 4: 0},
+        "byok_enabled": True,
+        "models": ["*"],
+        "areas": 11,
+        "multi_user": False,
+        "price_label": "S/ 39",
+        "description": "30 consultas/día. 3 premium/día. BYOK disponible.",
     },
     "enterprise": {
-        "queries_day": -1,        # Unlimited
+        "queries_day": 100,
+        "queries_week": -1,
         "queries_month": -1,
+        "tier_limits_week": {},
+        "tier_limits_day": {1: -1, 2: -1, 3: 15, 4: 3},
+        "byok_enabled": True,
         "models": ["*"],
         "areas": 11,
         "multi_user": True,
-        "description": "Acceso ilimitado. Soporte dedicado. Integraciones API.",
+        "price_label": "S/ 99",
+        "description": "100 consultas/día. Todos los modelos. API access.",
     },
 }
 
@@ -276,6 +307,89 @@ class UsageService:
                 user_id,
                 today,
             )
+
+
+    async def check_weekly_limit(self, user_id: uuid.UUID, plan: str) -> dict:
+        """Check weekly query limit (free plan). Returns allowed, used_week, weekly_limit, remaining."""
+        weekly_limit = PLAN_LIMITS.get(plan, PLAN_LIMITS["free"]).get("queries_week", -1)
+        if weekly_limit == -1:
+            return {"allowed": True, "used_week": 0, "weekly_limit": -1, "remaining": -1}
+
+        from datetime import timedelta
+
+        now = datetime.now(UTC)
+        week_start = (now - timedelta(days=now.weekday())).replace(hour=0, minute=0, second=0, microsecond=0)
+
+        pool = await self._get_pool()
+        async with pool.acquire() as conn:
+            row = await conn.fetchrow(
+                """
+                SELECT COUNT(m.id) as total FROM messages m
+                JOIN conversations c ON c.id = m.conversation_id
+                WHERE c.user_id = $1 AND m.role = 'user' AND m.created_at >= $2
+                """,
+                user_id, week_start,
+            )
+        used_week = int(row["total"]) if row else 0
+        return {
+            "allowed": used_week < weekly_limit,
+            "used_week": used_week,
+            "weekly_limit": weekly_limit,
+            "remaining": max(0, weekly_limit - used_week),
+        }
+
+    async def check_tier_limit(self, user_id: uuid.UUID, plan: str, model_id: str) -> dict:
+        """Check tier-specific limit. Weekly for free, daily for paid.
+
+        Returns allowed, tier, used, limit, remaining, period.
+        """
+        from datetime import timedelta
+
+        from app.services.llm_adapter import MODEL_TIERS, get_model_tier
+
+        tier = get_model_tier(model_id)
+        plan_config = PLAN_LIMITS.get(plan, PLAN_LIMITS["free"])
+
+        if plan == "free":
+            tier_limits = plan_config.get("tier_limits_week", {})
+            period = "week"
+            now = datetime.now(UTC)
+            period_start = (now - timedelta(days=now.weekday())).replace(hour=0, minute=0, second=0, microsecond=0)
+        else:
+            tier_limits = plan_config.get("tier_limits_day", {})
+            period = "day"
+            period_start = datetime.now(UTC).replace(hour=0, minute=0, second=0, microsecond=0)
+
+        tier_limit = tier_limits.get(tier, 0)
+        if tier_limit == -1:
+            return {"allowed": True, "tier": tier, "used": 0, "limit": -1, "period": period}
+        if tier_limit == 0:
+            return {"allowed": False, "tier": tier, "used": 0, "limit": 0, "period": period}
+
+        tier_models = [mid for mid, t in MODEL_TIERS.items() if t == tier]
+        if not tier_models:
+            return {"allowed": True, "tier": tier, "used": 0, "limit": tier_limit, "period": period}
+
+        pool = await self._get_pool()
+        async with pool.acquire() as conn:
+            row = await conn.fetchrow(
+                """
+                SELECT COUNT(m.id) as total FROM messages m
+                JOIN conversations c ON c.id = m.conversation_id
+                WHERE c.user_id = $1 AND m.role = 'assistant'
+                  AND m.model = ANY($2) AND m.created_at >= $3
+                """,
+                user_id, tier_models, period_start,
+            )
+        used = int(row["total"]) if row else 0
+        return {
+            "allowed": used < tier_limit,
+            "tier": tier,
+            "used": used,
+            "limit": tier_limit,
+            "remaining": max(0, tier_limit - used),
+            "period": period,
+        }
 
 
 # Singleton — mirrors rag_service pattern

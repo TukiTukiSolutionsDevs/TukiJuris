@@ -56,6 +56,13 @@ async def get_current_user(
             detail="Token inválido o expirado",
         )
 
+    # Type enforcement: only accept tokens explicitly typed as access tokens
+    if payload.get("type") != "access":
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token inválido (tipo incorrecto — usar access token)",
+        )
+
     user_id = uuid.UUID(payload["sub"])
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
@@ -242,6 +249,27 @@ async def get_api_key_user(
         return None
 
     return user
+
+
+async def get_refresh_service(
+    db: AsyncSession = Depends(get_db),
+) -> "RefreshTokenService":
+    """Create a RefreshTokenService — override via app.dependency_overrides in tests.
+
+    Uses the shared Redis URL from settings. Fail-open: if Redis is unavailable,
+    the denylist raises and the service handles it.
+    """
+    from redis import asyncio as aioredis
+
+    from app.config import settings
+    from app.core.token_denylist import TokenDenylist
+    from app.repositories.refresh_token_repo import RefreshTokenRepo
+    from app.services.refresh_token_service import RefreshTokenService
+
+    redis = aioredis.from_url(settings.redis_url, encoding="utf-8", decode_responses=False)
+    denylist = TokenDenylist(redis)
+    repo = RefreshTokenRepo(db)
+    return RefreshTokenService(db, repo, denylist)
 
 
 async def get_authenticated_user(

@@ -53,3 +53,9 @@ class User(Base):
     tags = relationship("Tag", back_populates="user", cascade="all, delete-orphan")
     folders = relationship("Folder", back_populates="user", cascade="all, delete-orphan")
     memories = relationship("UserMemory", back_populates="user", cascade="all, delete-orphan")
+
+
+    # RBAC relationship (lazy="noload" to avoid N+1; load explicitly when needed)
+    user_roles: Mapped[list["UserRole"]] = relationship(
+        "UserRole", foreign_keys="UserRole.user_id", lazy="noload"
+    )

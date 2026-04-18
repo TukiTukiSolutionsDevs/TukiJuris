@@ -25,7 +25,7 @@ def _unique_email() -> str:
 
 
 async def test_register_success(client: AsyncClient):
-    """Valid registration returns 201 with access_token."""
+    """Valid registration returns 201 with access_token AND refresh_token (pair contract)."""
     res = await client.post(
         "/api/auth/register",
         json={
@@ -37,13 +37,14 @@ async def test_register_success(client: AsyncClient):
     assert res.status_code == 201
     data = res.json()
     assert "access_token" in data
+    assert "refresh_token" in data  # T-8.0: pair contract
     assert data["token_type"] == "bearer"
     assert isinstance(data["access_token"], str)
     assert len(data["access_token"]) > 10
 
 
 async def test_register_returns_valid_jwt(client: AsyncClient):
-    """The returned access_token is a well-formed JWT (3 dot-separated parts)."""
+    """Both tokens returned by register are well-formed JWTs (3 dot-separated parts)."""
     res = await client.post(
         "/api/auth/register",
         json={
@@ -53,9 +54,11 @@ async def test_register_returns_valid_jwt(client: AsyncClient):
         },
     )
     assert res.status_code == 201
-    token = res.json()["access_token"]
-    parts = token.split(".")
-    assert len(parts) == 3, "JWT must have 3 dot-separated parts (header.payload.signature)"
+    data = res.json()
+    for key in ("access_token", "refresh_token"):  # T-8.0: check both tokens
+        token = data[key]
+        parts = token.split(".")
+        assert len(parts) == 3, f"{key} must have 3 dot-separated parts (header.payload.signature)"
 
 
 async def test_register_duplicate_email_returns_409(client: AsyncClient):
@@ -114,7 +117,7 @@ async def test_register_missing_password_returns_422(client: AsyncClient):
 
 
 async def test_login_success(client: AsyncClient):
-    """Valid login returns 200 with access_token."""
+    """Valid login returns 200 with access_token AND refresh_token (pair contract)."""
     email = _unique_email()
     password = "LoginTest456!"
 
@@ -130,6 +133,7 @@ async def test_login_success(client: AsyncClient):
     assert res.status_code == 200
     data = res.json()
     assert "access_token" in data
+    assert "refresh_token" in data  # T-8.0: pair contract
     assert data["token_type"] == "bearer"
 
 

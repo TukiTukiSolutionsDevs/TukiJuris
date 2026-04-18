@@ -6,15 +6,17 @@ import uuid
 
 import httpx
 import redis.asyncio as aioredis
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.deps import get_refresh_service
 from app.config import settings
 from app.core.database import get_db
 from app.core.security import create_access_token
 from app.models.user import User
+from app.services.refresh_token_service import RefreshTokenService
 
 logger = logging.getLogger(__name__)
 
@@ -39,7 +41,9 @@ class OAuthCallbackRequest(BaseModel):
 
 class TokenResponse(BaseModel):
     access_token: str
+    refresh_token: str
     token_type: str = "bearer"
+    expires_in: int = 900
 
 
 class OAuthProvider(BaseModel):
@@ -269,8 +273,13 @@ async def google_authorize():
 
 
 @router.post("/google/callback", response_model=TokenResponse)
-async def google_callback(body: OAuthCallbackRequest, db: AsyncSession = Depends(get_db)):
-    """Exchange Google authorization code for a JWT access token."""
+async def google_callback(
+    body: OAuthCallbackRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    service: RefreshTokenService = Depends(get_refresh_service),
+):
+    """Exchange Google authorization code for a JWT access + refresh token pair."""
     if not body.state:
         raise HTTPException(status_code=400, detail="Missing state parameter")
 
@@ -311,8 +320,16 @@ async def google_callback(body: OAuthCallbackRequest, db: AsyncSession = Depends
     if not user.is_active:
         raise HTTPException(status_code=403, detail="Account disabled")
 
-    token = create_access_token(data={"sub": str(user.id), "email": user.email})
-    return TokenResponse(access_token=token)
+    device_info = {
+        "user_agent": request.headers.get("user-agent", "unknown"),
+        "ip_address": request.client.host if request.client else "unknown",
+    }
+    pair = await service.issue_pair(user, device_info)
+    return TokenResponse(
+        access_token=pair.access_token,
+        refresh_token=pair.refresh_token,
+        expires_in=pair.expires_in,
+    )
 
 
 @router.get("/microsoft/authorize", response_model=AuthorizeResponse)
@@ -330,8 +347,13 @@ async def microsoft_authorize():
 
 
 @router.post("/microsoft/callback", response_model=TokenResponse)
-async def microsoft_callback(body: OAuthCallbackRequest, db: AsyncSession = Depends(get_db)):
-    """Exchange Microsoft authorization code for a JWT access token."""
+async def microsoft_callback(
+    body: OAuthCallbackRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    service: RefreshTokenService = Depends(get_refresh_service),
+):
+    """Exchange Microsoft authorization code for a JWT access + refresh token pair."""
     if not body.state:
         raise HTTPException(status_code=400, detail="Missing state parameter")
 
@@ -372,5 +394,13 @@ async def microsoft_callback(body: OAuthCallbackRequest, db: AsyncSession = Depe
     if not user.is_active:
         raise HTTPException(status_code=403, detail="Account disabled")
 
-    token = create_access_token(data={"sub": str(user.id), "email": user.email})
-    return TokenResponse(access_token=token)
+    device_info = {
+        "user_agent": request.headers.get("user-agent", "unknown"),
+        "ip_address": request.client.host if request.client else "unknown",
+    }
+    pair = await service.issue_pair(user, device_info)
+    return TokenResponse(
+        access_token=pair.access_token,
+        refresh_token=pair.refresh_token,
+        expires_in=pair.expires_in,
+    )
