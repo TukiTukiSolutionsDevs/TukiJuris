@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-// Pages that don't require auth (client-side auth guard in AppLayout handles the rest)
+// Pages that don't require auth (public pages use PublicLayout, app pages use AppLayout with client-side guard)
 const PUBLIC_PATHS = [
   "/landing",
   "/auth/login",
@@ -13,6 +13,8 @@ const PUBLIC_PATHS = [
   "/status",
   "/guia",
   "/docs",
+  "/caracteristicas",
+  "/precios",
 ];
 
 export function middleware(request: NextRequest) {

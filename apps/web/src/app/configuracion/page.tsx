@@ -21,6 +21,8 @@ import {
   Trash2,
   Plus,
   ExternalLink,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import Link from "next/link";
 import { getToken, logout } from "@/lib/auth";
@@ -61,6 +63,29 @@ const LEGAL_AREAS = [
   { id: "competencia", name: "Competencia/PI" },
 ];
 
+const PROVIDER_ORDER = ["google", "groq", "deepseek", "openai", "anthropic", "xai"] as const;
+
+const PROVIDER_LABELS: Record<string, { name: string; color: string; tone: string }> = {
+  google: { name: "Google (Gemini)", color: "text-blue-400", tone: "from-blue-500/12 to-blue-500/5 border-blue-500/20" },
+  groq: { name: "Groq", color: "text-orange-400", tone: "from-orange-500/12 to-orange-500/5 border-orange-500/20" },
+  deepseek: { name: "DeepSeek", color: "text-cyan-400", tone: "from-cyan-500/12 to-cyan-500/5 border-cyan-500/20" },
+  openai: { name: "OpenAI", color: "text-green-400", tone: "from-green-500/12 to-green-500/5 border-green-500/20" },
+  anthropic: { name: "Anthropic", color: "text-amber-400", tone: "from-amber-500/12 to-amber-500/5 border-amber-500/20" },
+  xai: { name: "xAI (Grok)", color: "text-purple-400", tone: "from-purple-500/12 to-purple-500/5 border-purple-500/20" },
+};
+
+const tierBadgeStyles: Record<string, string> = {
+  free: "bg-[#1a3a2a] text-[#6ee7b7]",
+  standard: "bg-secondary-container text-secondary",
+  pro: "bg-[#2d1f4a] text-[#c4b5fd]",
+};
+
+const tierBadgeLabels: Record<string, string> = {
+  free: "Gratis",
+  standard: "Estándar",
+  pro: "Avanzado",
+};
+
 type ActiveTab = "perfil" | "organizacion" | "preferencias" | "apikeys" | "memoria";
 
 const TABS: { id: ActiveTab; label: string; icon: React.ElementType }[] = [
@@ -70,6 +95,102 @@ const TABS: { id: ActiveTab; label: string; icon: React.ElementType }[] = [
   { id: "memoria", label: "Memoria", icon: Brain },
   { id: "apikeys", label: "API Keys", icon: Key },
 ];
+
+const TAB_DETAILS: Record<ActiveTab, { title: string; description: string }> = {
+  perfil: {
+    title: "Perfil y seguridad",
+    description: "Actualizá tus datos personales y protegé el acceso a tu cuenta con una contraseña fuerte.",
+  },
+  organizacion: {
+    title: "Organización",
+    description: "Administrá la identidad del equipo, el plan activo y las acciones sensibles sobre la organización.",
+  },
+  preferencias: {
+    title: "Preferencias operativas",
+    description: "Elegí el modelo y el área legal que TukiJuris debe priorizar cuando iniciás una consulta.",
+  },
+  memoria: {
+    title: "Memoria contextual",
+    description: "Controlá qué recuerda el sistema sobre vos para personalizar mejor las respuestas futuras.",
+  },
+  apikeys: {
+    title: "Conexiones de IA",
+    description: "Vinculá tus proveedores, probá claves y mantené el control del consumo desde un solo lugar.",
+  },
+};
+
+function SectionCard({ children, className = "" }: { children: React.ReactNode; className?: string }) {
+  return <section className={`panel-base rounded-[1.35rem] p-5 sm:p-6 ${className}`}>{children}</section>;
+}
+
+function SectionHeader({
+  icon,
+  title,
+  description,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  description?: string;
+}) {
+  return (
+    <div className="mb-5 flex items-start gap-3">
+      <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+        {icon}
+      </div>
+      <div className="min-w-0">
+        <h2 className="font-['Newsreader'] text-[1.35rem] font-bold leading-none tracking-[-0.02em] text-on-surface">{title}</h2>
+        {description && <p className="mt-1.5 text-sm leading-6 text-on-surface/55">{description}</p>}
+      </div>
+    </div>
+  );
+}
+
+function DisclosureCard({
+  title,
+  description,
+  icon,
+  open,
+  onToggle,
+  children,
+  tone = "default",
+}: {
+  title: string;
+  description?: string;
+  icon: React.ReactNode;
+  open: boolean;
+  onToggle: () => void;
+  children?: React.ReactNode;
+  tone?: "default" | "danger";
+}) {
+  const cardTone =
+    tone === "danger"
+      ? "border border-[#ffb4ab]/20 bg-[#93000a]/10"
+      : "";
+
+  return (
+    <SectionCard className={`overflow-hidden ${cardTone}`}>
+      <button
+        type="button"
+        onClick={onToggle}
+        className="flex w-full items-start justify-between gap-4 text-left"
+        aria-expanded={open}
+      >
+        <SectionHeader icon={icon} title={title} description={description} />
+        <div className="mb-5 shrink-0 rounded-xl border border-[rgba(79,70,51,0.15)] bg-surface px-3 py-2 text-on-surface/55">
+          {open ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+        </div>
+      </button>
+
+      {open ? (
+        children
+      ) : (
+        <div className="-mt-1 rounded-2xl border border-dashed border-[rgba(79,70,51,0.15)] bg-surface/60 px-4 py-3 text-sm text-on-surface/45">
+          Oculto para reducir ruido visual. Abrilo solo cuando lo necesites.
+        </div>
+      )}
+    </SectionCard>
+  );
+}
 
 // Memory types
 interface MemoryItem {
@@ -215,6 +336,7 @@ export default function ConfiguracionPage() {
   const [showCurrentPw, setShowCurrentPw] = useState(false);
   const [showNewPw, setShowNewPw] = useState(false);
   const [savingPassword, setSavingPassword] = useState(false);
+  const [isPasswordPanelOpen, setIsPasswordPanelOpen] = useState(false);
 
   // Org fields
   const [orgName, setOrgName] = useState("");
@@ -225,10 +347,18 @@ export default function ConfiguracionPage() {
   const [loadingMemories, setLoadingMemories] = useState(false);
   const [clearingMemories, setClearingMemories] = useState(false);
   const [memoryEnabled, setMemoryEnabled] = useState(true);
+  const [isProfileInfoOpen, setIsProfileInfoOpen] = useState(true);
+  const [isOrgInfoOpen, setIsOrgInfoOpen] = useState(true);
+  const [isOrgDangerOpen, setIsOrgDangerOpen] = useState(false);
+  const [isMemoryListOpen, setIsMemoryListOpen] = useState(true);
+  const [isMemoryDangerOpen, setIsMemoryDangerOpen] = useState(false);
+  const [isApiOverviewOpen, setIsApiOverviewOpen] = useState(true);
+  const [expandedProviderId, setExpandedProviderId] = useState<string | null>(null);
 
   // Preferences (stored in localStorage)
   const [defaultModel, setDefaultModel] = useState(MODEL_CATALOG[0].id);
   const [defaultArea, setDefaultArea] = useState("");
+  const [selectedProvider, setSelectedProvider] = useState<string>(MODEL_CATALOG[0]?.provider || "google");
 
   // LLM Keys state
   const [llmKeys, setLlmKeys] = useState<LLMKey[]>([]);
@@ -241,6 +371,22 @@ export default function ConfiguracionPage() {
   const [showApiKey, setShowApiKey] = useState(false);
   const [testingProvider, setTestingProvider] = useState<string | null>(null);
   const [testResults, setTestResults] = useState<Record<string, { ok: boolean; latency_ms?: number; error?: string }>>({});
+
+  const inputClassName = "control-surface w-full rounded-xl px-3 py-3 text-sm text-on-surface placeholder-on-surface/30 focus:outline-none focus:border-primary transition-colors";
+  const readonlyClassName = "w-full rounded-xl border border-transparent bg-surface px-3 py-3 text-sm text-on-surface/40 cursor-not-allowed";
+  const labelClassName = "mb-1.5 block text-[11px] font-medium uppercase tracking-[0.18em] text-on-surface/42";
+
+  const activeTabMeta = TAB_DETAILS[activeTab];
+  const configuredProviders = new Set(llmKeys.map((key) => key.provider));
+  const selectedModelMeta = MODEL_CATALOG.find((model) => model.id === defaultModel) || MODEL_CATALOG[0];
+  const visibleProvider = PROVIDER_LABELS[selectedProvider] ? selectedProvider : selectedModelMeta?.provider || "google";
+  const visibleModels = MODEL_CATALOG.filter((model) => model.provider === visibleProvider);
+
+  useEffect(() => {
+    if (selectedModelMeta?.provider && selectedModelMeta.provider !== selectedProvider) {
+      setSelectedProvider(selectedModelMeta.provider);
+    }
+  }, [selectedModelMeta, selectedProvider]);
 
   const authHeaders = () => ({
     "Content-Type": "application/json",
@@ -556,6 +702,7 @@ export default function ConfiguracionPage() {
           title="Configuración"
           description="Administrá perfil, seguridad, claves y preferencias desde una estructura consistente con el resto del producto."
           utilitySlot={<div className="hidden md:flex"><ShellUtilityActions showSettingsLink={false} /></div>}
+          compact
         />
 
         <div className="w-full px-4 py-6 sm:py-8 lg:px-6 xl:px-8">
@@ -579,7 +726,7 @@ export default function ConfiguracionPage() {
               <p className="text-sm text-on-surface/40">Cargando configuracion...</p>
             </div>
           ) : (
-            <div className="flex flex-col gap-4 sm:gap-6 lg:flex-row xl:gap-8">
+            <div className="flex flex-col gap-4 lg:flex-row xl:gap-6">
               {/* Sidebar */}
               <aside className="shrink-0 lg:sticky lg:top-20 lg:w-60 xl:w-64 lg:self-start">
                 {/* Mobile: horizontal scroll tabs */}
@@ -613,7 +760,7 @@ export default function ConfiguracionPage() {
                 </div>
 
                 {/* Desktop: vertical sidebar */}
-                <nav className="panel-base hidden lg:block rounded-xl overflow-hidden">
+                <nav className="panel-base hidden overflow-hidden rounded-[1.35rem] lg:block">
                   {TABS.map((tab) => {
                     const Icon = tab.icon;
                     return (
@@ -645,38 +792,75 @@ export default function ConfiguracionPage() {
 
               {/* Tab Content */}
               <div className="flex-1 min-w-0">
+                <div className="mb-3 flex flex-col gap-2 sm:mb-4 xl:flex-row xl:items-center xl:justify-between">
+                  <div className="min-w-0 flex-1">
+                    <p className="section-eyebrow text-primary/80">{TABS.find((tab) => tab.id === activeTab)?.label}</p>
+                    <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                      <h2 className="font-['Newsreader'] text-[1.35rem] font-bold leading-none tracking-[-0.04em] text-on-surface sm:text-[1.55rem]">
+                        {activeTabMeta.title}
+                      </h2>
+                      <p className="max-w-2xl text-[13px] leading-5 text-on-surface/50">{activeTabMeta.description}</p>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2 xl:justify-end">
+                    <div className="rounded-xl border border-[rgba(79,70,51,0.15)] bg-surface px-3 py-1.5">
+                      <p className="text-[10px] uppercase tracking-[0.18em] text-on-surface/38">Cuenta</p>
+                      <p className="mt-1 max-w-[18rem] truncate text-xs font-medium text-on-surface">{profile?.email || "Sin email"}</p>
+                    </div>
+                    <div className="rounded-xl border border-[rgba(79,70,51,0.15)] bg-surface px-3 py-1.5">
+                      <p className="text-[10px] uppercase tracking-[0.18em] text-on-surface/38">Organización</p>
+                      <p className="mt-1 max-w-[12rem] truncate text-xs font-medium text-on-surface">{org?.name || "Sin organización"}</p>
+                    </div>
+                    {activeTab === "perfil" && (
+                      <button
+                        type="button"
+                        onClick={() => setIsPasswordPanelOpen((prev) => !prev)}
+                        className="inline-flex items-center gap-2 rounded-xl border border-[rgba(79,70,51,0.15)] bg-surface px-3 py-2 text-xs font-medium text-on-surface/65 transition-colors hover:border-primary/30 hover:text-on-surface"
+                      >
+                        <Lock className="h-3.5 w-3.5 text-primary" />
+                        {isPasswordPanelOpen ? "Ocultar clave" : "Cambiar clave"}
+                        {isPasswordPanelOpen ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                      </button>
+                    )}
+                  </div>
+                </div>
+
                 {/* --- PERFIL TAB --- */}
                 {activeTab === "perfil" && (
                   <div className="space-y-4">
-                    <div className="panel-base rounded-xl p-6">
-                      <h2 className="font-['Newsreader'] text-lg font-bold text-on-surface mb-5 flex items-center gap-2">
-                        <User className="w-4 h-4 text-primary" />
-                        Informacion del perfil
-                      </h2>
+                    <DisclosureCard
+                      icon={<User className="w-4 h-4" />}
+                      title="Información del perfil"
+                      description="Editá tu identidad visible dentro del sistema."
+                      open={isProfileInfoOpen}
+                      onToggle={() => setIsProfileInfoOpen((prev) => !prev)}
+                    >
                       <form onSubmit={handleSaveProfile} className="space-y-4">
-                        <div>
-                          <label className="block text-xs uppercase tracking-widest text-on-surface-variant mb-1.5">
-                            Correo electronico
-                          </label>
-                          <input
-                            type="email"
-                            value={profile?.email || ""}
-                            readOnly
-                            className="w-full bg-surface border border-transparent rounded-lg px-3 py-3 text-sm text-on-surface/40 cursor-not-allowed"
-                          />
-                          <p className="text-[10px] text-on-surface/30 mt-1">El email no puede ser modificado</p>
-                        </div>
-                        <div>
-                          <label className="block text-xs uppercase tracking-widest text-on-surface-variant mb-1.5">
-                            Nombre
-                          </label>
-                          <input
-                            type="text"
-                            value={profileName}
-                            onChange={(e) => setProfileName(e.target.value)}
-                            placeholder="Tu nombre completo"
-                             className="control-surface w-full rounded-xl px-3 py-3 text-sm text-on-surface placeholder-on-surface/30 focus:outline-none focus:border-primary transition-colors"
-                          />
+                        <div className="grid gap-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
+                          <div>
+                            <label className={labelClassName}>
+                              Correo electronico
+                            </label>
+                            <input
+                              type="email"
+                              value={profile?.email || ""}
+                              readOnly
+                              className={readonlyClassName}
+                            />
+                            <p className="mt-1 text-[10px] text-on-surface/30">El email no puede ser modificado</p>
+                          </div>
+                          <div>
+                            <label className={labelClassName}>
+                              Nombre
+                            </label>
+                            <input
+                              type="text"
+                              value={profileName}
+                              onChange={(e) => setProfileName(e.target.value)}
+                              placeholder="Tu nombre completo"
+                              className={inputClassName}
+                            />
+                          </div>
                         </div>
                         <div className="flex justify-end">
                           <button
@@ -689,84 +873,95 @@ export default function ConfiguracionPage() {
                           </button>
                         </div>
                       </form>
-                    </div>
+                    </DisclosureCard>
 
-                    <div className="panel-base rounded-xl p-6">
-                      <h2 className="font-['Newsreader'] text-lg font-bold text-on-surface mb-5 flex items-center gap-2">
-                        <Lock className="w-4 h-4 text-primary" />
-                        Cambiar contrasena
-                      </h2>
-                      <form onSubmit={handleChangePassword} className="space-y-4">
-                        <div>
-                          <label className="block text-xs uppercase tracking-widest text-on-surface-variant mb-1.5">
-                            Contrasena actual
-                          </label>
-                          <div className="relative">
+                    <DisclosureCard
+                      icon={<Lock className="w-4 h-4" />}
+                      title="Cambiar contraseña"
+                      description="Abrilo solo cuando realmente necesites actualizar tu clave."
+                      open={isPasswordPanelOpen}
+                      onToggle={() => setIsPasswordPanelOpen((prev) => !prev)}
+                    >
+                        <form onSubmit={handleChangePassword} className="space-y-4">
+                          <div className="grid gap-4 lg:grid-cols-2">
+                            <div>
+                              <label className={labelClassName}>
+                                Contrasena actual
+                              </label>
+                              <div className="relative">
+                                <input
+                                  type={showCurrentPw ? "text" : "password"}
+                                  value={currentPassword}
+                                  onChange={(e) => setCurrentPassword(e.target.value)}
+                                  placeholder="••••••••"
+                                  className={`${inputClassName} pr-10`}
+                                  required
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => setShowCurrentPw(!showCurrentPw)}
+                                  className="absolute right-3 top-1/2 -translate-y-1/2 text-on-surface/40 hover:text-on-surface transition-colors"
+                                >
+                                  {showCurrentPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                </button>
+                              </div>
+                            </div>
+                            <div>
+                              <label className={labelClassName}>
+                                Nueva contrasena
+                              </label>
+                              <div className="relative">
+                                <input
+                                  type={showNewPw ? "text" : "password"}
+                                  value={newPassword}
+                                  onChange={(e) => setNewPassword(e.target.value)}
+                                  placeholder="Minimo 8 caracteres"
+                                  className={`${inputClassName} pr-10`}
+                                  required
+                                  minLength={8}
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => setShowNewPw(!showNewPw)}
+                                  className="absolute right-3 top-1/2 -translate-y-1/2 text-on-surface/40 hover:text-on-surface transition-colors"
+                                >
+                                  {showNewPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                          <div>
+                            <label className={labelClassName}>
+                              Confirmar nueva contrasena
+                            </label>
                             <input
-                              type={showCurrentPw ? "text" : "password"}
-                              value={currentPassword}
-                              onChange={(e) => setCurrentPassword(e.target.value)}
-                              placeholder="••••••••"
-                              className="control-surface w-full rounded-xl px-3 py-3 pr-10 text-sm text-on-surface placeholder-on-surface/30 focus:outline-none focus:border-primary transition-colors"
+                              type="password"
+                              value={confirmPassword}
+                              onChange={(e) => setConfirmPassword(e.target.value)}
+                              placeholder="Repite la nueva contrasena"
+                              className={inputClassName}
                               required
                             />
+                          </div>
+                          <div className="flex justify-end gap-2">
                             <button
                               type="button"
-                              onClick={() => setShowCurrentPw(!showCurrentPw)}
-                              className="absolute right-3 top-1/2 -translate-y-1/2 text-on-surface/40 hover:text-on-surface transition-colors"
+                              onClick={() => setIsPasswordPanelOpen(false)}
+                              className="rounded-xl border border-[rgba(79,70,51,0.15)] px-4 py-2.5 text-sm text-on-surface/55 transition-colors hover:text-on-surface"
                             >
-                              {showCurrentPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                              Cancelar
                             </button>
-                          </div>
-                        </div>
-                        <div>
-                          <label className="block text-xs uppercase tracking-widest text-on-surface-variant mb-1.5">
-                            Nueva contrasena
-                          </label>
-                          <div className="relative">
-                            <input
-                              type={showNewPw ? "text" : "password"}
-                              value={newPassword}
-                              onChange={(e) => setNewPassword(e.target.value)}
-                              placeholder="Minimo 8 caracteres"
-                              className="control-surface w-full rounded-xl px-3 py-3 pr-10 text-sm text-on-surface placeholder-on-surface/30 focus:outline-none focus:border-primary transition-colors"
-                              required
-                              minLength={8}
-                            />
                             <button
-                              type="button"
-                              onClick={() => setShowNewPw(!showNewPw)}
-                              className="absolute right-3 top-1/2 -translate-y-1/2 text-on-surface/40 hover:text-on-surface transition-colors"
+                              type="submit"
+                              disabled={savingPassword || !currentPassword || !newPassword || !confirmPassword}
+                              className="bg-gradient-to-br from-primary to-primary-container disabled:opacity-40 text-on-primary rounded-lg px-5 py-2.5 text-sm font-bold flex items-center gap-2 transition-opacity"
                             >
-                              {showNewPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                              {savingPassword ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Lock className="w-3.5 h-3.5" />}
+                              Actualizar contrasena
                             </button>
                           </div>
-                        </div>
-                        <div>
-                          <label className="block text-xs uppercase tracking-widest text-on-surface-variant mb-1.5">
-                            Confirmar nueva contrasena
-                          </label>
-                          <input
-                            type="password"
-                            value={confirmPassword}
-                            onChange={(e) => setConfirmPassword(e.target.value)}
-                            placeholder="Repite la nueva contrasena"
-                            className="w-full bg-[#35343a] border border-transparent rounded-lg px-3 py-3 text-sm text-on-surface placeholder-on-surface/30 focus:outline-none focus:border-primary transition-colors"
-                            required
-                          />
-                        </div>
-                        <div className="flex justify-end">
-                          <button
-                            type="submit"
-                            disabled={savingPassword || !currentPassword || !newPassword || !confirmPassword}
-                            className="bg-gradient-to-br from-primary to-primary-container disabled:opacity-40 text-on-primary rounded-lg px-5 py-2.5 text-sm font-bold flex items-center gap-2 transition-opacity"
-                          >
-                            {savingPassword ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Lock className="w-3.5 h-3.5" />}
-                            Actualizar contrasena
-                          </button>
-                        </div>
-                      </form>
-                    </div>
+                        </form>
+                    </DisclosureCard>
                   </div>
                 )}
 
@@ -775,14 +970,16 @@ export default function ConfiguracionPage() {
                   <div className="space-y-4">
                     {org ? (
                       <>
-                        <div className="bg-surface-container-low border border-[rgba(79,70,51,0.15)] rounded-lg p-6">
-                          <h2 className="font-['Newsreader'] text-lg font-bold text-on-surface mb-5 flex items-center gap-2">
-                            <Building2 className="w-4 h-4 text-primary" />
-                            Datos de la organizacion
-                          </h2>
+                        <DisclosureCard
+                          icon={<Building2 className="w-4 h-4" />}
+                          title="Datos de la organización"
+                          description="Nombre, slug y plan activo del equipo."
+                          open={isOrgInfoOpen}
+                          onToggle={() => setIsOrgInfoOpen((prev) => !prev)}
+                        >
                           <form onSubmit={handleSaveOrg} className="space-y-4">
                             <div>
-                              <label className="block text-xs uppercase tracking-widest text-on-surface-variant mb-1.5">
+                              <label className={labelClassName}>
                                 Nombre de la organizacion
                               </label>
                               <input
@@ -790,25 +987,25 @@ export default function ConfiguracionPage() {
                                 value={orgName}
                                 onChange={(e) => setOrgName(e.target.value)}
                                 placeholder="Nombre de tu organizacion"
-                                className="w-full bg-[#35343a] border border-transparent rounded-lg px-3 py-3 text-sm text-on-surface placeholder-on-surface/30 focus:outline-none focus:border-primary transition-colors"
+                                className={inputClassName}
                                 required
                               />
                             </div>
                             <div>
-                              <label className="block text-xs uppercase tracking-widest text-on-surface-variant mb-1.5">
+                              <label className={labelClassName}>
                                 Identificador (slug)
                               </label>
                               <input
                                 type="text"
                                 value={org.slug}
                                 readOnly
-                                className="w-full bg-surface border border-transparent rounded-lg px-3 py-3 text-sm text-on-surface/40 cursor-not-allowed"
+                                className={readonlyClassName}
                               />
                               <p className="text-[10px] text-on-surface/30 mt-1">El slug no puede ser modificado</p>
                             </div>
                             <div>
-                              <label className="block text-xs uppercase tracking-widest text-on-surface-variant mb-1.5">Plan</label>
-                              <div className="flex items-center gap-2">
+                              <label className={labelClassName}>Plan</label>
+                              <div className="flex items-center gap-2 rounded-xl border border-[rgba(79,70,51,0.15)] bg-surface px-3 py-3">
                                 <span className="text-sm text-on-surface capitalize">{org.plan}</span>
                                 <Link href="/billing" className="text-xs text-primary hover:text-primary-container transition-colors">
                                   Cambiar plan
@@ -826,16 +1023,16 @@ export default function ConfiguracionPage() {
                               </button>
                             </div>
                           </form>
-                        </div>
+                        </DisclosureCard>
 
-                        <div className="bg-[#93000a]/10 border border-[#ffb4ab]/20 rounded-lg p-6">
-                          <h2 className="font-['Newsreader'] text-base font-bold mb-2 flex items-center gap-2 text-[#ffb4ab]">
-                            <AlertTriangle className="w-4 h-4" />
-                            Zona de peligro
-                          </h2>
-                          <p className="text-xs text-on-surface/40 mb-4">
-                            Estas acciones son irreversibles. Procede con cuidado.
-                          </p>
+                        <DisclosureCard
+                          icon={<AlertTriangle className="w-4 h-4 text-[#ffb4ab]" />}
+                          title="Zona de peligro"
+                          description="Acciones sensibles e irreversibles sobre tu organización."
+                          open={isOrgDangerOpen}
+                          onToggle={() => setIsOrgDangerOpen((prev) => !prev)}
+                          tone="danger"
+                        >
                           <button
                             onClick={async () => {
                               if (!org || !profile) return;
@@ -859,10 +1056,10 @@ export default function ConfiguracionPage() {
                             <LogOut className="w-3.5 h-3.5" />
                             Abandonar organizacion
                           </button>
-                        </div>
+                        </DisclosureCard>
                       </>
                     ) : (
-                      <div className="bg-surface-container-low border border-[rgba(79,70,51,0.15)] rounded-lg p-8 text-center">
+                      <SectionCard className="py-8 text-center">
                         <Building2 className="w-10 h-10 text-on-surface/10 mx-auto mb-3" />
                         <p className="text-sm text-on-surface/40 mb-4">No perteneces a ninguna organizacion</p>
                         <Link
@@ -872,150 +1069,142 @@ export default function ConfiguracionPage() {
                           <Building2 className="w-4 h-4" />
                           Crear organizacion
                         </Link>
-                      </div>
+                      </SectionCard>
                     )}
                   </div>
                 )}
 
                 {/* --- PREFERENCIAS TAB --- */}
                 {activeTab === "preferencias" && (
-                  <div className="space-y-4">
-                    <div className="bg-surface-container-low border border-[rgba(79,70,51,0.15)] rounded-lg p-6">
-                      <h2 className="font-['Newsreader'] text-lg font-bold text-on-surface mb-1 flex items-center gap-2">
-                        <Sliders className="w-4 h-4 text-primary" />
-                        Modelo de IA predeterminado
-                      </h2>
-                      <p className="text-[11px] text-on-surface/40 mb-5">
-                        Selecciona el modelo que se usará por defecto al iniciar una consulta.
-                      </p>
+                  <div className="grid gap-4 xl:grid-cols-[minmax(0,1.65fr)_23rem] xl:items-stretch">
+                    <SectionCard className="h-full">
+                      <SectionHeader
+                        icon={<Sliders className="w-4 h-4" />}
+                        title="Studio de preferencias"
+                        description="Elegí un proveedor primero y después seleccioná el modelo que querés priorizar. Mostramos una sola escena a la vez para que no tengas que scrollear." 
+                      />
 
-                      <div className="space-y-4">
-                        {(() => {
-                          const providerOrder = ["google", "groq", "deepseek", "openai", "anthropic", "xai"];
-                          const providerLabels: Record<string, { name: string; color: string }> = {
-                            google: { name: "Google (Gemini)", color: "text-blue-400" },
-                            groq: { name: "Groq", color: "text-orange-400" },
-                            deepseek: { name: "DeepSeek", color: "text-cyan-400" },
-                            openai: { name: "OpenAI", color: "text-green-400" },
-                            anthropic: { name: "Anthropic (Claude)", color: "text-amber-400" },
-                          };
-                          const tierBadge = (tier: string) => {
-                            const styles: Record<string, string> = {
-                              free: "bg-[#1a3a2a] text-[#6ee7b7]",
-                              standard: "bg-secondary-container text-secondary",
-                              pro: "bg-[#2d1f4a] text-[#c4b5fd]",
-                            };
-                            const labels: Record<string, string> = {
-                              free: "Gratis",
-                              standard: "Estándar",
-                              pro: "Avanzado",
-                            };
-                            return (
-                              <span className={`text-[9px] uppercase tracking-widest font-bold px-1.5 py-0.5 rounded ${styles[tier] || ""}`}>
-                                {labels[tier] || tier}
-                              </span>
-                            );
-                          };
+                      <div className="mb-4 flex flex-wrap gap-2">
+                        {PROVIDER_ORDER.map((providerId) => {
+                          const info = PROVIDER_LABELS[providerId];
+                          const hasModels = MODEL_CATALOG.some((model) => model.provider === providerId);
+                          if (!info || !hasModels) return null;
+                          const isActive = visibleProvider === providerId;
+                          const hasKey = configuredProviders.has(providerId);
 
-                          const configuredProviders = new Set(llmKeys.map(k => k.provider));
+                          return (
+                            <button
+                              key={providerId}
+                              type="button"
+                              onClick={() => setSelectedProvider(providerId)}
+                              className={`rounded-xl border px-3 py-2 text-left transition-all ${
+                                isActive
+                                  ? `bg-gradient-to-br ${info.tone} ${info.color}`
+                                  : "border-[rgba(79,70,51,0.15)] bg-surface text-on-surface/55 hover:text-on-surface"
+                              }`}
+                            >
+                              <div className="flex items-center gap-2">
+                                <span className={`h-2 w-2 rounded-full ${hasKey ? "bg-[#6ee7b7]" : "bg-on-surface/20"}`} />
+                                <span className="text-[11px] font-semibold uppercase tracking-[0.18em]">{info.name}</span>
+                              </div>
+                              <p className="mt-1 text-[10px] text-on-surface/40">{hasKey ? "Configurado" : "Sin API key"}</p>
+                            </button>
+                          );
+                        })}
+                      </div>
 
-                          return providerOrder.map((providerId) => {
-                            const info = providerLabels[providerId];
-                            if (!info) return null;
-                            const models = MODEL_CATALOG.filter(m => m.provider === providerId);
-                            if (models.length === 0) return null;
-                            const hasKey = configuredProviders.has(providerId);
+                      <div className="grid gap-3 lg:grid-cols-2">
+                        {visibleModels.map((model) => {
+                          const isSelected = defaultModel === model.id;
+                          const providerInfo = PROVIDER_LABELS[visibleProvider];
+                          const hasKey = configuredProviders.has(visibleProvider);
 
-                            return (
-                              <div key={providerId}>
-                                <div className="flex items-center gap-2 mb-2">
-                                  <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${hasKey ? "bg-[#6ee7b7]" : "bg-[#35343a]"}`} />
-                                  <span className={`text-xs font-bold uppercase tracking-widest ${info.color}`}>{info.name}</span>
-                                  {!hasKey && (
-                                    <span className="text-[9px] text-on-surface/20">— sin API key</span>
-                                  )}
+                          return (
+                            <label
+                              key={model.id}
+                              className={`group flex min-h-[10.5rem] cursor-pointer flex-col rounded-[1.25rem] border p-4 transition-all ${
+                                isSelected
+                                  ? "border-primary/30 bg-primary/10 shadow-[0_10px_30px_rgba(201,169,97,0.08)]"
+                                  : "border-[rgba(79,70,51,0.15)] bg-surface hover:border-primary/20 hover:bg-surface-container"
+                              } ${!hasKey ? "opacity-35 cursor-not-allowed" : ""}`}
+                            >
+                              <input
+                                type="radio"
+                                name="defaultModel"
+                                value={model.id}
+                                checked={isSelected}
+                                disabled={!hasKey}
+                                onChange={(e) => setDefaultModel(e.target.value)}
+                                className="sr-only"
+                              />
+                              <div className="flex items-start justify-between gap-3">
+                                <div>
+                                  <p className={`text-[10px] font-semibold uppercase tracking-[0.18em] ${providerInfo?.color || "text-primary"}`}>{providerInfo?.name}</p>
+                                  <h3 className="mt-2 text-xl font-semibold tracking-[-0.03em] text-on-surface">{model.name}</h3>
                                 </div>
-
-                                <div className="space-y-1 pl-3.5">
-                                  {models.map((model) => {
-                                    const isSelected = defaultModel === model.id;
-                                    return (
-                                      <label
-                                        key={model.id}
-                                        className={`flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer transition-colors ${
-                                          isSelected
-                                            ? "bg-primary/10 border border-primary/20"
-                                            : "border border-transparent hover:bg-surface-container"
-                                        } ${!hasKey ? "opacity-30 cursor-not-allowed" : ""}`}
-                                      >
-                                        <input
-                                          type="radio"
-                                          name="defaultModel"
-                                          value={model.id}
-                                          checked={isSelected}
-                                          disabled={!hasKey}
-                                          onChange={(e) => setDefaultModel(e.target.value)}
-                                          className="sr-only"
-                                        />
-                                        <div className={`w-3.5 h-3.5 rounded-full border-2 shrink-0 flex items-center justify-center ${
-                                          isSelected ? "border-primary" : "border-[#35343a]"
-                                        }`}>
-                                          {isSelected && <div className="w-1.5 h-1.5 rounded-full bg-primary" />}
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                          <span className={`text-sm ${isSelected ? "text-on-surface font-medium" : "text-on-surface/60"}`}>
-                                            {model.name}
-                                          </span>
-                                        </div>
-                                        <div className="flex items-center gap-2 shrink-0">
-                                          {tierBadge(model.tier)}
-                                        </div>
-                                        <span className="text-[10px] text-on-surface/25 max-w-[140px] truncate hidden sm:block">
-                                          {model.description}
-                                        </span>
-                                      </label>
-                                    );
-                                  })}
+                                <div className={`flex h-5 w-5 items-center justify-center rounded-full border-2 ${isSelected ? "border-primary" : "border-on-surface/20"}`}>
+                                  {isSelected && <div className="h-2 w-2 rounded-full bg-primary" />}
                                 </div>
                               </div>
-                            );
-                          });
-                        })()}
+                              <p className="mt-3 line-clamp-2 text-sm leading-6 text-on-surface/55">{model.description}</p>
+                              <div className="mt-auto flex items-center justify-between gap-3 pt-4">
+                                <span className={`rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.16em] ${tierBadgeStyles[model.tier] || "bg-surface-container text-on-surface/55"}`}>
+                                  {tierBadgeLabels[model.tier] || model.tier}
+                                </span>
+                                <span className="text-[11px] text-on-surface/38">{hasKey ? "Listo para usar" : "Conectá una API key"}</span>
+                              </div>
+                            </label>
+                          );
+                        })}
                       </div>
-                    </div>
+                    </SectionCard>
 
-                    <div className="bg-surface-container-low border border-[rgba(79,70,51,0.15)] rounded-lg p-6">
-                      <form onSubmit={handleSavePreferences} className="space-y-5">
+                    <SectionCard className="flex h-full flex-col bg-[radial-gradient(circle_at_top,rgba(201,169,97,0.10),transparent_38%),linear-gradient(180deg,rgba(255,255,255,0.02),rgba(255,255,255,0))]">
+                      <SectionHeader
+                        icon={<Brain className="w-4 h-4" />}
+                        title="Tu configuración actual"
+                        description="Un resumen corto para que tomes la decisión y guardes sin salir de la escena." 
+                      />
+
+                      <form onSubmit={handleSavePreferences} className="flex h-full flex-col gap-4">
+                        <div className="rounded-2xl border border-[rgba(79,70,51,0.15)] bg-surface px-4 py-4">
+                          <p className="text-[10px] uppercase tracking-[0.18em] text-on-surface/40">Modelo elegido</p>
+                          <p className="mt-2 text-lg font-semibold text-on-surface">{selectedModelMeta?.name || "Sin selección"}</p>
+                          <p className="mt-1 text-sm text-on-surface/50">{PROVIDER_LABELS[selectedModelMeta?.provider || visibleProvider]?.name || "Proveedor"}</p>
+                        </div>
+
                         <div>
-                          <label className="block text-xs uppercase tracking-widest text-on-surface-variant mb-1.5">
-                            Área legal predeterminada
-                          </label>
+                          <label className={labelClassName}>Área legal predeterminada</label>
                           <select
                             value={defaultArea}
                             onChange={(e) => setDefaultArea(e.target.value)}
-                            className="w-full bg-[#35343a] border border-transparent rounded-lg px-3 py-3 text-sm text-on-surface focus:outline-none focus:border-primary transition-colors"
+                            className={inputClassName}
                           >
                             {LEGAL_AREAS.map((a) => (
                               <option key={a.id} value={a.id}>{a.name}</option>
                             ))}
                           </select>
-                          <p className="text-[10px] text-on-surface/30 mt-1">
-                            Las consultas se dirigirán a esta área por defecto
-                          </p>
+                          <p className="mt-1 text-[10px] text-on-surface/30">Las consultas nuevas se abrirán con esta orientación por defecto.</p>
                         </div>
 
-                        <div>
-                          <label className="block text-xs uppercase tracking-widest text-on-surface-variant mb-1.5">
-                            Tema de la interfaz
-                          </label>
-                          <div className="flex items-center gap-3 py-3 px-3 bg-surface border border-transparent rounded-lg">
-                            <div className="w-4 h-4 rounded-full bg-[#0e0e14] border border-[rgba(79,70,51,0.15)]" />
-                            <span className="text-sm text-on-surface">Modo oscuro</span>
-                            <span className="ml-auto text-[10px] text-on-surface/30">Siempre activo</span>
+                        <div className="rounded-xl border border-[rgba(79,70,51,0.15)] bg-surface px-3 py-3">
+                          <div className="flex items-center gap-3">
+                            <div className="h-4 w-4 rounded-full border border-[rgba(79,70,51,0.15)] bg-[#0e0e14]" />
+                            <div>
+                              <p className="text-sm font-medium text-on-surface">Tema activo</p>
+                              <p className="text-[11px] text-on-surface/40">Modo oscuro permanente</p>
+                            </div>
                           </div>
                         </div>
 
-                        <div className="flex justify-end pt-2">
+                        <div className="rounded-xl border border-dashed border-[rgba(79,70,51,0.15)] px-3 py-3 text-sm leading-6 text-on-surface/50">
+                          {configuredProviders.has(visibleProvider)
+                            ? "Tu proveedor seleccionado ya tiene credenciales activas. Solo te falta confirmar la combinación que querés usar por defecto."
+                            : "Este proveedor todavía no tiene API key conectada. Podés configurarla desde la pestaña API Keys."}
+                        </div>
+
+                        <div className="mt-auto flex items-center justify-between gap-3 pt-2">
+                          <div className="text-xs text-on-surface/35">Se guarda en tu sesión y futuras consultas.</div>
                           <button
                             type="submit"
                             className="bg-gradient-to-br from-primary to-primary-container text-on-primary rounded-lg px-5 py-2.5 text-sm font-bold flex items-center gap-2 transition-opacity"
@@ -1025,14 +1214,14 @@ export default function ConfiguracionPage() {
                           </button>
                         </div>
                       </form>
-                    </div>
+                    </SectionCard>
                   </div>
                 )}
 
                 {/* --- MEMORIA TAB --- */}
                 {activeTab === "memoria" && (
                   <div className="space-y-4">
-                    <div className="bg-surface-container-low border border-[rgba(79,70,51,0.15)] rounded-lg p-6">
+                    <SectionCard className="py-4 sm:py-5">
                       <div className="flex items-start justify-between gap-4">
                         <div>
                           <h2 className="font-['Newsreader'] text-lg font-bold text-on-surface flex items-center gap-2 mb-1">
@@ -1063,12 +1252,15 @@ export default function ConfiguracionPage() {
                           <span>{memoriesData.total} memorias en total</span>
                         </div>
                       )}
-                    </div>
+                    </SectionCard>
 
-                    <div className="bg-surface-container-low border border-[rgba(79,70,51,0.15)] rounded-lg p-6">
-                      <h3 className="text-xs uppercase tracking-widest text-on-surface-variant mb-4">
-                        Lo que TukiJuris sabe sobre vos
-                      </h3>
+                    <DisclosureCard
+                      icon={<Brain className="w-4 h-4" />}
+                      title="Memorias guardadas"
+                      description="Abrí este bloque para revisar y depurar lo que el sistema recuerda."
+                      open={isMemoryListOpen}
+                      onToggle={() => setIsMemoryListOpen((prev) => !prev)}
+                    >
 
                       {loadingMemories ? (
                         <div className="flex items-center justify-center py-10 gap-2">
@@ -1132,18 +1324,17 @@ export default function ConfiguracionPage() {
                           ))}
                         </div>
                       )}
-                    </div>
+                    </DisclosureCard>
 
                     {memoriesData && memoriesData.total > 0 && (
-                      <div className="bg-[#93000a]/10 border border-[#ffb4ab]/20 rounded-lg p-6">
-                        <h3 className="font-['Newsreader'] text-base font-bold mb-2 flex items-center gap-2 text-[#ffb4ab]">
-                          <AlertTriangle className="w-4 h-4" />
-                          Zona de peligro
-                        </h3>
-                        <p className="text-xs text-on-surface/40 mb-4">
-                          Borrar toda la memoria eliminara permanentemente todos los datos que
-                          TukiJuris aprendio sobre vos.
-                        </p>
+                      <DisclosureCard
+                        icon={<AlertTriangle className="w-4 h-4 text-[#ffb4ab]" />}
+                        title="Zona de peligro"
+                        description="Borrado total de memoria personal almacenada."
+                        open={isMemoryDangerOpen}
+                        onToggle={() => setIsMemoryDangerOpen((prev) => !prev)}
+                        tone="danger"
+                      >
                         <button
                           onClick={handleClearAllMemories}
                           disabled={clearingMemories}
@@ -1156,7 +1347,7 @@ export default function ConfiguracionPage() {
                           )}
                           Borrar toda la memoria
                         </button>
-                      </div>
+                      </DisclosureCard>
                     )}
                   </div>
                 )}
@@ -1164,12 +1355,14 @@ export default function ConfiguracionPage() {
                 {/* --- API KEYS TAB --- */}
                 {activeTab === "apikeys" && (
                   <div className="space-y-4">
-                    <div className="bg-surface-container-low border border-[rgba(79,70,51,0.15)] rounded-lg p-6 space-y-4">
-                      <h2 className="font-['Newsreader'] text-lg font-bold text-on-surface flex items-center gap-2">
-                        <Key className="w-4 h-4 text-primary" />
-                        Conecta tu Inteligencia Artificial
-                      </h2>
-                      <p className="text-xs text-on-surface/40 leading-relaxed">
+                    <DisclosureCard
+                      icon={<Key className="w-4 h-4" />}
+                      title="Conecta tu Inteligencia Artificial"
+                      description="Resumen de proveedores y estado actual de tus claves."
+                      open={isApiOverviewOpen}
+                      onToggle={() => setIsApiOverviewOpen((prev) => !prev)}
+                    >
+                      <p className="text-xs text-on-surface/40 leading-relaxed -mt-2">
                         TukiJuris te permite elegir y conectar tu propio proveedor de IA. Solo necesitas
                         una clave API de al menos un proveedor para empezar a consultar. El consumo de tokens
                         se cobra directamente por el proveedor que elijas, no por TukiJuris.
@@ -1192,7 +1385,7 @@ export default function ConfiguracionPage() {
                           );
                         })()}
                       </div>
-                    </div>
+                    </DisclosureCard>
 
                     {loadingLlmKeys ? (
                       <div className="flex items-center justify-center py-10 gap-2">
@@ -1200,21 +1393,28 @@ export default function ConfiguracionPage() {
                         <span className="text-sm text-on-surface/40">Cargando claves...</span>
                       </div>
                     ) : (
-                      <div className="space-y-3">
-                        {LLM_PROVIDERS.map((provider) => {
-                          const providerKeys = llmKeys.filter((k) => k.provider === provider.id);
-                          const isAdding = addingProvider === provider.id;
-                          const isActive = providerKeys.length > 0;
+                       <div className="space-y-3">
+                         {LLM_PROVIDERS.map((provider) => {
+                           const providerKeys = llmKeys.filter((k) => k.provider === provider.id);
+                           const isAdding = addingProvider === provider.id;
+                           const isActive = providerKeys.length > 0;
+                           const isExpanded = expandedProviderId === provider.id;
 
-                          return (
-                            <div
+                           return (
+                             <div
                               key={provider.id}
-                              className={`bg-surface-container-low border rounded-lg overflow-hidden transition-colors ${
+                              className={`panel-base border rounded-[1.35rem] overflow-hidden transition-colors ${
                                 isActive ? `${provider.accentBorder}` : "border-[rgba(79,70,51,0.15)]"
                               }`}
                             >
-                              <div className="px-5 py-4 flex items-start justify-between gap-3">
-                                <div className="flex-1 min-w-0">
+                               <div className="flex items-start justify-between gap-3 px-5 py-4">
+                                <button
+                                  type="button"
+                                  onClick={() => setExpandedProviderId((prev) => (prev === provider.id ? null : provider.id))}
+                                  className="flex flex-1 items-start gap-3 text-left"
+                                  aria-expanded={isExpanded}
+                                >
+                                  <div className="flex-1 min-w-0">
                                   <div className="flex items-center gap-2 mb-1">
                                     <span className={`w-2 h-2 rounded-full shrink-0 ${isActive ? "bg-[#6ee7b7]" : "bg-[#35343a]"}`} />
                                     <span className={`text-sm font-bold ${isActive ? provider.accent : "text-on-surface"}`}>
@@ -1238,26 +1438,27 @@ export default function ConfiguracionPage() {
                                     ))}
                                   </div>
                                 </div>
-                                <a
-                                  href={provider.docsUrl}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="text-[10px] text-on-surface/30 hover:text-on-surface flex items-center gap-1 shrink-0 transition-colors"
-                                >
-                                  <ExternalLink className="w-3 h-3" />
-                                  Obtener clave
-                                </a>
-                              </div>
+                                </button>
+                                  <a
+                                     href={provider.docsUrl}
+                                     target="_blank"
+                                     rel="noopener noreferrer"
+                                     className="text-[10px] text-on-surface/30 hover:text-on-surface flex items-center gap-1 shrink-0 transition-colors"
+                                  >
+                                     <ExternalLink className="w-3 h-3" />
+                                     Obtener clave
+                                  </a>
+                               </div>
 
-                              {provider.note && (
-                                <div className="mx-5 mb-3 flex items-start gap-2 text-[11px] text-blue-300/80 bg-blue-500/5 border border-blue-500/10 rounded-lg px-3 py-2">
-                                  <Shield className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-                                  <span>{provider.note}</span>
-                                </div>
-                              )}
+                               {isExpanded && provider.note && (
+                                 <div className="mx-5 mb-3 flex items-start gap-2 text-[11px] text-blue-300/80 bg-blue-500/5 border border-blue-500/10 rounded-lg px-3 py-2">
+                                    <Shield className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                                    <span>{provider.note}</span>
+                                 </div>
+                               )}
 
-                              {providerKeys.length > 0 && (
-                                <div className="border-t border-[rgba(79,70,51,0.15)]">
+                               {isExpanded && providerKeys.length > 0 && (
+                                 <div className="border-t border-[rgba(79,70,51,0.15)]">
                                   {providerKeys.map((key) => (
                                     <div key={key.id} className="flex items-center gap-3 px-5 py-3 border-b border-[rgba(79,70,51,0.08)] last:border-0">
                                       <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${
@@ -1317,10 +1518,10 @@ export default function ConfiguracionPage() {
                                     </div>
                                   )}
                                 </div>
-                              )}
+                               )}
 
-                              {!isAdding && (
-                                <div className={`px-5 py-3 flex items-center justify-between ${providerKeys.length > 0 ? "border-t border-[rgba(79,70,51,0.15)]" : ""}`}>
+                               {isExpanded && !isAdding && (
+                                 <div className={`px-5 py-3 flex items-center justify-between ${providerKeys.length > 0 ? "border-t border-[rgba(79,70,51,0.15)]" : ""}`}>
                                   {providerKeys.length === 0 && (
                                     <span className="text-xs text-on-surface/20">Sin clave configurada</span>
                                   )}
@@ -1337,10 +1538,10 @@ export default function ConfiguracionPage() {
                                     {providerKeys.length > 0 ? "Agregar otra clave" : "Agregar clave"}
                                   </button>
                                 </div>
-                              )}
+                               )}
 
-                              {isAdding && (
-                                <div className="px-5 py-4 space-y-3 border-t border-[rgba(79,70,51,0.15)]">
+                               {isExpanded && isAdding && (
+                                 <div className="px-5 py-4 space-y-3 border-t border-[rgba(79,70,51,0.15)]">
                                   <div>
                                     <label className="block text-xs uppercase tracking-widest text-on-surface-variant mb-1.5">
                                       API Key <span className="text-[#ffb4ab]">*</span>
@@ -1352,7 +1553,7 @@ export default function ConfiguracionPage() {
                                         onChange={(e) => setNewApiKey(e.target.value)}
                                         placeholder="sk-... / sk-ant-... / AIza..."
                                         autoFocus
-                                        className="w-full bg-surface border border-transparent rounded-lg px-3 py-3 pr-10 text-sm font-mono text-on-surface placeholder-on-surface/20 focus:outline-none focus:border-primary transition-colors"
+                                        className={`${inputClassName} pr-10 font-mono placeholder-on-surface/20`}
                                       />
                                       <button
                                         type="button"
@@ -1372,8 +1573,8 @@ export default function ConfiguracionPage() {
                                       value={newApiLabel}
                                       onChange={(e) => setNewApiLabel(e.target.value)}
                                       placeholder="Ej: Cuenta personal, Estudio jurídico..."
-                                      className="w-full bg-surface border border-transparent rounded-lg px-3 py-3 text-sm text-on-surface placeholder-on-surface/20 focus:outline-none focus:border-primary transition-colors"
-                                    />
+                                        className={`${inputClassName} placeholder-on-surface/20`}
+                                      />
                                   </div>
                                   <div className="flex items-center gap-2 justify-end pt-1">
                                     <button
@@ -1407,7 +1608,7 @@ export default function ConfiguracionPage() {
                       </div>
                     )}
 
-                    <div className="bg-surface-container-low border border-[rgba(79,70,51,0.15)] rounded-lg p-5 space-y-4">
+                    <SectionCard className="space-y-4">
                       <div className="flex items-start gap-2.5">
                         <Lock className="w-4 h-4 text-primary shrink-0 mt-0.5" />
                         <div className="space-y-1">
@@ -1428,7 +1629,7 @@ export default function ConfiguracionPage() {
                           </p>
                         </div>
                       </div>
-                    </div>
+                    </SectionCard>
                   </div>
                 )}
               </div>

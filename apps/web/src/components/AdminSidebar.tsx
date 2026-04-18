@@ -5,9 +5,6 @@ import { useState, useEffect } from "react";
 import {
   Scale,
   LayoutDashboard,
-  Users,
-  Building2,
-  CreditCard,
   Activity,
   BarChart3,
   Bell,
@@ -46,11 +43,12 @@ interface UserInfo {
 // Nav structure
 // ---------------------------------------------------------------------------
 
+// Dashboard nav. The Resumen page is the only admin section currently
+// implemented; CRUD for Usuarios / Organizaciones / Suscripciones is
+// scheduled for Semana 2 (admin CRUD sprint). Until then the broken
+// `?section=` links are removed so the sidebar reflects what actually exists.
 const NAV_DASHBOARD: NavItem[] = [
   { label: "Resumen", href: "/admin", icon: LayoutDashboard },
-  { label: "Usuarios", href: "/admin?section=users", icon: Users },
-  { label: "Organizaciones", href: "/admin?section=orgs", icon: Building2 },
-  { label: "Suscripciones", href: "/admin?section=subscriptions", icon: CreditCard },
 ];
 
 const NAV_SISTEMA: NavItem[] = [
