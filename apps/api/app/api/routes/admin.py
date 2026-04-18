@@ -1,32 +1,20 @@
 """Admin endpoints — system stats, user management, activity log, knowledge base."""
 
-from datetime import UTC, datetime, timedelta
+import uuid
+from datetime import UTC, datetime
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_user, get_db
+from app.api.deps import get_db
 from app.models.user import User
+from app.rbac.audit import AuditService
+from app.rbac.dependencies import require_permission
+from app.rbac.schemas import AuditLogEntry, AuditLogPage
 
 router = APIRouter(prefix="/admin", tags=["admin"])
-
-
-# ---------------------------------------------------------------------------
-# Shared dependency
-# ---------------------------------------------------------------------------
-
-async def require_admin(
-    current_user: User = Depends(get_current_user),
-) -> User:
-    """Dependency that enforces is_admin = True."""
-    if not current_user.is_admin:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Acceso restringido a administradores",
-        )
-    return current_user
 
 
 # ---------------------------------------------------------------------------
@@ -36,7 +24,7 @@ async def require_admin(
 @router.get("/stats")
 async def admin_stats(
     db: AsyncSession = Depends(get_db),
-    _admin: User = Depends(require_admin),
+    _: User = Depends(require_permission("reports:read")),
 ) -> dict[str, Any]:
     """System overview: user counts, document KB stats, query activity."""
     today_start = datetime.now(UTC).replace(hour=0, minute=0, second=0, microsecond=0)
@@ -103,7 +91,7 @@ async def admin_users(
     per_page: int = Query(20, ge=1, le=100, description="Items per page"),
     search: str | None = Query(None, description="Filter by email substring"),
     db: AsyncSession = Depends(get_db),
-    _admin: User = Depends(require_admin),
+    _: User = Depends(require_permission("users:read")),
 ) -> dict[str, Any]:
     """Paginated user list with organisation name and query count this month."""
     offset = (page - 1) * per_page
@@ -181,7 +169,7 @@ async def admin_activity(
     limit: int = Query(50, ge=1, le=200, description="Max records to return"),
     area: str | None = Query(None, description="Filter by legal area"),
     db: AsyncSession = Depends(get_db),
-    _admin: User = Depends(require_admin),
+    _: User = Depends(require_permission("reports:read")),
 ) -> dict[str, Any]:
     """Recent message activity log: user, area, agent, model, latency, timestamp."""
     where = "WHERE m.role = 'assistant'"
@@ -231,7 +219,7 @@ async def admin_activity(
 @router.get("/knowledge")
 async def admin_knowledge(
     db: AsyncSession = Depends(get_db),
-    _admin: User = Depends(require_admin),
+    _: User = Depends(require_permission("reports:read")),
 ) -> dict[str, Any]:
     """Detailed knowledge base stats: chunks by area, doc breakdown, embedding coverage."""
 
@@ -304,3 +292,49 @@ async def admin_knowledge(
             "coverage_pct": coverage_pct,
         },
     }
+
+
+# ---------------------------------------------------------------------------
+# GET /api/admin/audit-log
+# ---------------------------------------------------------------------------
+
+
+@router.get("/audit-log")
+async def admin_audit_log(
+    page: int = Query(1, ge=1, description="Page number (1-based)"),
+    page_size: int = Query(20, ge=1, le=100, description="Items per page"),
+    user_id: uuid.UUID | None = Query(None, description="Filter by actor user ID"),
+    action: str | None = Query(None, description="Filter by action (e.g. role.assign)"),
+    resource_type: str | None = Query(None, description="Filter by resource type"),
+    date_from: datetime | None = Query(None, description="Lower bound on created_at (inclusive)"),
+    date_to: datetime | None = Query(None, description="Upper bound on created_at (inclusive)"),
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_permission("audit_log:read")),
+) -> AuditLogPage:
+    """Paginated audit log. Requires audit_log:read permission."""
+    audit_svc = AuditService(db=db)
+
+    filters = {
+        k: v
+        for k, v in {
+            "user_id": user_id,
+            "action": action,
+            "resource_type": resource_type,
+            "date_from": date_from,
+            "date_to": date_to,
+        }.items()
+        if v is not None
+    }
+
+    items, total = await audit_svc.query_log(
+        page=page,
+        page_size=page_size,
+        filters=filters,
+    )
+
+    return AuditLogPage(
+        items=[AuditLogEntry.model_validate(item) for item in items],
+        total=total,
+        page=page,
+        page_size=page_size,
+    )

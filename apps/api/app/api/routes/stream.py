@@ -534,37 +534,87 @@ async def chat_stream(
     - done: Final metadata (citations, latency, conversation_id)
     - error: Error message
     """
-    # BYOK beta: resolve ONLY the user's own API key before streaming starts.
-    # No platform free-tier fallback is allowed while beta runs without
-    # platform-owned provider credentials.
-    user_api_key: str | None = None
-    if current_user is not None and body.model:
-        user_api_key = await get_user_keys_for_model(current_user.id, body.model, db)
-        if not user_api_key:
-            raise HTTPException(
-                status_code=400,
-                detail=(
-                    f"No tienes una API key configurada para el modelo '{body.model}'. "
-                    "Esta beta funciona con clave propia por usuario. Ve a Configuración → Mis API Keys para agregar tu clave del proveedor."
-                ),
-            )
-
-    # Daily query limit enforcement — checked before opening the stream
+    # ── Query limit enforcement (weekly for free, daily for paid) ──────────
     if current_user is not None:
-        limit_check = await usage_service.check_daily_limit(current_user.id, current_user.plan)
-        if not limit_check["allowed"]:
-            raise HTTPException(
-                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                detail=(
-                    f"Has alcanzado tu límite diario de {limit_check['daily_limit']} consultas. "
-                    f"Actualiza tu plan para continuar. "
-                    f"Usado: {limit_check['used_today']}/{limit_check['daily_limit']}"
-                ),
-                headers={
-                    "X-Daily-Limit": str(limit_check["daily_limit"]),
-                    "X-Daily-Used": str(limit_check["used_today"]),
-                },
-            )
+        plan = current_user.plan or "free"
+        from app.services.usage import PLAN_LIMITS
+        plan_config = PLAN_LIMITS.get(plan, PLAN_LIMITS["free"])
+
+        if plan == "free":
+            limit_check = await usage_service.check_weekly_limit(current_user.id, plan)
+            if not limit_check["allowed"]:
+                raise HTTPException(
+                    status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                    detail=(
+                        f"Has alcanzado tu límite semanal de {limit_check['weekly_limit']} consultas. "
+                        f"Se reinicia el lunes. Actualizá a Profesional para 30 consultas/día. "
+                        f"Usado: {limit_check['used_week']}/{limit_check['weekly_limit']}"
+                    ),
+                )
+        else:
+            limit_check = await usage_service.check_daily_limit(current_user.id, plan)
+            if not limit_check["allowed"]:
+                raise HTTPException(
+                    status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                    detail=(
+                        f"Has alcanzado tu límite diario de {limit_check['daily_limit']} consultas. "
+                        f"Usado: {limit_check['used_today']}/{limit_check['daily_limit']}"
+                    ),
+                )
+
+    # ── Model + API key resolution ───────────────────────────────────────
+    user_api_key: str | None = None
+    if current_user is not None:
+        plan = current_user.plan or "free"
+        plan_config = PLAN_LIMITS.get(plan, PLAN_LIMITS["free"])
+        is_byok = False
+
+        if body.model:
+            # Try BYOK first (only if plan allows)
+            if plan_config.get("byok_enabled", False):
+                user_api_key = await get_user_keys_for_model(current_user.id, body.model, db)
+                if user_api_key:
+                    is_byok = True
+
+            if not is_byok:
+                # Use platform key — check tier limit first
+                tier_check = await usage_service.check_tier_limit(current_user.id, plan, body.model)
+                if not tier_check["allowed"]:
+                    if tier_check["limit"] == 0:
+                        raise HTTPException(
+                            status_code=403,
+                            detail=(
+                                f"El modelo '{body.model}' (Tier {tier_check['tier']}) no está disponible "
+                                f"en tu plan {plan}. Actualizá tu plan para acceder."
+                            ),
+                        )
+                    else:
+                        raise HTTPException(
+                            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                            detail=(
+                                f"Has alcanzado tu límite de {tier_check['limit']} consultas "
+                                f"con modelos Tier {tier_check['tier']} por {tier_check['period']}. "
+                                f"Usado: {tier_check['used']}/{tier_check['limit']}"
+                            ),
+                        )
+                # Resolve platform key
+                free_resolved = llm_service.resolve_free_tier(body.model)
+                if free_resolved:
+                    body.model, user_api_key = free_resolved
+                else:
+                    platform_key = llm_service._get_platform_key(body.model)
+                    if platform_key:
+                        user_api_key = platform_key
+                    else:
+                        raise HTTPException(
+                            status_code=400,
+                            detail=f"Modelo '{body.model}' no disponible en la plataforma.",
+                        )
+        else:
+            # No model specified — use default free tier
+            free_resolved = llm_service.resolve_free_tier()
+            if free_resolved:
+                body.model, user_api_key = free_resolved
 
     return StreamingResponse(
         _generate_stream(body, current_user=current_user, db=db, user_api_key=user_api_key),
