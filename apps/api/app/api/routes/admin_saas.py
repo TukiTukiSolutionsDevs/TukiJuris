@@ -70,7 +70,7 @@ async def get_revenue(
 
     await AuditService(db=db).log_action(
         user_id=user.id,
-        action="admin.revenue.read",
+        action="admin.revenue.viewed",
         resource_type="revenue",
     )
 
@@ -120,7 +120,7 @@ async def list_byok(
 
     await AuditService(db=db).log_action(
         user_id=user.id,
-        action="admin.byok.list",
+        action="admin.byok.listed",
         resource_type="byok",
     )
 
