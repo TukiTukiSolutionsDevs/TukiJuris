@@ -152,11 +152,11 @@ async def non_admin_client(client: AsyncClient):
 
 @pytest.mark.asyncio
 async def test_revenue_returns_200_and_source_flag(super_admin_client: AsyncClient):
-    """AC1 + AC6: revenue endpoint returns 200 with source=canonical_prices."""
+    """AC1 + AC6: revenue endpoint returns 200 with source=invoices (hard swap — no canonical fallback)."""
     res = await super_admin_client.get("/api/admin/revenue")
     assert res.status_code == 200, res.text
     data = res.json()
-    assert data["source"] == "canonical_prices"
+    assert data["source"] == "invoices"
     assert "mrr_cents" in data
     assert "arr_cents" in data
     assert "breakdown" in data

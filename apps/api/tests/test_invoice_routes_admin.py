@@ -231,7 +231,7 @@ class TestPatchInvoiceAdmin:
         )
         assert result.status == "refunded"
         svc.mark_refunded.assert_called_once_with(
-            invoice=inv, reason="Customer request", actor_id=svc.mark_refunded.call_args.kwargs["actor_id"],
+            invoice_id=inv.id, reason="Customer request", actor_id=svc.mark_refunded.call_args.kwargs["actor_id"],
         )
         db.commit.assert_called_once()
 

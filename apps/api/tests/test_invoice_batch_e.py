@@ -62,19 +62,47 @@ class TestRevenueFromInvoices:
         assert snapshot.breakdown[0].org_count == 2
         assert snapshot.breakdown[0].revenue_cents == 16520
 
-    async def test_falls_back_to_canonical_when_no_paid_invoices(self):
-        """When invoices table has no paid rows, falls back to canonical prices."""
-        org_rows = [
-            {"plan": "pro", "org_id": str(uuid.uuid4()), "seat_count": 1},
-        ]
-        # First execute = invoices (empty) → fallback. Second = canonical.
-        db = _exec_mock([], org_rows)
+    async def test_empty_period_returns_zero_not_canonical_fallback(self):
+        """When no paid invoices match, returns S/0 with source='invoices' — no fallback."""
+        db = _exec_mock([])  # invoices query returns empty rows
 
         service = AdminMetricsService(db=db, plan_service=PlanService())
         snapshot = await service.compute_revenue()
 
-        assert snapshot.source == "canonical_prices"
-        assert snapshot.mrr_cents == 7000
+        assert snapshot.source == "invoices"
+        assert snapshot.mrr_cents == 0
+        assert snapshot.arr_cents == 0
+        assert snapshot.breakdown == []
+
+    async def test_source_always_invoices_regardless_of_data(self):
+        """source='invoices' always — locked-scope decision 7 hard swap."""
+        invoice_rows = [
+            {"plan": "pro", "org_count": 1, "revenue_cents": 8260},
+        ]
+        db = _exec_mock(invoice_rows)
+
+        service = AdminMetricsService(db=db, plan_service=PlanService())
+        snapshot = await service.compute_revenue()
+
+        assert snapshot.source == "invoices"
+
+    async def test_date_filter_params_passed_through(self):
+        """date_from / date_to are accepted and don't crash (SQL mocked)."""
+        from datetime import UTC, datetime
+
+        invoice_rows = [
+            {"plan": "studio", "org_count": 1, "revenue_cents": 35282},
+        ]
+        db = _exec_mock(invoice_rows)
+
+        service = AdminMetricsService(db=db, plan_service=PlanService())
+        snapshot = await service.compute_revenue(
+            date_from=datetime(2026, 1, 1, tzinfo=UTC),
+            date_to=datetime(2026, 1, 31, tzinfo=UTC),
+        )
+
+        assert snapshot.source == "invoices"
+        assert snapshot.mrr_cents == 35282
 
     async def test_invoice_revenue_multi_plan_breakdown(self):
         """Mixed invoice plans sum correctly."""
