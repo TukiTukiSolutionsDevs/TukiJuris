@@ -2,8 +2,9 @@
  * Unit tests for the Microsoft OAuth callback page.
  *
  * Covers:
- *  - Missing `code` param → shows error UI
- *  - Backend failure → shows error UI
+ *  - Missing `code` param → calls toast.error + redirects to /login?error=oauth_failed
+ *  - Backend failure → calls toast.error + redirects to /login?error=oauth_failed
+ *  - Network error → calls toast.error + redirects to /login?error=oauth_failed
  *  - Successful exchange, non-admin → redirects to /chat
  *  - Successful exchange, admin → redirects to /admin
  *  - `returnto` from response body respected (backend-authoritative)
@@ -11,7 +12,7 @@
  *  - Onboarding precedence: onboarding_completed false → redirects to /onboarding
  */
 
-import { render, waitFor, screen } from "@testing-library/react";
+import { render, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { http, HttpResponse } from "msw";
 import { server } from "@/test/msw/server";
@@ -28,6 +29,17 @@ const pushMock = vi.fn();
 vi.mock("next/navigation", () => ({
   useSearchParams: () => ({ get: mockGet }),
   useRouter: () => ({ push: pushMock }),
+}));
+
+// ---------------------------------------------------------------------------
+// Mock sonner toast
+// ---------------------------------------------------------------------------
+
+const { toastErrorMock } = vi.hoisted(() => ({ toastErrorMock: vi.fn() }));
+
+vi.mock("sonner", () => ({
+  toast: { error: toastErrorMock },
+  Toaster: () => null,
 }));
 
 // ---------------------------------------------------------------------------
@@ -67,6 +79,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
   mockGet.mockReset();
   pushMock.mockReset();
+  toastErrorMock.mockReset();
 });
 
 // ---------------------------------------------------------------------------
@@ -74,13 +87,14 @@ afterEach(() => {
 // ---------------------------------------------------------------------------
 
 describe("MicrosoftCallbackPage — missing code", () => {
-  it("shows an error when the code query param is absent", async () => {
+  it("calls toast.error and redirects to /login?error=oauth_failed when code is absent", async () => {
     setupParams({ code: null, state: null });
     render(<MicrosoftCallbackPage />);
     await waitFor(() => {
-      expect(
-        screen.getByText(/No se recibio el codigo de autorizacion de Microsoft/i),
-      ).toBeInTheDocument();
+      expect(toastErrorMock).toHaveBeenCalledWith(
+        "No se recibio el codigo de autorizacion de Microsoft.",
+      );
+      expect(pushMock).toHaveBeenCalledWith("/login?error=oauth_failed");
     });
   });
 });
@@ -90,7 +104,7 @@ describe("MicrosoftCallbackPage — missing code", () => {
 // ---------------------------------------------------------------------------
 
 describe("MicrosoftCallbackPage — backend failure", () => {
-  it("shows the error detail returned by the backend", async () => {
+  it("calls toast.error with the backend detail and redirects on 4xx", async () => {
     setupParams({ code: "auth-code", state: "state" });
     server.use(
       http.post(MICROSOFT_CALLBACK_URL, () =>
@@ -99,11 +113,12 @@ describe("MicrosoftCallbackPage — backend failure", () => {
     );
     render(<MicrosoftCallbackPage />);
     await waitFor(() => {
-      expect(screen.getByText(/Token exchange failed/i)).toBeInTheDocument();
+      expect(toastErrorMock).toHaveBeenCalledWith("Token exchange failed");
+      expect(pushMock).toHaveBeenCalledWith("/login?error=oauth_failed");
     });
   });
 
-  it("shows a fallback error when backend returns no detail", async () => {
+  it("calls toast.error with fallback message and redirects when backend returns no detail", async () => {
     setupParams({ code: "auth-code", state: "state" });
     server.use(
       http.post(MICROSOFT_CALLBACK_URL, () =>
@@ -112,9 +127,22 @@ describe("MicrosoftCallbackPage — backend failure", () => {
     );
     render(<MicrosoftCallbackPage />);
     await waitFor(() => {
-      expect(
-        screen.getByText(/Error al autenticar con Microsoft/i),
-      ).toBeInTheDocument();
+      expect(toastErrorMock).toHaveBeenCalledWith("Error al autenticar con Microsoft.");
+      expect(pushMock).toHaveBeenCalledWith("/login?error=oauth_failed");
+    });
+  });
+
+  it("calls toast.error and redirects on network error", async () => {
+    setupParams({ code: "auth-code", state: "state" });
+    server.use(
+      http.post(MICROSOFT_CALLBACK_URL, () => HttpResponse.error()),
+    );
+    render(<MicrosoftCallbackPage />);
+    await waitFor(() => {
+      expect(toastErrorMock).toHaveBeenCalledWith(
+        "No se pudo conectar con el servidor. Intenta de nuevo.",
+      );
+      expect(pushMock).toHaveBeenCalledWith("/login?error=oauth_failed");
     });
   });
 });
