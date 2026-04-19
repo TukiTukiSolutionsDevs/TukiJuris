@@ -101,32 +101,50 @@ class TestPlanMigration007:
         assert count == 0, f"Found {count} subscriptions still on legacy plan 'enterprise'"
 
     async def test_migration_007_is_recorded(self, db: asyncpg.Connection):
-        """alembic_version head must be 010_admin_saas_panel_indexes, proving 007 was applied.
+        """Migration 007_rename_plan_values must be an ancestor of the current Alembic head.
 
-        Alembic stores only the current head revision. Migration 007_rename_plan_values
-        is part of the linear chain leading to 010; if 010 is head, 007 was applied.
+        Walks the revision chain from the live DB head to base using Alembic's
+        ScriptDirectory. Resilient to future migrations: passes as long as 007
+        is in the linear chain, regardless of what the current head revision is.
         """
-        row = await db.fetchrow(
-            "SELECT version_num FROM alembic_version WHERE version_num = '010_admin_saas_panel_indexes'"
-        )
-        assert row is not None, (
-            "Migration chain not at expected head (010_admin_saas_panel_indexes) — "
-            "migration 007_rename_plan_values may not have been applied. "
+        import os
+        from alembic.config import Config
+        from alembic.script import ScriptDirectory
+
+        head = await db.fetchval("SELECT version_num FROM alembic_version LIMIT 1")
+        assert head is not None, "No Alembic version recorded — run: alembic upgrade head"
+
+        api_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+        cfg = Config(os.path.join(api_root, "alembic.ini"))
+        script = ScriptDirectory.from_config(cfg)
+        chain = {rev.revision for rev in script.iterate_revisions(head, "base")}
+
+        assert "007_rename_plan_values" in chain, (
+            f"Migration 007_rename_plan_values is not an ancestor of current head ({head}). "
             "Run: alembic upgrade head"
         )
 
     async def test_migration_008_is_recorded(self, db: asyncpg.Connection):
-        """alembic_version head must be 010_admin_saas_panel_indexes, proving 008 was applied.
+        """Migration 008_org_seat_pricing must be an ancestor of the current Alembic head.
 
-        Alembic stores only the current head revision. Migration 008_org_seat_pricing
-        is part of the linear chain leading to 010; if 010 is head, 008 was applied.
+        Walks the revision chain from the live DB head to base using Alembic's
+        ScriptDirectory. Resilient to future migrations: passes as long as 008
+        is in the linear chain, regardless of what the current head revision is.
         """
-        row = await db.fetchrow(
-            "SELECT version_num FROM alembic_version WHERE version_num = '010_admin_saas_panel_indexes'"
-        )
-        assert row is not None, (
-            "Migration chain not at expected head (010_admin_saas_panel_indexes) — "
-            "migration 008_org_seat_pricing may not have been applied. "
+        import os
+        from alembic.config import Config
+        from alembic.script import ScriptDirectory
+
+        head = await db.fetchval("SELECT version_num FROM alembic_version LIMIT 1")
+        assert head is not None, "No Alembic version recorded — run: alembic upgrade head"
+
+        api_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+        cfg = Config(os.path.join(api_root, "alembic.ini"))
+        script = ScriptDirectory.from_config(cfg)
+        chain = {rev.revision for rev in script.iterate_revisions(head, "base")}
+
+        assert "008_org_seat_pricing" in chain, (
+            f"Migration 008_org_seat_pricing is not an ancestor of current head ({head}). "
             "Run: alembic upgrade head"
         )
 
