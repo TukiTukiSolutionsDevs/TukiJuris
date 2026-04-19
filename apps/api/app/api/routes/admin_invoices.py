@@ -5,7 +5,7 @@ Endpoints:
   GET   /admin/invoices/{id}      — single invoice detail
   PATCH /admin/invoices/{id}      — refund or void
 
-Defense-in-depth: require_permission(billing:write) enforces RBAC AND
+Defense-in-depth: require_permission(billing:update) enforces RBAC AND
 _ensure_admin enforces User.is_admin=True. Both guards must pass.
 """
 
@@ -104,7 +104,7 @@ async def get_invoice_admin(
 async def patch_invoice_admin(
     invoice_id: uuid.UUID,
     body: InvoiceAdminPatchRequest,
-    user: User = Depends(require_permission("billing:write")),
+    user: User = Depends(require_permission("billing:update")),
     db: AsyncSession = Depends(get_db),
     svc: InvoiceService = Depends(get_invoice_service),
     _rl: None = Depends(RateLimitGuard(RateLimitBucket.WRITE)),
@@ -125,13 +125,13 @@ async def patch_invoice_admin(
     try:
         if body.action == "refund":
             invoice = await svc.mark_refunded(
-                invoice=invoice,
+                invoice_id=invoice.id,
                 reason=body.reason,
                 actor_id=user.id,
             )
         else:  # body.action == "void"
             invoice = await svc.mark_voided(
-                invoice=invoice,
+                invoice_id=invoice.id,
                 reason=body.reason,
                 actor_id=user.id,
             )

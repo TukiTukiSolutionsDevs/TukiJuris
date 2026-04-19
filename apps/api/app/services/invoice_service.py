@@ -145,8 +145,12 @@ class InvoiceService:
         paid_at preference: paid_at_payload → webhook_received_at fallback.
         """
         if amount_payload_cents is not None:
-            # Payload provides amount in cents; derive tax breakdown from plan
-            # but use actual total
+            # Payload provides the real charged amount — always use it as total_amount.
+            # Derive tax breakdown from plan pricing when available, but override
+            # total_amount with the exact payload value (cents → decimal).
+            payload_total = (Decimal(amount_payload_cents) / 100).quantize(
+                Decimal("0.01")
+            )
             try:
                 amt = compute_invoice_amounts(plan, seats_count)
             except ValueError:
@@ -159,12 +163,9 @@ class InvoiceService:
                     "seat_amount": amt["seat_amount"],
                     "subtotal_amount": amt["subtotal_amount"],
                     "tax_amount": amt["tax_amount"],
-                    "total_amount": amt["total_amount"],
+                    "total_amount": payload_total,  # exact payload amount, not plan-derived
                 }
             else:
-                payload_total = (Decimal(amount_payload_cents) / 100).quantize(
-                    Decimal("0.01")
-                )
                 amounts = {
                     "base_amount": payload_total,
                     "seats_count": seats_count,
@@ -382,7 +383,7 @@ class InvoiceService:
         *,
         org_id: UUID,
         page: int,
-        size: int,
+        per_page: int,
         status: Optional[str] = None,
     ) -> tuple[list[Invoice], int]:
         """Org-scoped paginated list. ORDER BY created_at DESC."""
@@ -395,8 +396,8 @@ class InvoiceService:
 
         items_stmt = (
             stmt.order_by(Invoice.created_at.desc())
-            .offset((page - 1) * size)
-            .limit(size)
+            .offset((page - 1) * per_page)
+            .limit(per_page)
         )
         result = await self.db.execute(items_stmt)
         return list(result.scalars().all()), total
@@ -405,7 +406,7 @@ class InvoiceService:
         self,
         *,
         page: int,
-        size: int,
+        per_page: int,
         org_id: Optional[UUID] = None,
         status: Optional[str] = None,
         date_from: Optional[datetime] = None,
@@ -427,8 +428,8 @@ class InvoiceService:
 
         items_stmt = (
             stmt.order_by(Invoice.created_at.desc())
-            .offset((page - 1) * size)
-            .limit(size)
+            .offset((page - 1) * per_page)
+            .limit(per_page)
         )
         result = await self.db.execute(items_stmt)
         return list(result.scalars().all()), total
