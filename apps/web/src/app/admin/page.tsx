@@ -32,6 +32,7 @@ import { ShellUtilityActions } from "@/components/shell/ShellUtilityActions";
 import { RevenueCards } from "./_components/RevenueCards";
 import { BYOKBadge } from "./_components/BYOKBadge";
 import { BYOKTable } from "./_components/BYOKTable";
+import { InvoicesTable } from "./_components/InvoicesTable";
 import { UsersPagination } from "./_components/UsersPagination";
 
 interface SystemStats {
@@ -731,6 +732,9 @@ export default function AdminPage() {
 
               {/* BYOK Keys — self-fetching; silently unmounts on 403 */}
               <BYOKTable />
+
+              {/* Invoices — self-fetching; silently unmounts on 403 */}
+              <InvoicesTable />
 
               {/* Recent Queries Activity */}
               {recentQueries.length > 0 && (

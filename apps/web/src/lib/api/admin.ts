@@ -55,6 +55,37 @@ export interface UsersPage {
   per_page: number;
 }
 
+export interface InvoiceRow {
+  id: string;
+  org_id: string;
+  provider: string;
+  provider_charge_id: string;
+  status: string;
+  currency: string;
+  base_amount: string;
+  seats_count: number;
+  seat_amount: string;
+  subtotal_amount: string;
+  tax_amount: string;
+  total_amount: string;
+  plan: string;
+  paid_at: string | null;
+  failed_at: string | null;
+  refunded_at: string | null;
+  voided_at: string | null;
+  refund_reason: string | null;
+  void_reason: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface InvoicesPage {
+  items: InvoiceRow[];
+  total: number;
+  page: number;
+  per_page: number;
+}
+
 type AuthFetch = (input: RequestInfo, init?: RequestInit) => Promise<Response>;
 
 export async function fetchRevenue(authFetch: AuthFetch): Promise<RevenueData> {
@@ -107,4 +138,27 @@ export async function fetchUsers(
     throw err;
   }
   return res.json() as Promise<UsersPage>;
+}
+
+export async function fetchAdminInvoices(
+  authFetch: AuthFetch,
+  page = 1,
+  perPage = 20,
+  invoiceStatus?: string,
+  orgId?: string,
+): Promise<InvoicesPage> {
+  const params = new URLSearchParams({
+    page: String(page),
+    per_page: String(perPage),
+  });
+  if (invoiceStatus) params.set("status", invoiceStatus);
+  if (orgId) params.set("org_id", orgId);
+
+  const res = await authFetch(`/api/admin/invoices?${params}`);
+  if (!res.ok) {
+    const err = new Error(`fetchAdminInvoices failed: ${res.status}`);
+    (err as Error & { status: number }).status = res.status;
+    throw err;
+  }
+  return res.json() as Promise<InvoicesPage>;
 }
