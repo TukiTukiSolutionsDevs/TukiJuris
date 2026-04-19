@@ -37,16 +37,20 @@ export default function LoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const { user, isLoading, login } = useAuth();
+  const { user, isLoading, login, onboardingCompleted, authFetch } = useAuth();
 
   // Already authenticated → bounce to role-based destination (or valid returnTo).
   useEffect(() => {
     if (!isLoading && user) {
       router.replace(
-        resolvePostLoginDestination(searchParams.get("returnTo"), user.isAdmin),
+        resolvePostLoginDestination(
+          searchParams.get("returnTo"),
+          user.isAdmin,
+          onboardingCompleted,
+        ),
       );
     }
-  }, [isLoading, user, router, searchParams]);
+  }, [isLoading, user, router, searchParams, onboardingCompleted]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -58,8 +62,21 @@ export default function LoginPage() {
       // synchronously — authClient module state is updated before login() resolves.
       const token = getAccessToken();
       const isAdmin = decodeAccessClaims(token ?? "")?.is_admin === true;
+      // Fetch /me to get the server-side onboarding flag (context state lags one render).
+      let postLoginOnboardingCompleted = false;
+      try {
+        const me = await authFetch("/api/auth/me");
+        const meData = await me.json();
+        postLoginOnboardingCompleted = Boolean(meData.onboarding_completed);
+      } catch {
+        // Non-blocking — fall through to default destination
+      }
       router.replace(
-        resolvePostLoginDestination(searchParams.get("returnTo"), isAdmin),
+        resolvePostLoginDestination(
+          searchParams.get("returnTo"),
+          isAdmin,
+          postLoginOnboardingCompleted,
+        ),
       );
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error al iniciar sesión");
