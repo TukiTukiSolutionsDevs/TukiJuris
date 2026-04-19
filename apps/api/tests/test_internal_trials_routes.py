@@ -123,7 +123,7 @@ class TestTrialTickDispatch:
     @pytest.mark.asyncio
     async def test_empty_trial_list_returns_zero_result(self):
         """No trials → result with all zeros."""
-        from app.api.routes.internal_trials import trial_tick
+        from app.jobs.trial_jobs import run_trial_tick as trial_tick
 
         db = _mock_db(trials=[])
         svc = _mock_svc(db)
@@ -140,7 +140,7 @@ class TestTrialTickDispatch:
     @pytest.mark.asyncio
     async def test_canceled_pending_expired_calls_mark_canceled(self):
         """canceled_pending + expired → mark_canceled + email."""
-        from app.api.routes.internal_trials import trial_tick
+        from app.jobs.trial_jobs import run_trial_tick as trial_tick
 
         trial = _make_trial(
             status="canceled_pending",
@@ -161,7 +161,7 @@ class TestTrialTickDispatch:
     @pytest.mark.asyncio
     async def test_active_expired_no_card_calls_mark_downgraded(self):
         """active + expired + no card → mark_downgraded + email."""
-        from app.api.routes.internal_trials import trial_tick
+        from app.jobs.trial_jobs import run_trial_tick as trial_tick
 
         trial = _make_trial(
             status="active",
@@ -182,7 +182,7 @@ class TestTrialTickDispatch:
     @pytest.mark.asyncio
     async def test_active_expired_with_card_submits_charge(self):
         """active + expired + has card → adapter.charge_stored_card called."""
-        from app.api.routes.internal_trials import trial_tick
+        from app.jobs.trial_jobs import run_trial_tick as trial_tick
 
         charge_mock = MagicMock()
         charge_mock.success = True
@@ -212,7 +212,7 @@ class TestTrialTickDispatch:
     @pytest.mark.asyncio
     async def test_active_expired_charge_fails_calls_mark_charge_failed(self):
         """active + expired + has card + charge fails → mark_charge_failed."""
-        from app.api.routes.internal_trials import trial_tick
+        from app.jobs.trial_jobs import run_trial_tick as trial_tick
 
         charge_mock = MagicMock()
         charge_mock.success = False
@@ -242,7 +242,7 @@ class TestTrialTickDispatch:
     @pytest.mark.asyncio
     async def test_charge_failed_window_expired_downgrades(self):
         """charge_failed + 72h window expired → mark_downgraded."""
-        from app.api.routes.internal_trials import trial_tick
+        from app.jobs.trial_jobs import run_trial_tick as trial_tick
 
         trial = _make_trial(
             status="charge_failed",
@@ -260,7 +260,7 @@ class TestTrialTickDispatch:
     @pytest.mark.asyncio
     async def test_charge_failed_window_open_skips_downgrade(self):
         """charge_failed + within 72h window → no action taken."""
-        from app.api.routes.internal_trials import trial_tick
+        from app.jobs.trial_jobs import run_trial_tick as trial_tick
 
         trial = _make_trial(
             status="charge_failed",
@@ -278,7 +278,7 @@ class TestTrialTickDispatch:
     @pytest.mark.asyncio
     async def test_active_expiring_soon_sends_reminder_email(self):
         """active + 3 days remaining → reminder email, no DB mutation."""
-        from app.api.routes.internal_trials import trial_tick
+        from app.jobs.trial_jobs import run_trial_tick as trial_tick
 
         trial = _make_trial(status="active", days_remaining=2)
         db = _mock_db(trials=[trial])
@@ -296,7 +296,7 @@ class TestTrialTickDispatch:
     @pytest.mark.asyncio
     async def test_error_in_one_trial_increments_errors_continues(self):
         """Exception in one trial → errors += 1, other trials still processed."""
-        from app.api.routes.internal_trials import trial_tick
+        from app.jobs.trial_jobs import run_trial_tick as trial_tick
 
         # First trial will raise
         bad_trial = _make_trial(

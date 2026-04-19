@@ -43,6 +43,8 @@ dependencies = [
     "mercadopago>=2.2.0",
     # PDF generation (zero system dependencies, pure Python)
     "reportlab>=4.0.0",
+    # Scheduler (in-process job scheduling for trial lifecycle ticks)
+    "apscheduler>=3.10.0",
 ]
 
 [project.optional-dependencies]

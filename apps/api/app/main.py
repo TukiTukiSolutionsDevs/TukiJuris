@@ -73,7 +73,15 @@ async def lifespan(app: FastAPI):
     logger.info(f"Starting {settings.app_name} API...")
     logger.info(f"Environment: {settings.app_env}")
     logger.info(f"Default LLM: {settings.default_llm_provider}/{settings.default_llm_model}")
+
+    # Start in-process scheduler (trial lifecycle ticks).
+    # Gated by SCHEDULER_ENABLED and TRIALS_ENABLED — safe to import unconditionally.
+    from app.scheduler import start_scheduler, stop_scheduler
+    await start_scheduler()
+
     yield
+
+    stop_scheduler()
     logger.info(f"Shutting down {settings.app_name} API...")
 
 
