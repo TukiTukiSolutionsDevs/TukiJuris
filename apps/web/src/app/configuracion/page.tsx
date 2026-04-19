@@ -387,7 +387,7 @@ export default function ConfiguracionPage() {
     }
   }, [selectedModelMeta, selectedProvider]);
 
-  const { authFetch, logout } = useAuth();
+  const { authFetch, logout, logoutAll } = useAuth();
 
   const showSuccess = (msg: string) => {
     setSuccessMsg(msg);
@@ -680,6 +680,10 @@ export default function ConfiguracionPage() {
     void logout();
   };
 
+  const handleLogoutAll = () => {
+    void logoutAll();
+  };
+
   return (
     <AppLayout>
       <div className="flex min-h-full flex-col text-on-surface">
@@ -949,6 +953,23 @@ export default function ConfiguracionPage() {
                           </div>
                         </form>
                     </DisclosureCard>
+
+                    {/* Logout all devices */}
+                    <div className="flex items-center justify-between rounded-xl border border-[rgba(79,70,51,0.15)] bg-surface-container px-4 py-3.5">
+                      <div>
+                        <p className="text-sm font-medium text-on-surface">Cerrar sesion en todos los dispositivos</p>
+                        <p className="mt-0.5 text-xs text-on-surface/50">Revoca todos los tokens activos e invalida todas las sesiones abiertas.</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleLogoutAll}
+                        data-testid="logout-all-btn"
+                        className="flex items-center gap-2 rounded-lg border border-[#ffb4ab]/30 px-4 py-2 text-sm text-[#ffb4ab] transition-colors hover:bg-[#93000a]/20"
+                      >
+                        <LogOut className="w-3.5 h-3.5" />
+                        Cerrar todas las sesiones
+                      </button>
+                    </div>
                   </div>
                 )}
 
