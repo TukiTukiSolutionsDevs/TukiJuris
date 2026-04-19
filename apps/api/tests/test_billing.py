@@ -115,25 +115,31 @@ async def test_get_usage_for_own_org(auth_client: AsyncClient):
 # ---------------------------------------------------------------------------
 
 
-async def test_mp_webhook_returns_200_when_provider_unconfigured(client: AsyncClient):
-    """In dev/test envs MP is not configured, so the webhook returns 200 {status: skipped}."""
+async def test_mp_webhook_returns_400_on_missing_event_id(client: AsyncClient):
+    """Webhooks are always active; payload without 'id' field returns 400 (AC12).
+
+    Updated: webhooks no longer gate on provider configuration. They process all
+    requests and return 400 when required fields (event_id) are missing.
+    """
     res = await client.post(
         "/api/billing/webhook/mp",
         content=b'{"type": "payment"}',
         headers={"Content-Type": "application/json"},
     )
-    assert res.status_code == 200
-    data = res.json()
-    # Unconfigured provider → safe no-op
-    assert data.get("status") == "skipped"
+    assert res.status_code == 400
 
 
-async def test_culqi_webhook_returns_200_when_provider_unconfigured(client: AsyncClient):
-    """Same contract as MP: unconfigured Culqi → 200 {status: skipped}."""
-    res = await client.post("/api/billing/webhook/culqi", content=b"{}")
-    assert res.status_code == 200
-    data = res.json()
-    assert data.get("status") == "skipped"
+async def test_culqi_webhook_returns_400_on_empty_body(client: AsyncClient):
+    """Webhooks are always active; empty/missing 'id' returns 400 (AC12).
+
+    Updated: webhooks no longer gate on provider configuration.
+    """
+    res = await client.post(
+        "/api/billing/webhook/culqi",
+        content=b"{}",
+        headers={"Content-Type": "application/json"},
+    )
+    assert res.status_code == 400
 
 
 async def test_legacy_webhook_path_is_gone(client: AsyncClient):
