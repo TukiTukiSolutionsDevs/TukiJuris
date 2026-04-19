@@ -9,6 +9,8 @@ from pydantic import BaseModel, EmailStr
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from jose import JWTError, jwt as jose_jwt
+
 from app.api.deps import RateLimitBucket, RateLimitGuard, get_audit_service, get_current_user, get_refresh_service
 from app.config import settings
 from app.core.database import get_db
@@ -413,31 +415,69 @@ async def refresh(
     summary="Logout (single device)",
     description=(
         "Revoke the refresh-token cookie. Idempotent — no error if the token "
-        "is already revoked or the cookie is absent. Both session cookies are cleared. "
-        "Requires a valid access token."
+        "is already revoked, the cookie is absent, or the access token is expired. "
+        "Both session cookies are cleared. Does NOT require a valid access token."
     ),
     responses={
         204: {"description": "Logged out — refresh token revoked, cookies cleared"},
-        401: {"description": "Access token missing or invalid"},
     },
 )
 async def logout(
     refresh_token: str | None = Cookie(default=None),
     service: RefreshTokenService = Depends(get_refresh_service),
-    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+    audit: "AuditService" = Depends(get_audit_service),
 ) -> Response:
-    """Revoke refresh token cookie and clear both session cookies.
+    """Relaxed logout — never fails, even with expired or missing access token.
 
-    NOTE: we construct the Response object here and call _clear_session_cookies
-    on it directly — same pattern as _auth_error_response. If we used the
-    injected `response` parameter and returned a *new* Response, FastAPI would
-    NOT merge the Set-Cookie headers onto the returned object, silently
-    dropping the cookie-clear directives.
+    Strategy:
+      1. Decode the refresh cookie (verify_exp=False) to extract user_id for audit.
+      2. Call service.revoke() which handles DB mark + Redis denylist (idempotent).
+      3. Always clear both session cookies.
+      4. Emit auth.logout audit if user_id could be extracted.
+
+    NOTE: we construct the Response directly here — FastAPI does NOT merge
+    Set-Cookie headers when the route returns a Response subclass directly.
     """
+    from app.rbac.audit import AuditService  # noqa: F401
+
+    user_id: uuid.UUID | None = None
+
     if refresh_token:
-        await service.revoke(refresh_token)
+        # Decode with verify_exp=False — accept expired refresh tokens for logout
+        try:
+            payload = jose_jwt.decode(
+                refresh_token,
+                settings.jwt_secret,
+                algorithms=[settings.jwt_algorithm],
+                options={"verify_exp": False},
+            )
+            if payload.get("sub"):
+                user_id = uuid.UUID(payload["sub"])
+        except (JWTError, Exception):
+            logger.info("logout: unparseable refresh token, idempotent success")
+
+        # Revoke in DB + add to Redis denylist (handles expired tokens gracefully)
+        try:
+            await service.revoke(refresh_token)
+        except Exception as exc:
+            logger.warning("logout: service.revoke failed (idempotent): %s", exc)
+
     resp = Response(status_code=status.HTTP_204_NO_CONTENT)
     _clear_session_cookies(resp)
+
+    if user_id is not None:
+        try:
+            await audit.log_action(
+                user_id=user_id,
+                action="auth.logout",
+                resource_type="user",
+                resource_id=str(user_id),
+            )
+            await db.commit()
+        except Exception:
+            logger.warning("audit.log_action failed for auth.logout user=%s", user_id)
+
     return resp
 
 
