@@ -167,7 +167,7 @@ export default function AdminPage() {
   const [error, setError] = useState("");
   const [refreshing, setRefreshing] = useState(false);
 
-  const { authFetch } = useAuth();
+  const { authFetch, hasPermission } = useAuth();
 
   const loadData = useCallback(async () => {
     setError("");
@@ -291,8 +291,8 @@ export default function AdminPage() {
             </div>
           ) : (
             <div className="space-y-8">
-              {/* Revenue — self-fetching; silently unmounts on 403 */}
-              <RevenueCards />
+              {/* Revenue — pre-gated by billing:read; component also unmounts on 403 (defense-in-depth) */}
+              {hasPermission("billing:read") && <RevenueCards />}
 
               {/* System Stats */}
               <div>
