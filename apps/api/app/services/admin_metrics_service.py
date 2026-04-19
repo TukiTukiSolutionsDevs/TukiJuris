@@ -149,10 +149,15 @@ class AdminMetricsService:
         Note: user_llm_keys.updated_at is exposed as last_rotation_at in the API shape.
         """
         offset = (page - 1) * per_page
-        params: dict = {"limit": per_page, "offset": offset, "provider": provider}
+        provider_filter = "" if provider is None else "AND k.provider = :provider"
+        params: dict = {"limit": per_page, "offset": offset}
+        count_params: dict = {}
+        if provider is not None:
+            params["provider"] = provider
+            count_params["provider"] = provider
 
         items_sql = text(
-            """
+            f"""
             SELECT
                 k.user_id::text,
                 u.email         AS user_email,
@@ -162,23 +167,23 @@ class AdminMetricsService:
                 k.updated_at    AS last_rotation_at
             FROM user_llm_keys k
             JOIN users u ON u.id = k.user_id
-            WHERE (:provider IS NULL OR k.provider = :provider)
+            WHERE true {provider_filter}
             ORDER BY k.updated_at DESC NULLS LAST, k.created_at DESC
             LIMIT :limit OFFSET :offset
             """
         )
         count_sql = text(
-            """
+            f"""
             SELECT COUNT(*)
             FROM user_llm_keys k
-            WHERE (:provider IS NULL OR k.provider = :provider)
+            WHERE true {provider_filter}
             """
         )
 
         rows_result = await self._db.execute(items_sql, params)
         rows = rows_result.mappings().fetchall()
 
-        total = int(await self._db.scalar(count_sql, {"provider": provider}) or 0)
+        total = int(await self._db.scalar(count_sql, count_params) or 0)
 
         items = [
             BYOKItem(
@@ -205,15 +210,20 @@ class AdminMetricsService:
         offset = (page - 1) * per_page
         month_start = datetime.now(UTC).replace(day=1, hour=0, minute=0, second=0, microsecond=0)
 
+        search_val = f"%{q}%" if q else None
+        search_filter = "" if search_val is None else "AND u.email ILIKE :search"
         params: dict = {
             "limit": per_page,
             "offset": offset,
-            "search": f"%{q}%" if q else None,
             "month_start": month_start,
         }
+        count_params: dict = {}
+        if search_val is not None:
+            params["search"] = search_val
+            count_params["search"] = search_val
 
         rows_sql = text(
-            """
+            f"""
             SELECT
                 u.id::text,
                 u.email,
@@ -243,25 +253,23 @@ class AdminMetricsService:
                 WHERE m.role = 'user' AND m.created_at >= :month_start
                 GROUP BY c.user_id
             ) mq ON mq.user_id = u.id
-            WHERE (:search IS NULL OR u.email ILIKE :search)
+            WHERE true {search_filter}
             ORDER BY u.created_at DESC
             LIMIT :limit OFFSET :offset
             """
         )
         count_sql = text(
-            """
+            f"""
             SELECT COUNT(*)
             FROM users u
-            WHERE (:search IS NULL OR u.email ILIKE :search)
+            WHERE true {search_filter}
             """
         )
 
         rows_result = await self._db.execute(rows_sql, params)
         rows = rows_result.mappings().fetchall()
 
-        total = int(
-            await self._db.scalar(count_sql, {"search": params["search"]}) or 0
-        )
+        total = int(await self._db.scalar(count_sql, count_params) or 0)
 
         items = [
             UserListItemInternal(
