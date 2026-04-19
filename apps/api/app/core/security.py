@@ -2,7 +2,10 @@
 
 import hashlib
 import logging
+import re
+import secrets
 import uuid
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
 from jose import JWTError, jwt
@@ -185,3 +188,141 @@ async def check_login_attempts(ip: str) -> bool:
     except Exception as exc:
         logger.warning("Login rate limiter error (allowing request): %s", exc)
         return True
+
+
+# ---------------------------------------------------------------------------
+# OAuth state JWT
+# ---------------------------------------------------------------------------
+
+OAUTH_STATE_TYPE: str = "oauth_state"
+"""Claim value that distinguishes state JWTs from access/refresh tokens."""
+
+OAUTH_STATE_MAX_AGE_SECONDS: int = 600
+"""State JWT validity window (10 minutes)."""
+
+OAUTH_NONCE_BYTES: int = 24
+"""Byte length for nonce; secrets.token_urlsafe(24) → 32-char URL-safe string."""
+
+
+class InvalidStateTokenError(Exception):
+    """Raised when an OAuth state JWT fails verification.
+
+    Mapped to HTTP 401 by the route layer. Never includes token material in
+    the message string — only developer-facing reason codes.
+    """
+
+
+@dataclass(frozen=True)
+class OAuthState:
+    """Decoded, verified OAuth state JWT payload."""
+
+    nonce: str
+    returnto: str | None
+    iat: int
+    exp: int
+
+
+def create_oauth_state_jwt(*, returnto: str | None) -> str:
+    """Build and sign an OAuth state JWT (HS256, ``settings.jwt_secret``).
+
+    Args:
+        returnto: Pre-validated relative path or None.
+                  Callers MUST validate via ``validate_relative_path`` first;
+                  this function stores the value verbatim.
+
+    Returns:
+        Signed JWT string.
+    """
+    now = datetime.now(UTC)
+    iat = int(now.timestamp())
+    exp = iat + OAUTH_STATE_MAX_AGE_SECONDS
+    nonce = secrets.token_urlsafe(OAUTH_NONCE_BYTES)
+    payload: dict = {
+        "nonce": nonce,
+        "returnto": returnto,
+        "iat": iat,
+        "exp": exp,
+        "type": OAUTH_STATE_TYPE,
+    }
+    return jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm)
+
+
+def verify_oauth_state_jwt(token: str) -> OAuthState:
+    """Decode and verify an OAuth state JWT.
+
+    Raises:
+        InvalidStateTokenError: on any of:
+            - invalid or tampered signature
+            - token expired (exp < now)
+            - ``type`` claim missing or != ``OAUTH_STATE_TYPE``
+            - ``iat`` claim is in the future
+            - ``nonce`` claim is missing or empty
+            - any other JWTError (malformed token, alg=none, etc.)
+
+    Returns:
+        :class:`OAuthState` with verified claims.
+    """
+    try:
+        payload = jwt.decode(
+            token,
+            settings.jwt_secret,
+            algorithms=[settings.jwt_algorithm],
+        )
+    except JWTError as exc:
+        raise InvalidStateTokenError("JWT decode failed") from exc
+
+    # Type guard: prevents access/refresh token confusion attacks.
+    if payload.get("type") != OAUTH_STATE_TYPE:
+        raise InvalidStateTokenError("Invalid token type claim")
+
+    # Nonce must be present and non-empty.
+    nonce = payload.get("nonce")
+    if not nonce:
+        raise InvalidStateTokenError("Missing or empty nonce claim")
+
+    # iat must not be in the future (prevents pre-generation / clock-skew abuse).
+    iat = payload.get("iat", 0)
+    now_ts = datetime.now(UTC).timestamp()
+    if iat > now_ts:
+        raise InvalidStateTokenError("Token issued in the future")
+
+    exp = payload.get("exp", 0)
+
+    return OAuthState(
+        nonce=str(nonce),
+        returnto=payload.get("returnto"),
+        iat=int(iat),
+        exp=int(exp),
+    )
+
+
+# Matches exactly one leading '/' (not '//') with no control characters.
+# Uses \Z (not $) so a trailing \n does NOT count as end-of-string.
+_RELATIVE_PATH_RE = re.compile(r"^/(?!/)[^\x00-\x1f]*\Z")
+_RELATIVE_PATH_MAX_LENGTH: int = 2048
+
+
+def validate_relative_path(
+    path: str | None,
+    *,
+    max_length: int = _RELATIVE_PATH_MAX_LENGTH,
+) -> bool:
+    """Return ``True`` if *path* is a safe same-origin relative URL.
+
+    Rules (ALL must hold):
+    - Not ``None`` and not empty string.
+    - ``len(path) <= max_length``.
+    - Starts with exactly one ``/`` (rejects ``//`` protocol-relative URLs).
+    - Contains no control characters (``\\x00``–``\\x1f``).
+    - Contains no ``://`` substring (defence-in-depth: blocks
+      ``/redirect?next=https://evil.com`` style open-redirect tricks).
+
+    Returns ``False`` for any violation. Never raises.
+    """
+    if not path:
+        return False
+    if len(path) > max_length:
+        return False
+    if "://" in path:
+        return False
+    return bool(_RELATIVE_PATH_RE.match(path))
