@@ -242,6 +242,21 @@ async def get_audit_service(
     return AuditService(db)
 
 
+async def get_invoice_service(
+    db: AsyncSession = Depends(get_db),
+    audit: "AuditService" = Depends(get_audit_service),
+) -> "InvoiceService":
+    """Create an InvoiceService bound to the current DB session.
+
+    Follows Sprint 2/3 injection pattern — same session as route handler
+    so invoice INSERT and other business logic share one transaction.
+    Override via app.dependency_overrides[get_invoice_service] in tests.
+    """
+    from app.services.invoice_service import InvoiceService
+
+    return InvoiceService(db=db, audit=audit)
+
+
 async def get_idempotency_service(
     db: AsyncSession = Depends(get_db),
 ) -> "WebhookIdempotencyService":
