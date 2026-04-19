@@ -484,7 +484,7 @@ class TestReadPaths:
                 provider_charge_id=_charge_id(), amount_payload_cents=None, paid_at_payload=None,
                 webhook_received_at=_now(), provider_event_id=None, actor_id=None,
             )
-        items, total = await svc.list_for_org(org_id=real_org_id, page=1, size=2)
+        items, total = await svc.list_for_org(org_id=real_org_id, page=1, per_page=2)
         assert len(items) <= 2
         assert total >= 3
 
@@ -500,7 +500,7 @@ class TestReadPaths:
             seats_count=0, provider_charge_id=_charge_id(), webhook_received_at=_now(),
             provider_event_id=None, actor_id=None,
         )
-        paid_items, _ = await svc.list_for_org(org_id=real_org_id, page=1, size=100, status="paid")
+        paid_items, _ = await svc.list_for_org(org_id=real_org_id, page=1, per_page=100, status="paid")
         assert all(i.status == "paid" for i in paid_items)
 
     async def test_get_for_org_cross_org_returns_none(self, svc, real_org_id):
@@ -529,6 +529,6 @@ class TestReadPaths:
             provider_charge_id=_charge_id(), amount_payload_cents=None, paid_at_payload=None,
             webhook_received_at=_now(), provider_event_id=None, actor_id=None,
         )
-        items, total = await svc.list_for_admin(org_id=real_org_id, page=1, size=100)
+        items, total = await svc.list_for_admin(org_id=real_org_id, page=1, per_page=100)
         assert total >= 1
         assert all(str(i.org_id) == str(real_org_id) for i in items)

@@ -50,108 +50,101 @@ def _scalar_mock(execute_rows, scalar_value):
 
 
 @pytest.mark.asyncio
-async def test_compute_revenue_empty_when_no_active_orgs():
-    """No active orgs → zeroed snapshot with empty breakdown."""
-    db = _exec_mock([], [])  # no invoices → fallback; no active orgs in canonical
+async def test_compute_revenue_empty_invoices_returns_zero():
+    """No paid invoices → S/0 with source='invoices' (hard swap — no canonical fallback)."""
+    db = _exec_mock([])  # invoices query returns empty rows
 
     service = AdminMetricsService(db=db, plan_service=PlanService())
     snapshot = await service.compute_revenue()
 
-    assert snapshot.source == "canonical_prices"
+    assert snapshot.source == "invoices"
     assert snapshot.mrr_cents == 0
     assert snapshot.arr_cents == 0
     assert snapshot.breakdown == []
 
 
 @pytest.mark.asyncio
-async def test_compute_revenue_free_plan_contributes_zero():
-    """Free orgs are counted in breakdown but add 0 revenue."""
-    org_rows = [
-        {"plan": "free", "org_id": str(uuid.uuid4()), "seat_count": 1},
-        {"plan": "free", "org_id": str(uuid.uuid4()), "seat_count": 1},
+async def test_compute_revenue_source_always_invoices():
+    """source is always 'invoices' regardless of data — locked-scope decision 7."""
+    invoice_rows = [
+        {"plan": "pro", "org_count": 2, "revenue_cents": 14000},
     ]
-    db = _exec_mock([], org_rows)  # no invoices → fallback to canonical
+    db = _exec_mock(invoice_rows)
 
     service = AdminMetricsService(db=db, plan_service=PlanService())
     snapshot = await service.compute_revenue()
 
-    assert snapshot.mrr_cents == 0
-    assert snapshot.arr_cents == 0
-    assert len(snapshot.breakdown) == 1
-    assert snapshot.breakdown[0].plan == "free"
+    assert snapshot.source == "invoices"
+
+
+@pytest.mark.asyncio
+async def test_compute_revenue_sums_invoice_totals():
+    """Invoice-based revenue sums correctly from paid rows."""
+    invoice_rows = [
+        {"plan": "pro", "org_count": 2, "revenue_cents": 16520},
+    ]
+    db = _exec_mock(invoice_rows)
+
+    service = AdminMetricsService(db=db, plan_service=PlanService())
+    snapshot = await service.compute_revenue()
+
+    assert snapshot.mrr_cents == 16520
+    assert snapshot.arr_cents == 16520 * 12
+    assert snapshot.breakdown[0].plan == "pro"
     assert snapshot.breakdown[0].org_count == 2
-    assert snapshot.breakdown[0].revenue_cents == 0
+    assert snapshot.breakdown[0].revenue_cents == 16520
+    assert snapshot.breakdown[0].display_name == "Profesional"
 
 
 @pytest.mark.asyncio
-async def test_compute_revenue_pro_plan_flat():
-    """Pro plan: flat S/ 70.00 (7000 cents) per org regardless of seat count."""
-    org_rows = [
-        {"plan": "pro", "org_id": str(uuid.uuid4()), "seat_count": 1},
-        {"plan": "pro", "org_id": str(uuid.uuid4()), "seat_count": 3},
+async def test_compute_revenue_multi_plan_breakdown():
+    """Mixed invoice plans produce correct per-plan breakdown."""
+    invoice_rows = [
+        {"plan": "pro", "org_count": 1, "revenue_cents": 8260},
+        {"plan": "studio", "org_count": 1, "revenue_cents": 35282},
     ]
-    db = _exec_mock([], org_rows)  # no invoices → fallback to canonical
+    db = _exec_mock(invoice_rows)
 
     service = AdminMetricsService(db=db, plan_service=PlanService())
     snapshot = await service.compute_revenue()
 
-    # Pro is flat-priced — seat count doesn't matter
-    assert snapshot.mrr_cents == 7000 * 2
-    assert snapshot.arr_cents == 7000 * 2 * 12
-    pro_item = snapshot.breakdown[0]
-    assert pro_item.plan == "pro"
-    assert pro_item.org_count == 2
-    assert pro_item.revenue_cents == 14000
-    assert pro_item.display_name == "Profesional"
+    assert snapshot.mrr_cents == 8260 + 35282
+    assert snapshot.arr_cents == snapshot.mrr_cents * 12
+    assert len(snapshot.breakdown) == 2
 
 
 @pytest.mark.asyncio
-async def test_compute_revenue_sums_base_plus_seat_overage():
-    """Studio org with 7 seats: base 29900 + (7-5)*4000 = 37900."""
-    org_rows = [
-        {"plan": "studio", "org_id": str(uuid.uuid4()), "seat_count": 7},
+async def test_compute_revenue_date_filter_accepted():
+    """date_from / date_to params are accepted without error."""
+    invoice_rows = [
+        {"plan": "studio", "org_count": 1, "revenue_cents": 35282},
     ]
-    db = _exec_mock([], org_rows)  # no invoices → fallback to canonical
+    db = _exec_mock(invoice_rows)
 
     service = AdminMetricsService(db=db, plan_service=PlanService())
-    snapshot = await service.compute_revenue()
+    snapshot = await service.compute_revenue(
+        date_from=datetime(2026, 1, 1, tzinfo=UTC),
+        date_to=datetime(2026, 1, 31, tzinfo=UTC),
+    )
 
-    # 29900 + 2 overage * 4000 = 37900
-    assert snapshot.mrr_cents == 37900
-    studio_item = snapshot.breakdown[0]
-    assert studio_item.plan == "studio"
-    assert studio_item.revenue_cents == 37900
-    assert studio_item.display_name == "Estudio"
-
-
-@pytest.mark.asyncio
-async def test_compute_revenue_excludes_inactive_orgs():
-    """The SQL WHERE is_active=true is enforced; service returns 0 if all orgs inactive."""
-    # Service receives empty list (simulates DB filtering out inactive orgs)
-    db = _exec_mock([], [])  # no invoices → fallback; no active orgs
-
-    service = AdminMetricsService(db=db, plan_service=PlanService())
-    snapshot = await service.compute_revenue()
-
-    assert snapshot.mrr_cents == 0
-    assert snapshot.breakdown == []
+    assert snapshot.source == "invoices"
+    assert snapshot.mrr_cents == 35282
 
 
 @pytest.mark.asyncio
 async def test_compute_revenue_mixed_plans():
     """Mixed plan portfolio sums correctly and arr = mrr * 12."""
-    org_rows = [
-        {"plan": "free", "org_id": str(uuid.uuid4()), "seat_count": 1},
-        {"plan": "pro", "org_id": str(uuid.uuid4()), "seat_count": 1},
-        {"plan": "studio", "org_id": str(uuid.uuid4()), "seat_count": 5},  # no overage
+    invoice_rows = [
+        {"plan": "free", "org_count": 1, "revenue_cents": 0},
+        {"plan": "pro", "org_count": 1, "revenue_cents": 8260},
+        {"plan": "studio", "org_count": 1, "revenue_cents": 29900},
     ]
-    db = _exec_mock([], org_rows)  # no invoices → fallback to canonical
+    db = _exec_mock(invoice_rows)
 
     service = AdminMetricsService(db=db, plan_service=PlanService())
     snapshot = await service.compute_revenue()
 
-    # free=0, pro=7000, studio=29900 (5 seats = no overage)
-    assert snapshot.mrr_cents == 0 + 7000 + 29900
+    assert snapshot.mrr_cents == 0 + 8260 + 29900
     assert snapshot.arr_cents == snapshot.mrr_cents * 12
     assert len(snapshot.breakdown) == 3
 
