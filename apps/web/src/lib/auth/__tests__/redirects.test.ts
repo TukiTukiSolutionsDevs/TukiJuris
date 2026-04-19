@@ -70,6 +70,66 @@ describe("validateReturnTo", () => {
 // resolvePostLoginDestination
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// resolvePostLoginDestination — 8 combinations + idempotency (AC1-5, AC15)
+// ---------------------------------------------------------------------------
+
+describe("resolvePostLoginDestination — onboarding flag combinations", () => {
+  // Combo 1: returnTo valid, user not onboarded
+  it("C1: valid returnTo, non-admin, not onboarded → returnTo wins", () => {
+    expect(resolvePostLoginDestination("/historial", false, false)).toBe("/historial");
+  });
+
+  // Combo 2: returnTo valid, user onboarded
+  it("C2: valid returnTo, non-admin, onboarded → returnTo wins", () => {
+    expect(resolvePostLoginDestination("/historial", false, true)).toBe("/historial");
+  });
+
+  // Combo 3: returnTo valid, admin, not onboarded
+  it("C3: valid returnTo, admin, not onboarded → returnTo wins", () => {
+    expect(resolvePostLoginDestination("/historial", true, false)).toBe("/historial");
+  });
+
+  // Combo 4: returnTo valid, admin, onboarded
+  it("C4: valid returnTo, admin, onboarded → returnTo wins", () => {
+    expect(resolvePostLoginDestination("/historial", true, true)).toBe("/historial");
+  });
+
+  // Combo 5: no returnTo, user not onboarded
+  it("C5: no returnTo, non-admin, not onboarded → /onboarding", () => {
+    expect(resolvePostLoginDestination(null, false, false)).toBe("/onboarding");
+  });
+
+  // Combo 6: no returnTo, user onboarded
+  it("C6: no returnTo, non-admin, onboarded → ROUTE_AFTER_LOGIN_USER", () => {
+    expect(resolvePostLoginDestination(null, false, true)).toBe("/chat");
+  });
+
+  // Combo 7: no returnTo, admin not onboarded
+  it("C7: no returnTo, admin, not onboarded → /onboarding (onboarding takes precedence over admin route)", () => {
+    expect(resolvePostLoginDestination(null, true, false)).toBe("/onboarding");
+  });
+
+  // Combo 8: no returnTo, admin onboarded
+  it("C8: no returnTo, admin, onboarded → ROUTE_AFTER_LOGIN_ADMIN", () => {
+    expect(resolvePostLoginDestination(null, true, true)).toBe("/admin");
+  });
+
+  // Idempotency edge (AC15): returnTo="/onboarding" but user already onboarded → skip loop
+  it("idempotency: returnTo=/onboarding, onboarded=true, non-admin → falls through to /chat", () => {
+    expect(resolvePostLoginDestination("/onboarding", false, true)).toBe("/chat");
+  });
+
+  it("idempotency: returnTo=/onboarding, onboarded=true, admin → falls through to /admin", () => {
+    expect(resolvePostLoginDestination("/onboarding", true, true)).toBe("/admin");
+  });
+
+  // returnTo="/onboarding" while NOT onboarded should use returnTo (valid path)
+  it("returnTo=/onboarding + not onboarded → /onboarding is a valid returnTo (no idempotency guard)", () => {
+    expect(resolvePostLoginDestination("/onboarding", false, false)).toBe("/onboarding");
+  });
+});
+
 // All pre-existing tests assume user is already onboarded (onboardingCompleted=true)
 // so they pass `true` as the third argument.
 describe("resolvePostLoginDestination", () => {
