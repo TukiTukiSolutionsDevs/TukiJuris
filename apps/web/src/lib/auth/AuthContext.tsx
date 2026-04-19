@@ -73,6 +73,14 @@ interface AuthContextValue {
   logout: () => Promise<void>;
   /** Authenticated fetch — injects Bearer, auto-refreshes on 401. */
   authFetch: typeof clientAuthFetch;
+  /**
+   * RBAC permission names granted to the current user (e.g. "billing:read", "users:read").
+   * Populated from /api/auth/me/permissions after boot refresh.
+   * Empty array while loading or unauthenticated — safe default (deny-by-default).
+   */
+  permissions: string[];
+  /** Returns true if the current user holds the given RBAC permission name. */
+  hasPermission: (name: string) => boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -88,10 +96,12 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [accessToken, setToken] = useState<string | null>(getAccessToken);
   const [isLoading, setIsLoading] = useState(true);
-  /** plan + entitlements fetched from /me — null until fetched. */
-  const [meData, setMeData] = useState<{ plan: PlanId | null; entitlements: string[] } | null>(
-    null
-  );
+  /** plan + entitlements + permissions fetched from /me and /me/permissions — null until fetched. */
+  const [meData, setMeData] = useState<{
+    plan: PlanId | null;
+    entitlements: string[];
+    permissions: string[];
+  } | null>(null);
 
   // Derive user from token + meData. No extra network call for identity —
   // plan/entitlements come from /me fetch after boot refresh.
@@ -112,18 +122,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [accessToken, meData]);
 
-  /** Fetch /me and populate meData. Silently ignores errors (safe fallback = []). */
+  /** Fetch /me and /me/permissions in parallel; populate meData. Silently ignores errors. */
   const fetchMe = useCallback(async () => {
     try {
-      const res = await clientAuthFetch("/api/auth/me");
-      if (!res.ok) return;
-      const data = await res.json();
+      const [meRes, permRes] = await Promise.all([
+        clientAuthFetch("/api/auth/me"),
+        clientAuthFetch("/api/auth/me/permissions"),
+      ]);
+      const data = meRes.ok ? await meRes.json() : {};
+      const permData = permRes.ok ? await permRes.json() : {};
       setMeData({
         plan: (data.plan as PlanId) ?? null,
         entitlements: Array.isArray(data.entitlements) ? data.entitlements : [],
+        permissions: Array.isArray(permData.permissions) ? permData.permissions : [],
       });
     } catch {
-      // Fail silently — user sees locked UI (empty entitlements).
+      // Fail silently — deny-by-default (empty entitlements/permissions).
     }
   }, []);
 
@@ -174,6 +188,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setMeData(null);
   }, []);
 
+  const permissions = useMemo(() => meData?.permissions ?? [], [meData]);
+
+  const hasPermission = useCallback(
+    (name: string) => permissions.includes(name),
+    [permissions]
+  );
+
   const value = useMemo<AuthContextValue>(
     () => ({
       user,
@@ -183,8 +204,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       register,
       logout,
       authFetch: clientAuthFetch,
+      permissions,
+      hasPermission,
     }),
-    [user, accessToken, isLoading, login, register, logout]
+    [user, accessToken, isLoading, login, register, logout, permissions, hasPermission]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
@@ -227,4 +250,24 @@ export function useEntitlements(): string[] {
  */
 export function useHasFeature(key: string): boolean {
   return useEntitlements().includes(key);
+}
+
+/**
+ * Returns the list of RBAC permission names granted to the current user.
+ * Populated from /api/auth/me/permissions after boot refresh.
+ * Graceful fallback: [] when unauthenticated or still loading.
+ */
+export function usePermissions(): string[] {
+  return useAuth().permissions;
+}
+
+/**
+ * Returns true if the current user holds the given RBAC permission name.
+ * Deny-by-default: returns false while loading or unauthenticated.
+ *
+ * @example
+ *   const canReadBilling = useHasPermission('billing:read');
+ */
+export function useHasPermission(name: string): boolean {
+  return useAuth().hasPermission(name);
 }

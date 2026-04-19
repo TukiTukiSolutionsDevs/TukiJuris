@@ -38,6 +38,11 @@ export const handlers = [
   http.get("/api/auth/me", () =>
     HttpResponse.json({ id: "user-1", email: "user@test.com", is_admin: false })
   ),
+
+  // GET /api/auth/me/permissions
+  http.get("/api/auth/me/permissions", () =>
+    HttpResponse.json({ permissions: [] })
+  ),
 ];
 
 // ---------------------------------------------------------------------------
