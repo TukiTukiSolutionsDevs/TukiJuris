@@ -86,6 +86,26 @@ export interface InvoicesPage {
   per_page: number;
 }
 
+export interface TrialAdminRow {
+  id: string;
+  org_id: string;
+  status: string;
+  trial_ends_at: string;
+  charge_amount: string;
+  currency: string;
+  provider: string | null;
+  charge_id: string | null;
+  charged_at: string | null;
+  created_at: string;
+}
+
+export interface TrialsAdminPage {
+  items: TrialAdminRow[];
+  total: number;
+  page: number;
+  per_page: number;
+}
+
 type AuthFetch = (input: RequestInfo, init?: RequestInit) => Promise<Response>;
 
 export async function fetchRevenue(authFetch: AuthFetch): Promise<RevenueData> {
@@ -161,4 +181,39 @@ export async function fetchAdminInvoices(
     throw err;
   }
   return res.json() as Promise<InvoicesPage>;
+}
+
+export async function fetchAdminTrials(
+  authFetch: AuthFetch,
+  page = 1,
+  perPage = 20,
+  status?: string,
+): Promise<TrialsAdminPage> {
+  const params = new URLSearchParams({ page: String(page), per_page: String(perPage) });
+  if (status) params.set("status", status);
+  const res = await authFetch(`/api/admin/trials?${params}`);
+  if (!res.ok) {
+    const err = new Error(`fetchAdminTrials failed: ${res.status}`);
+    (err as Error & { status: number }).status = res.status;
+    throw err;
+  }
+  return res.json() as Promise<TrialsAdminPage>;
+}
+
+export async function patchAdminTrial(
+  authFetch: AuthFetch,
+  id: string,
+  body: { status: string },
+): Promise<TrialAdminRow> {
+  const res = await authFetch(`/api/admin/trials/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const err = new Error(`patchAdminTrial failed: ${res.status}`);
+    (err as Error & { status: number }).status = res.status;
+    throw err;
+  }
+  return res.json() as Promise<TrialAdminRow>;
 }
