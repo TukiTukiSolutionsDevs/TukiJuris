@@ -361,6 +361,50 @@ class EmailService:
         )
         return await self._send(to, f"Pago confirmado - Plan {plan_name}", html)
 
+    # ── Trial lifecycle emails (stub — item 3b wires real delivery) ───────
+
+    _TRIAL_SUBJECTS: dict[str, str] = {
+        "trial.started_confirmation": "Tu prueba gratuita de TukiJuris comenzó",
+        "trial.reminder_3d": "Tu prueba termina en 3 días",
+        "trial.reminder_1d": "Tu prueba termina mañana",
+        "trial.reminder_0d_charging": "Hoy te cobraremos el plan TukiJuris",
+        "trial.auto_charged_receipt": "Cobro exitoso — bienvenido a TukiJuris",
+        "trial.charge_failed_update_card": "Problema con tu pago — actualiza tu tarjeta",
+        "trial.downgraded_no_card_postmortem": "Tu prueba terminó — vuelve cuando quieras",
+        "trial.canceled_confirmation": "Prueba cancelada — lamentamos verte ir",
+    }
+
+    async def send_trial_email(
+        self,
+        event: str,
+        *,
+        user_id: object,
+        trial_id: object,
+        **kwargs: object,
+    ) -> bool:
+        """Send a trial lifecycle email.
+
+        Log-only stub — real delivery will be wired in item 3b once the email
+        provider integration is complete. This method always returns True so
+        that callers do not need to handle the stub case specially.
+
+        Supported events (8-template registry):
+          trial.started_confirmation, trial.reminder_3d, trial.reminder_1d,
+          trial.reminder_0d_charging, trial.auto_charged_receipt,
+          trial.charge_failed_update_card, trial.downgraded_no_card_postmortem,
+          trial.canceled_confirmation
+        """
+        subject = self._TRIAL_SUBJECTS.get(event, event)
+        logger.info(
+            "[TRIAL EMAIL stub] event=%s subject=%r user_id=%s trial_id=%s ctx=%s",
+            event,
+            subject,
+            user_id,
+            trial_id,
+            kwargs,
+        )
+        return True
+
 
 # Singleton instance used across the application
 email_service = EmailService()
