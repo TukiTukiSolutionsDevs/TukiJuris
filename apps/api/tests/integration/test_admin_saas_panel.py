@@ -16,6 +16,7 @@ Run: docker exec tukijuris-api-1 python -m pytest tests/integration/test_admin_s
 from __future__ import annotations
 
 import uuid
+from datetime import UTC, datetime, timedelta
 
 import asyncpg
 import pytest
@@ -284,3 +285,69 @@ async def test_byok_unauthenticated(client: AsyncClient):
     """401 with no token."""
     res = await client.get("/api/admin/byok")
     assert res.status_code == 401, res.text
+
+
+# ---------------------------------------------------------------------------
+# AC8 — last_active picks latest of multiple refresh tokens
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_last_active_picks_latest_of_multiple_refresh_tokens(
+    super_admin_client: AsyncClient,
+    client: AsyncClient,
+) -> None:
+    """AC8: last_active == MAX(refresh_token.created_at) when a user has many tokens."""
+    # Register a fresh target user
+    _, email = await _register(client)
+
+    now = datetime.now(UTC)
+    t_old = now - timedelta(days=3)
+    t_mid = now - timedelta(days=1)
+    t_recent = now - timedelta(hours=1)
+    expires = now + timedelta(days=30)
+
+    try:
+        conn = await _db_connect()
+    except Exception as exc:
+        pytest.skip(f"DB unreachable: {exc}")
+    try:
+        user_id = await conn.fetchval("SELECT id FROM users WHERE email = $1", email)
+        # Remove any tokens created during registration so the set is fully controlled
+        await conn.execute("DELETE FROM refresh_tokens WHERE user_id = $1", user_id)
+        for ts in [t_old, t_mid, t_recent]:
+            await conn.execute(
+                """
+                INSERT INTO refresh_tokens
+                    (user_id, jti, family_id, token_hash, expires_at, created_at)
+                VALUES ($1, $2, $3, $4, $5, $6)
+                """,
+                user_id,
+                uuid.uuid4().hex,
+                uuid.uuid4().hex,
+                uuid.uuid4().hex,
+                expires,
+                ts,
+            )
+    finally:
+        await conn.close()
+
+    res = await super_admin_client.get(
+        f"/api/admin/users?search={email}&per_page=1"
+    )
+    assert res.status_code == 200, res.text
+    data = res.json()
+    assert len(data["users"]) == 1, f"Expected 1 user, got {len(data['users'])}"
+
+    last_active_str = data["users"][0]["last_active"]
+    assert last_active_str is not None, "last_active must not be None after inserting tokens"
+
+    last_active_dt = datetime.fromisoformat(last_active_str)
+    if last_active_dt.tzinfo is None:
+        last_active_dt = last_active_dt.replace(tzinfo=UTC)
+
+    diff = abs((last_active_dt - t_recent).total_seconds())
+    assert diff < 2, (
+        f"last_active should equal the most recent token (~{t_recent}), "
+        f"got {last_active_dt} (diff={diff:.2f}s)"
+    )
