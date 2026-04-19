@@ -1,0 +1,88 @@
+services:
+  # --- PostgreSQL with pgvector ---
+  db:
+    image: pgvector/pgvector:pg17
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: agente_derecho
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./infrastructure/sql/init.sql:/docker-entrypoint-initdb.d/01-init.sql
+      - ./infrastructure/sql/migration_002_multi_tenant.sql:/docker-entrypoint-initdb.d/02-multi-tenant.sql
+      - ./infrastructure/sql/migration_003_api_keys.sql:/docker-entrypoint-initdb.d/03-api-keys.sql
+      - ./infrastructure/sql/migration_004_sso.sql:/docker-entrypoint-initdb.d/04-sso.sql
+      - ./infrastructure/sql/migration_005_notifications.sql:/docker-entrypoint-initdb.d/05-notifications.sql
+      - ./infrastructure/sql/migration_006_search.sql:/docker-entrypoint-initdb.d/06-search.sql
+      - ./infrastructure/sql/migration_007_conversation_mgmt.sql:/docker-entrypoint-initdb.d/07-conversation-mgmt.sql
+      - ./infrastructure/sql/migration_008_message_bookmarks.sql:/docker-entrypoint-initdb.d/08-message-bookmarks.sql
+      - ./infrastructure/sql/migration_009_tags_folders.sql:/docker-entrypoint-initdb.d/09-tags-folders.sql
+      - ./infrastructure/sql/migration_010_context_memory.sql:/docker-entrypoint-initdb.d/10-context-memory.sql
+      - ./infrastructure/sql/migration_011_message_columns.sql:/docker-entrypoint-initdb.d/11-message-columns.sql
+      - ./infrastructure/sql/migration_012_uploaded_documents.sql:/docker-entrypoint-initdb.d/12-uploaded-documents.sql
+      - ./infrastructure/sql/migration_013_user_llm_keys.sql:/docker-entrypoint-initdb.d/13-user-llm-keys.sql
+      - ./infrastructure/sql/migration_014_payment_providers.sql:/docker-entrypoint-initdb.d/14-payment-providers.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # --- Redis ---
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # --- FastAPI Backend ---
+  api:
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@db:5432/agente_derecho
+      - DATABASE_URL_SYNC=postgresql://postgres:postgres@db:5432/agente_derecho
+      - REDIS_URL=redis://redis:6379/0
+    volumes:
+      - ./apps/api:/app
+      - ./services:/app/services
+      - api_uploads:/app/uploads
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # --- Next.js Frontend ---
+  web:
+    build:
+      context: ./apps/web
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+    volumes:
+      - ./apps/web:/app
+      - /app/node_modules
+      - /app/.next
+    depends_on:
+      - api
+
+volumes:
+  pgdata:
+  redisdata:
+  api_uploads:
