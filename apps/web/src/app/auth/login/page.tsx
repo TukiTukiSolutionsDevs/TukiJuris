@@ -89,7 +89,10 @@ export default function LoginPage() {
     setError("");
     setSsoLoading("google");
     try {
-      const res = await fetch(`${API_URL}/api/auth/oauth/google/authorize`);
+      const pathname = window.location.pathname;
+      const isAuthOrRoot = pathname === "/" || pathname.startsWith("/auth/");
+      const returntoParam = !isAuthOrRoot ? `?returnto=${encodeURIComponent(pathname)}` : "";
+      const res = await fetch(`${API_URL}/api/auth/oauth/google/authorize${returntoParam}`);
       if (!res.ok) {
         const data = await res.json().catch(() => ({ detail: "Error al iniciar Google SSO" }));
         setError(data.detail ?? "Error al iniciar Google SSO");
@@ -108,7 +111,10 @@ export default function LoginPage() {
     setError("");
     setSsoLoading("microsoft");
     try {
-      const res = await fetch(`${API_URL}/api/auth/oauth/microsoft/authorize`);
+      const pathname = window.location.pathname;
+      const isAuthOrRoot = pathname === "/" || pathname.startsWith("/auth/");
+      const returntoParam = !isAuthOrRoot ? `?returnto=${encodeURIComponent(pathname)}` : "";
+      const res = await fetch(`${API_URL}/api/auth/oauth/microsoft/authorize${returntoParam}`);
       if (!res.ok) {
         const data = await res.json().catch(() => ({ detail: "Error al iniciar Microsoft SSO" }));
         setError(data.detail ?? "Error al iniciar Microsoft SSO");

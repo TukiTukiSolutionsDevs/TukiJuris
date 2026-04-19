@@ -40,7 +40,10 @@ export default function RegisterPage() {
   const handleSSO = async (provider: "google" | "microsoft") => {
     setError(""); setSsoLoading(provider);
     try {
-      const res = await fetch(`${API_URL}/api/auth/oauth/${provider}/authorize`);
+      const pathname = window.location.pathname;
+      const isAuthOrRoot = pathname === "/" || pathname.startsWith("/auth/");
+      const returntoParam = !isAuthOrRoot ? `?returnto=${encodeURIComponent(pathname)}` : "";
+      const res = await fetch(`${API_URL}/api/auth/oauth/${provider}/authorize${returntoParam}`);
       if (!res.ok) { const d = await res.json().catch(() => ({})); setError(d.detail ?? `Error SSO ${provider}`); return; }
       window.location.href = (await res.json()).url;
     } catch { setError("No se pudo conectar con el servidor."); } finally { setSsoLoading(null); }
