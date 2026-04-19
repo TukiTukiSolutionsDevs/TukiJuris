@@ -157,11 +157,12 @@ describe("OnboardingPage — skipAll()", () => {
     render(<OnboardingPage />);
 
     const skipBtn = screen.getByText(/Omitir configuracion/i);
-    // React async onClick handlers don't propagate rejections to the click caller.
-    // The rejection becomes an unhandled promise rejection; router.push is never called.
     await user.click(skipBtn);
-    // Let micro-tasks settle
-    await new Promise((r) => setTimeout(r, 50));
+
+    // Wait for the async click handler to fully resolve (rejection caught by component).
+    await waitFor(() => {
+      expect(mockCompleteOnboarding).toHaveBeenCalledTimes(1);
+    });
     expect(mockPush).not.toHaveBeenCalled();
   });
 
