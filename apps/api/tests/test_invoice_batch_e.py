@@ -15,6 +15,17 @@ from datetime import UTC, datetime
 from decimal import Decimal
 from unittest.mock import AsyncMock, MagicMock, patch
 
+
+def _mock_db() -> AsyncMock:
+    """AsyncMock DB with begin_nested() properly returning an async context manager.
+
+    SQLAlchemy's begin_nested() is a sync method returning an async CM — not a coroutine.
+    Plain AsyncMock() returns a coroutine which breaks 'async with db.begin_nested():'.
+    """
+    db = AsyncMock()
+    db.begin_nested = MagicMock(return_value=AsyncMock())
+    return db
+
 import pytest
 
 from app.services.admin_metrics_service import AdminMetricsService
@@ -198,7 +209,7 @@ class TestWebhookInvoiceCreation:
         request.body = AsyncMock(return_value=raw)
         request.headers = {}
 
-        db = AsyncMock()
+        db = _mock_db()
         audit = MagicMock()
         audit.log_action = AsyncMock()
 
@@ -248,7 +259,7 @@ class TestWebhookInvoiceCreation:
         request.body = AsyncMock(return_value=raw)
         request.headers = {}
 
-        db = AsyncMock()
+        db = _mock_db()
         audit = MagicMock()
         audit.log_action = AsyncMock()
         idem = MagicMock()
@@ -295,7 +306,7 @@ class TestWebhookInvoiceCreation:
         request.body = AsyncMock(return_value=raw)
         request.headers = {}
 
-        db = AsyncMock()
+        db = _mock_db()
         audit = MagicMock()
         audit.log_action = AsyncMock()
         idem = MagicMock()

@@ -59,6 +59,17 @@ def _make_idem(is_new: bool = True) -> MagicMock:
     return idem
 
 
+def _mock_db() -> AsyncMock:
+    """AsyncMock DB with begin_nested() properly returning an async context manager.
+
+    SQLAlchemy's begin_nested() is a sync call that returns an async CM.
+    Plain AsyncMock() makes it return a coroutine which breaks 'async with'.
+    """
+    db = AsyncMock()
+    db.begin_nested = MagicMock(return_value=AsyncMock())
+    return db
+
+
 # ---------------------------------------------------------------------------
 # C3 — MP payment.created creates invoice
 # ---------------------------------------------------------------------------
@@ -70,7 +81,7 @@ class TestMPPaymentCreated:
         from app.api.routes.billing import mercadopago_webhook
 
         raw = _mp_payload("payment.created")
-        db = AsyncMock()
+        db = _mock_db()
         audit = MagicMock()
         audit.log_action = AsyncMock()
         idem = _make_idem()
@@ -98,7 +109,7 @@ class TestMPPaymentCreated:
         from app.api.routes.billing import mercadopago_webhook
 
         raw = _mp_payload("payment.updated", status="approved")
-        db = AsyncMock()
+        db = _mock_db()
         audit = MagicMock()
         audit.log_action = AsyncMock()
         idem = _make_idem()
@@ -124,7 +135,7 @@ class TestMPPaymentCreated:
         from app.api.routes.billing import mercadopago_webhook
 
         raw = _mp_payload("payment.updated", status="pending")
-        db = AsyncMock()
+        db = _mock_db()
         audit = MagicMock()
         audit.log_action = AsyncMock()
         idem = _make_idem()
@@ -150,7 +161,7 @@ class TestMPPaymentCreated:
         from app.api.routes.billing import mercadopago_webhook
 
         raw = _mp_payload("payment.failed")
-        db = AsyncMock()
+        db = _mock_db()
         audit = MagicMock()
         audit.log_action = AsyncMock()
         idem = _make_idem()
@@ -178,7 +189,7 @@ class TestMPPaymentCreated:
         from app.api.routes.billing import mercadopago_webhook
 
         raw = _mp_payload("payment.created")
-        db = AsyncMock()
+        db = _mock_db()
         audit = MagicMock()
         audit.log_action = AsyncMock()
         idem = _make_idem()
@@ -210,7 +221,7 @@ class TestCulqiChargeRefunded:
         from app.api.routes.billing import culqi_webhook
 
         raw = _culqi_payload("charge.refunded")
-        db = AsyncMock()
+        db = _mock_db()
         audit = MagicMock()
         audit.log_action = AsyncMock()
         idem = _make_idem()
@@ -243,7 +254,7 @@ class TestCulqiChargeRefunded:
         from app.api.routes.billing import culqi_webhook
 
         raw = _culqi_payload("charge.refunded")
-        db = AsyncMock()
+        db = _mock_db()
         audit = MagicMock()
         audit.log_action = AsyncMock()
         idem = _make_idem()
