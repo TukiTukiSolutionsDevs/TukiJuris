@@ -135,3 +135,170 @@ describe("useAuth().logout()", () => {
     expect(result.current.accessToken).toBeNull();
   });
 });
+
+// ---------------------------------------------------------------------------
+// onboardingCompleted
+// ---------------------------------------------------------------------------
+describe("useAuth().onboardingCompleted", () => {
+  it("defaults to false while loading", () => {
+    server.use(
+      http.post("/api/auth/refresh", async () => {
+        await new Promise((r) => setTimeout(r, 50));
+        return HttpResponse.json({ access_token: ACCESS_TOKEN, token_type: "bearer", expires_in: 900 });
+      })
+    );
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    expect(result.current.onboardingCompleted).toBe(false);
+  });
+
+  it("reads onboarding_completed=false from /me after boot refresh", async () => {
+    // Default handler returns onboarding_completed: false
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.onboardingCompleted).toBe(false);
+  });
+
+  it("reads onboarding_completed=true from /me when server returns true", async () => {
+    server.use(
+      http.get("/api/auth/me", () =>
+        HttpResponse.json({
+          id: "user-1",
+          email: "user@test.com",
+          is_admin: false,
+          onboarding_completed: true,
+          plan: "free",
+          entitlements: ["chat"],
+        })
+      )
+    );
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.onboardingCompleted).toBe(true);
+  });
+
+  it("resets to false after logout", async () => {
+    server.use(
+      http.get("/api/auth/me", () =>
+        HttpResponse.json({
+          id: "user-1",
+          email: "user@test.com",
+          is_admin: false,
+          onboarding_completed: true,
+          plan: "free",
+          entitlements: ["chat"],
+        })
+      )
+    );
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.onboardingCompleted).toBe(true);
+
+    await act(async () => { await result.current.logout(); });
+    expect(result.current.onboardingCompleted).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// completeOnboarding()
+// ---------------------------------------------------------------------------
+describe("useAuth().completeOnboarding()", () => {
+  it("calls POST /api/auth/me/onboarding then re-fetches /me", async () => {
+    let onboardingCalled = false;
+    let meCallCount = 0;
+
+    server.use(
+      http.post("/api/auth/me/onboarding", () => {
+        onboardingCalled = true;
+        return new HttpResponse(null, { status: 204 });
+      }),
+      http.get("/api/auth/me", () => {
+        meCallCount++;
+        return HttpResponse.json({
+          id: "user-1",
+          email: "user@test.com",
+          is_admin: false,
+          onboarding_completed: meCallCount > 1, // true on 2nd+ call
+          plan: "free",
+          entitlements: ["chat"],
+        });
+      })
+    );
+
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    // Before completeOnboarding: false
+    expect(result.current.onboardingCompleted).toBe(false);
+
+    await act(async () => { await result.current.completeOnboarding(); });
+
+    expect(onboardingCalled).toBe(true);
+    expect(result.current.onboardingCompleted).toBe(true);
+  });
+
+  it("updates onboardingCompleted to true in context after completion", async () => {
+    server.use(
+      http.get("/api/auth/me", (() => {
+        let called = 0;
+        return () => {
+          called++;
+          return HttpResponse.json({
+            id: "user-1",
+            email: "user@test.com",
+            is_admin: false,
+            onboarding_completed: called > 1,
+            plan: "free",
+            entitlements: ["chat"],
+          });
+        };
+      })())
+    );
+
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    await act(async () => { await result.current.completeOnboarding(); });
+
+    expect(result.current.onboardingCompleted).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// logoutAll()
+// ---------------------------------------------------------------------------
+describe("useAuth().logoutAll()", () => {
+  it("clears user and accessToken after logout-all", async () => {
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    expect(result.current.user).not.toBeNull();
+
+    await act(async () => { await result.current.logoutAll(); });
+
+    expect(result.current.user).toBeNull();
+    expect(result.current.accessToken).toBeNull();
+  });
+
+  it("resets onboardingCompleted to false after logout-all", async () => {
+    server.use(
+      http.get("/api/auth/me", () =>
+        HttpResponse.json({
+          id: "user-1",
+          email: "user@test.com",
+          is_admin: false,
+          onboarding_completed: true,
+          plan: "free",
+          entitlements: ["chat"],
+        })
+      )
+    );
+
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.onboardingCompleted).toBe(true);
+
+    await act(async () => { await result.current.logoutAll(); });
+
+    expect(result.current.onboardingCompleted).toBe(false);
+  });
+});
