@@ -1,12 +1,10 @@
 """OAuth2 routes — Google and Microsoft SSO."""
 
 import logging
-import secrets
 import uuid
 
 import httpx
-import redis.asyncio as aioredis
-from fastapi import APIRouter, Depends, HTTPException, Request, Response
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -15,15 +13,16 @@ from app.api.deps import get_refresh_service
 from app.api.routes.auth import AccessTokenResponse, _set_session_cookies
 from app.config import settings
 from app.core.database import get_db
+from app.core.security import (
+    InvalidStateTokenError,
+    create_oauth_state_jwt,
+    validate_relative_path,
+    verify_oauth_state_jwt,
+)
 from app.models.user import User
 from app.services.refresh_token_service import RefreshTokenService
 
 logger = logging.getLogger(__name__)
-
-
-async def _get_redis() -> aioredis.Redis:
-    """Return an async Redis client using the configured URL."""
-    return aioredis.from_url(settings.redis_url, decode_responses=True)
 
 
 router = APIRouter(prefix="/auth/oauth", tags=["oauth"])
@@ -49,6 +48,15 @@ class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
     expires_in: int = 900
+
+
+class OAuthCallbackResponse(BaseModel):
+    """Response from the OAuth callback endpoint, including the post-auth destination."""
+
+    access_token: str
+    token_type: str = "bearer"
+    expires_in: int = 900
+    returnto: str
 
 
 class OAuthProvider(BaseModel):
@@ -237,6 +245,19 @@ async def _upsert_sso_user(
     return user
 
 
+def _compute_effective_returnto(oauth_state_returnto: str | None, is_admin: bool) -> str:
+    """Determine the effective post-login destination.
+
+    Precedence:
+      1. oauth_state.returnto if present AND passes validate_relative_path
+      2. /admin  if user.is_admin
+      3. /chat   default
+    """
+    if oauth_state_returnto and validate_relative_path(oauth_state_returnto):
+        return oauth_state_returnto
+    return "/admin" if is_admin else "/chat"
+
+
 # ---------------------------------------------------------------------------
 # Routes
 # ---------------------------------------------------------------------------
@@ -264,42 +285,40 @@ async def list_providers():
 
 
 @router.get("/google/authorize", response_model=AuthorizeResponse)
-async def google_authorize():
-    """Generate and return the Google OAuth2 authorization URL."""
+async def google_authorize(
+    returnto: str | None = Query(default=None, description="Relative path to return to after auth"),
+) -> AuthorizeResponse:
+    """Return the Google OAuth2 authorization URL with a signed state JWT."""
     if not settings.google_oauth_client_id:
         raise HTTPException(status_code=503, detail="Google OAuth is not configured")
-    state = secrets.token_urlsafe(32)
-    try:
-        r = await _get_redis()
-        await r.setex(f"oauth_state:{state}", 300, "1")
-    except Exception:
-        logger.warning("Redis unavailable — OAuth state could not be stored")
-    return AuthorizeResponse(url=_build_google_auth_url(state))
+
+    validated_returnto: str | None = None
+    if returnto is not None:
+        if validate_relative_path(returnto):
+            validated_returnto = returnto
+        else:
+            logger.warning(
+                "oauth.authorize: invalid returnto rejected",
+                extra={"provider": "google", "length": len(returnto)},
+            )
+
+    state_token = create_oauth_state_jwt(returnto=validated_returnto)
+    return AuthorizeResponse(url=_build_google_auth_url(state_token))
 
 
-@router.post("/google/callback", response_model=AccessTokenResponse)
+@router.post("/google/callback", response_model=OAuthCallbackResponse)
 async def google_callback(
     body: OAuthCallbackRequest,
     request: Request,
     response: Response,
     db: AsyncSession = Depends(get_db),
     service: RefreshTokenService = Depends(get_refresh_service),
-):
-    """Exchange Google authorization code for an access token; set refresh cookie."""
-    if not body.state:
-        raise HTTPException(status_code=400, detail="Missing state parameter")
-
-    # Validate CSRF state via Redis (one-time use)
+) -> OAuthCallbackResponse:
+    """Exchange Google code for tokens; set refresh cookie; return effective returnto."""
     try:
-        r = await _get_redis()
-        stored = await r.get(f"oauth_state:{body.state}")
-        await r.delete(f"oauth_state:{body.state}")  # consume immediately — one-time use
-        if not stored:
-            raise HTTPException(status_code=400, detail="Invalid or expired OAuth state")
-    except HTTPException:
-        raise
-    except Exception:
-        logger.warning("Redis unavailable for OAuth state validation — proceeding")
+        oauth_state = verify_oauth_state_jwt(body.state)
+    except InvalidStateTokenError:
+        raise HTTPException(status_code=401, detail="Invalid or expired OAuth state")
 
     if not settings.google_oauth_client_id or not settings.google_oauth_client_secret:
         raise HTTPException(status_code=503, detail="Google OAuth is not configured")
@@ -332,49 +351,49 @@ async def google_callback(
     }
     pair = await service.issue_pair(user, device_info)
     _set_session_cookies(response, pair.refresh_token)
-    return AccessTokenResponse(
+
+    return OAuthCallbackResponse(
         access_token=pair.access_token,
         expires_in=pair.expires_in,
+        returnto=_compute_effective_returnto(oauth_state.returnto, user.is_admin),
     )
 
 
 @router.get("/microsoft/authorize", response_model=AuthorizeResponse)
-async def microsoft_authorize():
-    """Generate and return the Microsoft OAuth2 authorization URL."""
+async def microsoft_authorize(
+    returnto: str | None = Query(default=None, description="Relative path to return to after auth"),
+) -> AuthorizeResponse:
+    """Return the Microsoft OAuth2 authorization URL with a signed state JWT."""
     if not settings.microsoft_oauth_client_id:
         raise HTTPException(status_code=503, detail="Microsoft OAuth is not configured")
-    state = secrets.token_urlsafe(32)
-    try:
-        r = await _get_redis()
-        await r.setex(f"oauth_state:{state}", 300, "1")
-    except Exception:
-        logger.warning("Redis unavailable — OAuth state could not be stored")
-    return AuthorizeResponse(url=_build_microsoft_auth_url(state))
+
+    validated_returnto: str | None = None
+    if returnto is not None:
+        if validate_relative_path(returnto):
+            validated_returnto = returnto
+        else:
+            logger.warning(
+                "oauth.authorize: invalid returnto rejected",
+                extra={"provider": "microsoft", "length": len(returnto)},
+            )
+
+    state_token = create_oauth_state_jwt(returnto=validated_returnto)
+    return AuthorizeResponse(url=_build_microsoft_auth_url(state_token))
 
 
-@router.post("/microsoft/callback", response_model=AccessTokenResponse)
+@router.post("/microsoft/callback", response_model=OAuthCallbackResponse)
 async def microsoft_callback(
     body: OAuthCallbackRequest,
     request: Request,
     response: Response,
     db: AsyncSession = Depends(get_db),
     service: RefreshTokenService = Depends(get_refresh_service),
-):
-    """Exchange Microsoft authorization code for an access token; set refresh cookie."""
-    if not body.state:
-        raise HTTPException(status_code=400, detail="Missing state parameter")
-
-    # Validate CSRF state via Redis (one-time use)
+) -> OAuthCallbackResponse:
+    """Exchange Microsoft code for tokens; set refresh cookie; return effective returnto."""
     try:
-        r = await _get_redis()
-        stored = await r.get(f"oauth_state:{body.state}")
-        await r.delete(f"oauth_state:{body.state}")  # consume immediately — one-time use
-        if not stored:
-            raise HTTPException(status_code=400, detail="Invalid or expired OAuth state")
-    except HTTPException:
-        raise
-    except Exception:
-        logger.warning("Redis unavailable for OAuth state validation — proceeding")
+        oauth_state = verify_oauth_state_jwt(body.state)
+    except InvalidStateTokenError:
+        raise HTTPException(status_code=401, detail="Invalid or expired OAuth state")
 
     if not settings.microsoft_oauth_client_id or not settings.microsoft_oauth_client_secret:
         raise HTTPException(status_code=503, detail="Microsoft OAuth is not configured")
@@ -407,7 +426,9 @@ async def microsoft_callback(
     }
     pair = await service.issue_pair(user, device_info)
     _set_session_cookies(response, pair.refresh_token)
-    return AccessTokenResponse(
+
+    return OAuthCallbackResponse(
         access_token=pair.access_token,
         expires_in=pair.expires_in,
+        returnto=_compute_effective_returnto(oauth_state.returnto, user.is_admin),
     )
