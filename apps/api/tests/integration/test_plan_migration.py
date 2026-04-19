@@ -101,31 +101,31 @@ class TestPlanMigration007:
         assert count == 0, f"Found {count} subscriptions still on legacy plan 'enterprise'"
 
     async def test_migration_007_is_recorded(self, db: asyncpg.Connection):
-        """alembic_version head must be 009_backfill_is_admin_from_rbac, proving 007 was applied.
+        """alembic_version head must be 010_admin_saas_panel_indexes, proving 007 was applied.
 
         Alembic stores only the current head revision. Migration 007_rename_plan_values
-        is part of the linear chain leading to 009; if 009 is head, 007 was applied.
+        is part of the linear chain leading to 010; if 010 is head, 007 was applied.
         """
         row = await db.fetchrow(
-            "SELECT version_num FROM alembic_version WHERE version_num = '009_backfill_is_admin_from_rbac'"
+            "SELECT version_num FROM alembic_version WHERE version_num = '010_admin_saas_panel_indexes'"
         )
         assert row is not None, (
-            "Migration chain not at expected head (009_backfill_is_admin_from_rbac) — "
+            "Migration chain not at expected head (010_admin_saas_panel_indexes) — "
             "migration 007_rename_plan_values may not have been applied. "
             "Run: alembic upgrade head"
         )
 
     async def test_migration_008_is_recorded(self, db: asyncpg.Connection):
-        """alembic_version head must be 009_backfill_is_admin_from_rbac, proving 008 was applied.
+        """alembic_version head must be 010_admin_saas_panel_indexes, proving 008 was applied.
 
         Alembic stores only the current head revision. Migration 008_org_seat_pricing
-        is part of the linear chain leading to 009; if 009 is head, 008 was applied.
+        is part of the linear chain leading to 010; if 010 is head, 008 was applied.
         """
         row = await db.fetchrow(
-            "SELECT version_num FROM alembic_version WHERE version_num = '009_backfill_is_admin_from_rbac'"
+            "SELECT version_num FROM alembic_version WHERE version_num = '010_admin_saas_panel_indexes'"
         )
         assert row is not None, (
-            "Migration chain not at expected head (009_backfill_is_admin_from_rbac) — "
+            "Migration chain not at expected head (010_admin_saas_panel_indexes) — "
             "migration 008_org_seat_pricing may not have been applied. "
             "Run: alembic upgrade head"
         )
