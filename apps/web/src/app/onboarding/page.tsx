@@ -106,8 +106,12 @@ export default function OnboardingPage() {
     } catch {
       // ignore storage errors
     }
-    await completeOnboarding();
-    router.push("/chat");
+    try {
+      await completeOnboarding();
+      router.push("/chat");
+    } catch {
+      // network error — remain on page
+    }
   };
 
   const skipAll = async () => {
@@ -116,8 +120,12 @@ export default function OnboardingPage() {
     } catch {
       // ignore
     }
-    await completeOnboarding();
-    router.push("/chat");
+    try {
+      await completeOnboarding();
+      router.push("/chat");
+    } catch {
+      // network error — remain on page
+    }
   };
 
   return (
