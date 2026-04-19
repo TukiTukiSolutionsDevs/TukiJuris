@@ -14,7 +14,7 @@ import { StepListo } from "./_components/StepListo";
 
 export default function OnboardingPage() {
   const router = useRouter();
-  const { authFetch } = useAuth();
+  const { authFetch, completeOnboarding } = useAuth();
   const [step, setStep] = useState(1);
   const [animating, setAnimating] = useState(false);
   const [state, setState] = useState<OnboardingState>(INITIAL_STATE);
@@ -87,7 +87,7 @@ export default function OnboardingPage() {
     }, 250);
   };
 
-  const finish = () => {
+  const finish = async () => {
     try {
       localStorage.setItem("tukijuris_onboarding_done", "true");
       const selectedModel = state.model || "";
@@ -106,16 +106,18 @@ export default function OnboardingPage() {
     } catch {
       // ignore storage errors
     }
-    router.push("/");
+    await completeOnboarding();
+    router.push("/chat");
   };
 
-  const skipAll = () => {
+  const skipAll = async () => {
     try {
       localStorage.setItem("tukijuris_onboarding_done", "true");
     } catch {
       // ignore
     }
-    router.push("/");
+    await completeOnboarding();
+    router.push("/chat");
   };
 
   return (
