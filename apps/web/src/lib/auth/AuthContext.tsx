@@ -68,9 +68,21 @@ interface AuthContextValue {
   accessToken: string | null;
   /** True while the boot-time refresh is in progress. Gate UIs on this. */
   isLoading: boolean;
+  /**
+   * Whether the current user has completed onboarding.
+   * Populated from /me (server-authoritative). False while loading or unauthenticated.
+   */
+  onboardingCompleted: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string, fullName?: string) => Promise<void>;
   logout: () => Promise<void>;
+  /** Revoke all sessions (all-device logout). Clears local state. */
+  logoutAll: () => Promise<void>;
+  /**
+   * Mark onboarding as complete on the server, then re-fetch /me.
+   * Idempotent — safe to call even if already completed.
+   */
+  completeOnboarding: () => Promise<void>;
   /** Authenticated fetch — injects Bearer, auto-refreshes on 401. */
   authFetch: typeof clientAuthFetch;
   /**
@@ -96,11 +108,12 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [accessToken, setToken] = useState<string | null>(getAccessToken);
   const [isLoading, setIsLoading] = useState(true);
-  /** plan + entitlements + permissions fetched from /me and /me/permissions — null until fetched. */
+  /** plan + entitlements + permissions + onboardingCompleted fetched from /me — null until fetched. */
   const [meData, setMeData] = useState<{
     plan: PlanId | null;
     entitlements: string[];
     permissions: string[];
+    onboardingCompleted: boolean;
   } | null>(null);
 
   // Derive user from token + meData. No extra network call for identity —
@@ -135,6 +148,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         plan: (data.plan as PlanId) ?? null,
         entitlements: Array.isArray(data.entitlements) ? data.entitlements : [],
         permissions: Array.isArray(permData.permissions) ? permData.permissions : [],
+        onboardingCompleted: Boolean(data.onboarding_completed),
       });
     } catch {
       // Fail silently — deny-by-default (empty entitlements/permissions).
@@ -188,6 +202,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setMeData(null);
   }, []);
 
+  const logoutAll = useCallback(async () => {
+    try {
+      await clientAuthFetch("/api/auth/logout-all", { method: "POST" });
+    } catch {
+      // Network errors on logout-all are acceptable — local clear is what matters.
+    }
+    setToken(null);
+    setMeData(null);
+  }, []);
+
+  const completeOnboarding = useCallback(async () => {
+    await clientAuthFetch("/api/auth/me/onboarding", { method: "POST" });
+    // Re-fetch /me so onboardingCompleted flag updates in context immediately.
+    await fetchMe();
+  }, [fetchMe]);
+
+  const onboardingCompleted = meData?.onboardingCompleted ?? false;
+
   const permissions = useMemo(() => meData?.permissions ?? [], [meData]);
 
   const hasPermission = useCallback(
@@ -200,14 +232,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       user,
       accessToken,
       isLoading,
+      onboardingCompleted,
       login,
       register,
       logout,
+      logoutAll,
+      completeOnboarding,
       authFetch: clientAuthFetch,
       permissions,
       hasPermission,
     }),
-    [user, accessToken, isLoading, login, register, logout, permissions, hasPermission]
+    [
+      user,
+      accessToken,
+      isLoading,
+      onboardingCompleted,
+      login,
+      register,
+      logout,
+      logoutAll,
+      completeOnboarding,
+      permissions,
+      hasPermission,
+    ]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

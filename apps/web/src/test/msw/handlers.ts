@@ -36,13 +36,26 @@ export const handlers = [
 
   // GET /api/auth/me
   http.get("/api/auth/me", () =>
-    HttpResponse.json({ id: "user-1", email: "user@test.com", is_admin: false })
+    HttpResponse.json({
+      id: "user-1",
+      email: "user@test.com",
+      is_admin: false,
+      onboarding_completed: false,
+      plan: "free",
+      entitlements: ["chat"],
+    })
   ),
 
   // GET /api/auth/me/permissions
   http.get("/api/auth/me/permissions", () =>
     HttpResponse.json({ permissions: [] })
   ),
+
+  // POST /api/auth/me/onboarding
+  http.post("/api/auth/me/onboarding", () => new HttpResponse(null, { status: 204 })),
+
+  // POST /api/auth/logout-all
+  http.post("/api/auth/logout-all", () => new HttpResponse(null, { status: 204 })),
 ];
 
 // ---------------------------------------------------------------------------
