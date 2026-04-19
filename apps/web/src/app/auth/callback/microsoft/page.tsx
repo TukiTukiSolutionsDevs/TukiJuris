@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense, useEffect, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import { Scale, Loader2, AlertCircle } from "lucide-react";
 import Link from "next/link";
 import { decodeAccessClaims } from "@/lib/auth/jwt";
@@ -10,6 +10,7 @@ import { resolvePostLoginDestination } from "@/lib/auth/redirects";
 
 function MicrosoftCallbackInner() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -41,7 +42,7 @@ function MicrosoftCallbackInner() {
         // Decode is_admin from the access token for role-based redirect (no extra RTT).
         const claims = decodeAccessClaims(data.access_token ?? "");
         const isAdmin = claims?.is_admin === true;
-        const returnTo = searchParams.get("returnTo");
+        const returnto = data.returnto ?? null;
 
         // Check server-side onboarding flag — not in JWT, requires /me call.
         let onboardingCompleted = true; // optimistic default → skip onboarding gate on /me failure
@@ -58,8 +59,8 @@ function MicrosoftCallbackInner() {
           // If /me fails, proceed to role-based redirect — non-blocking
         }
 
-        window.location.replace(
-          resolvePostLoginDestination(returnTo, isAdmin, onboardingCompleted),
+        router.push(
+          resolvePostLoginDestination(returnto, isAdmin, onboardingCompleted),
         );
       } catch {
         setError("No se pudo conectar con el servidor. Intenta de nuevo.");

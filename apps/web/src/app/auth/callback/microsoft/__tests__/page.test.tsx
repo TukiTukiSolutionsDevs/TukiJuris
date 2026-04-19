@@ -6,9 +6,9 @@
  *  - Backend failure → shows error UI
  *  - Successful exchange, non-admin → redirects to /chat
  *  - Successful exchange, admin → redirects to /admin
- *  - Valid same-origin `returnTo` → respected
- *  - External `returnTo` → falls back to role default
- *  - Onboarding precedence: no full_name → redirects to /onboarding
+ *  - `returnto` from response body respected (backend-authoritative)
+ *  - Defense-in-depth: absolute URL in `returnto` → falls back to role default
+ *  - Onboarding precedence: onboarding_completed false → redirects to /onboarding
  */
 
 import { render, waitFor, screen } from "@testing-library/react";
@@ -23,9 +23,11 @@ import MicrosoftCallbackPage from "../page";
 // ---------------------------------------------------------------------------
 
 const mockGet = vi.fn();
+const pushMock = vi.fn();
 
 vi.mock("next/navigation", () => ({
   useSearchParams: () => ({ get: mockGet }),
+  useRouter: () => ({ push: pushMock }),
 }));
 
 // ---------------------------------------------------------------------------
@@ -42,12 +44,9 @@ function setupParams(params: Record<string, string | null>) {
 // Setup / teardown
 // ---------------------------------------------------------------------------
 
-let replaceMock: ReturnType<typeof vi.fn>;
-
 beforeEach(() => {
-  replaceMock = vi.fn();
   // Preserve all existing location properties so that fetch can still resolve
-  // relative URLs via location.origin. Only replace() is mocked.
+  // relative URLs via location.origin.
   vi.stubGlobal("location", {
     href: "http://localhost/",
     origin: "http://localhost",
@@ -58,7 +57,7 @@ beforeEach(() => {
     pathname: "/",
     search: "",
     hash: "",
-    replace: replaceMock,
+    replace: vi.fn(),
     assign: vi.fn(),
     reload: vi.fn(),
   });
@@ -67,6 +66,7 @@ beforeEach(() => {
 afterEach(() => {
   vi.unstubAllGlobals();
   mockGet.mockReset();
+  pushMock.mockReset();
 });
 
 // ---------------------------------------------------------------------------
@@ -75,7 +75,7 @@ afterEach(() => {
 
 describe("MicrosoftCallbackPage — missing code", () => {
   it("shows an error when the code query param is absent", async () => {
-    setupParams({ code: null, state: null, returnTo: null });
+    setupParams({ code: null, state: null });
     render(<MicrosoftCallbackPage />);
     await waitFor(() => {
       expect(
@@ -91,7 +91,7 @@ describe("MicrosoftCallbackPage — missing code", () => {
 
 describe("MicrosoftCallbackPage — backend failure", () => {
   it("shows the error detail returned by the backend", async () => {
-    setupParams({ code: "auth-code", state: "state", returnTo: null });
+    setupParams({ code: "auth-code", state: "state" });
     server.use(
       http.post(MICROSOFT_CALLBACK_URL, () =>
         HttpResponse.json({ detail: "Token exchange failed" }, { status: 400 }),
@@ -104,7 +104,7 @@ describe("MicrosoftCallbackPage — backend failure", () => {
   });
 
   it("shows a fallback error when backend returns no detail", async () => {
-    setupParams({ code: "auth-code", state: "state", returnTo: null });
+    setupParams({ code: "auth-code", state: "state" });
     server.use(
       http.post(MICROSOFT_CALLBACK_URL, () =>
         HttpResponse.json({}, { status: 500 }),
@@ -138,60 +138,56 @@ describe("MicrosoftCallbackPage — successful callback", () => {
     );
   });
 
-  it("redirects non-admin to /chat when no returnTo is present", async () => {
-    setupParams({ code: "auth-code", state: "state", returnTo: null });
+  it("redirects non-admin to /chat when no returnto in response", async () => {
+    setupParams({ code: "auth-code", state: "state" });
     server.use(
       http.post(MICROSOFT_CALLBACK_URL, () =>
-        HttpResponse.json({ access_token: ACCESS_TOKEN }),
+        HttpResponse.json({ access_token: ACCESS_TOKEN, returnto: null }),
       ),
     );
     render(<MicrosoftCallbackPage />);
     await waitFor(() => {
-      expect(replaceMock).toHaveBeenCalledWith("/chat");
+      expect(pushMock).toHaveBeenCalledWith("/chat");
     });
   });
 
-  it("redirects admin to /admin when no returnTo is present", async () => {
-    setupParams({ code: "auth-code", state: "state", returnTo: null });
+  it("redirects admin to /admin when no returnto in response", async () => {
+    setupParams({ code: "auth-code", state: "state" });
     server.use(
       http.post(MICROSOFT_CALLBACK_URL, () =>
-        HttpResponse.json({ access_token: ADMIN_ACCESS_TOKEN }),
+        HttpResponse.json({ access_token: ADMIN_ACCESS_TOKEN, returnto: null }),
       ),
     );
     render(<MicrosoftCallbackPage />);
     await waitFor(() => {
-      expect(replaceMock).toHaveBeenCalledWith("/admin");
+      expect(pushMock).toHaveBeenCalledWith("/admin");
     });
   });
 
-  it("honours a valid same-origin returnTo over the role default", async () => {
-    setupParams({ code: "auth-code", state: "state", returnTo: "/historial" });
+  it("honours a valid returnto from the response body", async () => {
+    setupParams({ code: "auth-code", state: "state" });
     server.use(
       http.post(MICROSOFT_CALLBACK_URL, () =>
-        HttpResponse.json({ access_token: ACCESS_TOKEN }),
+        HttpResponse.json({ access_token: ACCESS_TOKEN, returnto: "/historial" }),
       ),
     );
     render(<MicrosoftCallbackPage />);
     await waitFor(() => {
-      expect(replaceMock).toHaveBeenCalledWith("/historial");
+      expect(pushMock).toHaveBeenCalledWith("/historial");
     });
   });
 
-  it("ignores an external returnTo and falls back to /chat for non-admin", async () => {
-    setupParams({
-      code: "auth-code",
-      state: "state",
-      returnTo: "https://evil.com",
-    });
+  it("falls back to role default when returnto is an absolute URL (defense-in-depth)", async () => {
+    setupParams({ code: "auth-code", state: "state" });
     server.use(
       http.post(MICROSOFT_CALLBACK_URL, () =>
-        HttpResponse.json({ access_token: ACCESS_TOKEN }),
+        HttpResponse.json({ access_token: ACCESS_TOKEN, returnto: "https://evil.com" }),
       ),
     );
     render(<MicrosoftCallbackPage />);
     await waitFor(() => {
-      expect(replaceMock).toHaveBeenCalledWith("/chat");
-      expect(replaceMock).not.toHaveBeenCalledWith(
+      expect(pushMock).toHaveBeenCalledWith("/chat");
+      expect(pushMock).not.toHaveBeenCalledWith(
         expect.stringContaining("evil.com"),
       );
     });
@@ -204,10 +200,10 @@ describe("MicrosoftCallbackPage — successful callback", () => {
 
 describe("MicrosoftCallbackPage — onboarding precedence", () => {
   it("redirects to /onboarding when onboarding_completed is false", async () => {
-    setupParams({ code: "auth-code", state: "state", returnTo: null });
+    setupParams({ code: "auth-code", state: "state" });
     server.use(
       http.post(MICROSOFT_CALLBACK_URL, () =>
-        HttpResponse.json({ access_token: ACCESS_TOKEN }),
+        HttpResponse.json({ access_token: ACCESS_TOKEN, returnto: null }),
       ),
       http.get("/api/auth/me", () =>
         HttpResponse.json({
@@ -220,22 +216,22 @@ describe("MicrosoftCallbackPage — onboarding precedence", () => {
     );
     render(<MicrosoftCallbackPage />);
     await waitFor(() => {
-      expect(replaceMock).toHaveBeenCalledWith("/onboarding");
+      expect(pushMock).toHaveBeenCalledWith("/onboarding");
     });
   });
 
   it("falls through to role-based redirect when /me fetch fails", async () => {
-    setupParams({ code: "auth-code", state: "state", returnTo: null });
+    setupParams({ code: "auth-code", state: "state" });
     server.use(
       http.post(MICROSOFT_CALLBACK_URL, () =>
-        HttpResponse.json({ access_token: ACCESS_TOKEN }),
+        HttpResponse.json({ access_token: ACCESS_TOKEN, returnto: null }),
       ),
       http.get("/api/auth/me", () => HttpResponse.error()),
     );
     render(<MicrosoftCallbackPage />);
     // /me fails → non-blocking → falls through to role redirect
     await waitFor(() => {
-      expect(replaceMock).toHaveBeenCalledWith("/chat");
+      expect(pushMock).toHaveBeenCalledWith("/chat");
     });
   });
 });
