@@ -242,6 +242,19 @@ async def get_audit_service(
     return AuditService(db)
 
 
+async def get_idempotency_service(
+    db: AsyncSession = Depends(get_db),
+) -> "WebhookIdempotencyService":
+    """Create a WebhookIdempotencyService bound to the current DB session.
+
+    Follows Sprint 2 injection pattern — same session as the route handler
+    so the idempotency INSERT and the business logic share one transaction.
+    """
+    from app.services.webhook_idempotency_service import WebhookIdempotencyService
+
+    return WebhookIdempotencyService(db)
+
+
 async def get_refresh_service(
     db: AsyncSession = Depends(get_db),
 ) -> "RefreshTokenService":
