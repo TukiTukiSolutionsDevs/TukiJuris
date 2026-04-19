@@ -168,6 +168,12 @@ async def admin_users(
             "byok_count": int(row["byok_count"] or 0),
         })
 
+    await AuditService(db=db).log_action(
+        user_id=user.id,
+        action="admin.users.listed",
+        resource_type="users",
+    )
+
     return {
         "users": users,
         "total": total,
