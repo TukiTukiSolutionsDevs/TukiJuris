@@ -2,8 +2,8 @@
 Production startup configuration validation.
 
 Exposes a single pure function `validate_production_config(settings)` that
-raises `RuntimeError` when the application is being started in production
-mode with insecure or incomplete configuration.
+raises `RuntimeError` (or `StartupConfigurationError`) when the application
+is being started with insecure or incomplete configuration.
 
 Called from the FastAPI lifespan handler in `app.main`, so failures crash
 the process at startup BEFORE serving any request — fail fast, fail loud.
@@ -12,11 +12,28 @@ Why this lives in its own module:
 - Pure function = trivial to unit-test (no event loop, no DB).
 - Single source of truth — when a new prod-only invariant is needed,
   add it here and add a test in `tests/test_startup_validation.py`.
+
+Two tiers of enforcement:
+  1. beta_mode=False → webhook secrets MANDATORY (StartupConfigurationError).
+  2. app_env=production → JWT strength, provider secret coupling (RuntimeError).
 """
 
 from __future__ import annotations
 
+import logging
+
 from app.config import Settings
+
+logger = logging.getLogger(__name__)
+
+
+class StartupConfigurationError(RuntimeError):
+    """
+    Raised when the application starts with a configuration that would allow
+    security vulnerabilities in production.  Unlike generic RuntimeError,
+    this is catchable specifically by callers that want to handle config errors
+    (e.g. tests asserting against configuration invariants).
+    """
 
 
 # Substrings that indicate a JWT secret is still a placeholder, not a real one.
@@ -37,13 +54,52 @@ def _jwt_secret_is_placeholder(secret: str) -> bool:
 
 def validate_production_config(settings: Settings) -> None:
     """
-    Enforce production-grade configuration. No-op in non-production envs.
+    Enforce production-grade configuration.
+
+    Two-tier validation:
+
+    Tier 1 — webhook secret strict mode (ANY environment):
+      If beta_mode is False, BOTH webhook secrets are MANDATORY.
+      If beta_mode is True and secrets are missing, log WARNING (dev ergonomics).
+
+    Tier 2 — production-only checks (app_env == "production"):
+      JWT secret strength, provider secret coupling.
 
     Raises:
-        RuntimeError: with a clear message identifying the offending
-            setting. Designed to be unrecoverable so the process exits
-            and ops sees the error immediately.
+        StartupConfigurationError: when beta_mode=False and webhook secrets missing.
+        RuntimeError: for production-only invariants (JWT, etc.).
     """
+    # ── Tier 1: Webhook strict mode — based on beta_mode, not app_env ─────
+    # This runs in every environment so that a misconfigured staging/dev box
+    # with BETA_MODE=false is also caught early rather than serving unsigned
+    # webhooks silently.
+    if settings.beta_mode is False:
+        missing: list[str] = []
+        if not settings.mp_webhook_secret:
+            missing.append("MP_WEBHOOK_SECRET")
+        if not settings.culqi_webhook_secret:
+            missing.append("CULQI_WEBHOOK_SECRET")
+        if missing:
+            raise StartupConfigurationError(
+                f"Webhook strict mode (BETA_MODE=false): the following webhook "
+                f"secrets are required but missing: {', '.join(missing)}. "
+                f"Set them before starting the service, or set BETA_MODE=true "
+                f"to allow permissive dev mode."
+            )
+    else:
+        # beta_mode=True: warn but allow startup (dev/staging ergonomics)
+        if not settings.mp_webhook_secret:
+            logger.warning(
+                "MP_WEBHOOK_SECRET is empty — signature verification is permissive "
+                "(BETA_MODE=true). Set MP_WEBHOOK_SECRET before going to production."
+            )
+        if not settings.culqi_webhook_secret:
+            logger.warning(
+                "CULQI_WEBHOOK_SECRET is empty — signature verification is permissive "
+                "(BETA_MODE=true). Set CULQI_WEBHOOK_SECRET before going to production."
+            )
+
+    # ── Tier 2: Production-only invariants ────────────────────────────────
     if settings.app_env != "production":
         return
 
