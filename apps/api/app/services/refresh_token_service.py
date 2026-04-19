@@ -315,6 +315,18 @@ class RefreshTokenService:
             },
         )
 
+    async def revoke_by_jti(self, jti: str) -> None:
+        """Revoke a single refresh token identified by JTI (idempotent).
+
+        Used by routes that already hold the decoded JTI (e.g. relaxed logout).
+        Populating the Redis denylist is the caller's responsibility when
+        precise TTL data is available.
+        """
+        now = datetime.now(UTC)
+        await self._repo.mark_revoked(jti, now)
+        await self._session.flush()
+        logger.info("refresh.revoked_by_jti", extra={"jti": jti})
+
     async def revoke_all(self, user_id: uuid.UUID, reason: str = "logout_all") -> int:
         """Revoke all active refresh tokens for a user.
 

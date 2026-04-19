@@ -215,6 +215,20 @@ async def get_api_key_user(
     return user
 
 
+async def get_denylist() -> "TokenDenylist":
+    """Create a TokenDenylist backed by the app's Redis connection.
+
+    Used by routes that need to populate the denylist directly (e.g. logout-all).
+    Fail-open: callers must catch exceptions from denylist.add().
+    """
+    from redis import asyncio as aioredis
+
+    from app.core.token_denylist import TokenDenylist
+
+    redis = aioredis.from_url(settings.redis_url, encoding="utf-8", decode_responses=False)
+    return TokenDenylist(redis)
+
+
 async def get_audit_service(
     db: AsyncSession = Depends(get_db),
 ) -> "AuditService":
