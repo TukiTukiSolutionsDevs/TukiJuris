@@ -38,6 +38,7 @@ from app.api.routes import (
     notifications,
     oauth,
     organizations,
+    plans,
     rbac_admin,
     search,
     shared,
@@ -176,6 +177,7 @@ register_exception_handlers(app)
 
 # Routes
 app.include_router(health.router, prefix="/api")
+app.include_router(plans.router, prefix="/api")
 app.include_router(auth.router, prefix="/api")
 app.include_router(emails.router, prefix="/api")
 app.include_router(oauth.router, prefix="/api")
