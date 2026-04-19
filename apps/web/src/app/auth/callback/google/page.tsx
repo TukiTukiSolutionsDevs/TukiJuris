@@ -43,8 +43,8 @@ function GoogleCallbackInner() {
         const isAdmin = claims?.is_admin === true;
         const returnTo = searchParams.get("returnTo");
 
-        // Check if user is new (no full_name set) → onboarding takes precedence.
-        // full_name is not in the JWT, so we still need the /me call here.
+        // Check server-side onboarding flag — not in JWT, requires /me call.
+        let onboardingCompleted = true; // optimistic default → skip onboarding gate on /me failure
         try {
           const meRes = await fetch("/api/auth/me", {
             credentials: "include",
@@ -52,16 +52,15 @@ function GoogleCallbackInner() {
           });
           if (meRes.ok) {
             const me = await meRes.json();
-            if (!me.full_name) {
-              window.location.replace("/onboarding");
-              return;
-            }
+            onboardingCompleted = Boolean(me.onboarding_completed);
           }
         } catch {
           // If /me fails, proceed to role-based redirect — non-blocking
         }
 
-        window.location.replace(resolvePostLoginDestination(returnTo, isAdmin));
+        window.location.replace(
+          resolvePostLoginDestination(returnTo, isAdmin, onboardingCompleted),
+        );
       } catch {
         setError("No se pudo conectar con el servidor. Intenta de nuevo.");
       }

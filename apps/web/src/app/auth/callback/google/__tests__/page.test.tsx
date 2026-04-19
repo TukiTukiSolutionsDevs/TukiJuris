@@ -125,13 +125,14 @@ describe("GoogleCallbackPage — backend failure", () => {
 
 describe("GoogleCallbackPage — successful callback", () => {
   beforeEach(() => {
-    // User has full_name set → skip onboarding
+    // User has onboarding_completed → skip onboarding gate
     server.use(
       http.get("/api/auth/me", () =>
         HttpResponse.json({
           id: "user-1",
           email: "user@test.com",
           full_name: "Test User",
+          onboarding_completed: true,
         }),
       ),
     );
@@ -202,7 +203,7 @@ describe("GoogleCallbackPage — successful callback", () => {
 // ---------------------------------------------------------------------------
 
 describe("GoogleCallbackPage — onboarding precedence", () => {
-  it("redirects to /onboarding when user has no full_name set", async () => {
+  it("redirects to /onboarding when onboarding_completed is false", async () => {
     setupParams({ code: "auth-code", state: "state", returnTo: null });
     server.use(
       http.post(GOOGLE_CALLBACK_URL, () =>
@@ -212,7 +213,8 @@ describe("GoogleCallbackPage — onboarding precedence", () => {
         HttpResponse.json({
           id: "user-1",
           email: "user@test.com",
-          full_name: null,
+          full_name: "Test User",
+          onboarding_completed: false,
         }),
       ),
     );
