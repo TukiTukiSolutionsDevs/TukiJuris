@@ -70,52 +70,54 @@ describe("validateReturnTo", () => {
 // resolvePostLoginDestination
 // ---------------------------------------------------------------------------
 
+// All pre-existing tests assume user is already onboarded (onboardingCompleted=true)
+// so they pass `true` as the third argument.
 describe("resolvePostLoginDestination", () => {
   describe("returnTo precedence over role default", () => {
     it("uses a valid returnTo for a regular user", () => {
-      expect(resolvePostLoginDestination("/historial", false)).toBe("/historial");
+      expect(resolvePostLoginDestination("/historial", false, true)).toBe("/historial");
     });
 
     it("uses a valid returnTo for an admin user", () => {
-      expect(resolvePostLoginDestination("/historial", true)).toBe("/historial");
+      expect(resolvePostLoginDestination("/historial", true, true)).toBe("/historial");
     });
 
     it("uses /admin returnTo for an admin when explicitly provided", () => {
-      expect(resolvePostLoginDestination("/admin/users", true)).toBe("/admin/users");
+      expect(resolvePostLoginDestination("/admin/users", true, true)).toBe("/admin/users");
     });
   });
 
   describe("role-based default when returnTo is absent or invalid", () => {
     it("returns /admin for admin with null returnTo", () => {
-      expect(resolvePostLoginDestination(null, true)).toBe("/admin");
+      expect(resolvePostLoginDestination(null, true, true)).toBe("/admin");
     });
 
     it("returns /chat for regular user with null returnTo", () => {
-      expect(resolvePostLoginDestination(null, false)).toBe("/chat");
+      expect(resolvePostLoginDestination(null, false, true)).toBe("/chat");
     });
 
     it("returns /admin for admin with undefined returnTo", () => {
-      expect(resolvePostLoginDestination(undefined, true)).toBe("/admin");
+      expect(resolvePostLoginDestination(undefined, true, true)).toBe("/admin");
     });
 
     it("returns /chat for regular user with undefined returnTo", () => {
-      expect(resolvePostLoginDestination(undefined, false)).toBe("/chat");
+      expect(resolvePostLoginDestination(undefined, false, true)).toBe("/chat");
     });
 
     it("ignores external returnTo and falls back to role default (admin)", () => {
-      expect(resolvePostLoginDestination("https://evil.com", true)).toBe("/admin");
+      expect(resolvePostLoginDestination("https://evil.com", true, true)).toBe("/admin");
     });
 
     it("ignores external returnTo and falls back to role default (user)", () => {
-      expect(resolvePostLoginDestination("https://evil.com", false)).toBe("/chat");
+      expect(resolvePostLoginDestination("https://evil.com", false, true)).toBe("/chat");
     });
 
     it("ignores protocol-relative returnTo and falls back to role default", () => {
-      expect(resolvePostLoginDestination("//evil.com/steal", false)).toBe("/chat");
+      expect(resolvePostLoginDestination("//evil.com/steal", false, true)).toBe("/chat");
     });
 
     it("ignores /auth/login returnTo (loop) and falls back to role default", () => {
-      expect(resolvePostLoginDestination("/auth/login", false)).toBe("/chat");
+      expect(resolvePostLoginDestination("/auth/login", false, true)).toBe("/chat");
     });
   });
 });
