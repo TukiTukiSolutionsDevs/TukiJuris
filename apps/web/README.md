@@ -29,6 +29,34 @@ To learn more about Next.js, take a look at the following resources:
 
 You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
 
+## Testing
+
+> **Important**: Frontend tests MUST be run from the **host machine**, NOT from inside the Docker container.
+> The `tukijuris-web-1` container does not install `devDependencies`, so `vitest` is not available inside it.
+
+### Run all Vitest tests (canonical command)
+
+```bash
+cd apps/web
+npx vitest run
+```
+
+### Run a focused subset
+
+```bash
+# Admin SaaS panel components only
+cd apps/web
+npx vitest run src/app/admin/_components/__tests__/
+```
+
+### Why not Docker?
+
+`docker exec tukijuris-web-1 npx vitest run` will fail with `sh: vitest: not found`.
+The production image skips `devDependencies`. Always run tests from the host where
+`node_modules` is fully installed.
+
+---
+
 ## Deploy on Vercel
 
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
