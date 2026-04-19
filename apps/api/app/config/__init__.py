@@ -124,6 +124,18 @@ class Settings(BaseSettings):
     # Default True for dev/staging. MUST be explicit in production (startup fail-fast enforces this).
     beta_mode: bool = True
 
+    # Trials feature flag — default False until staging validates end-to-end flow.
+    # Set TRIALS_ENABLED=true in staging/production to enable trial creation and scheduler ticks.
+    trials_enabled: bool = False
+
+    # Scheduler — set False on secondary API containers so only one instance schedules jobs.
+    # See deploy runbook: docs/scheduler-runbook.md
+    scheduler_enabled: bool = True
+
+    # Internal tick token — shared secret for POST /internal/trials/tick.
+    # Must be a long random string in production. Dev default is intentionally weak.
+    internal_tick_token: str = "dev-internal-tick-token"
+
     # Cache
     cache_enabled: bool = True
     cache_default_ttl: int = 300          # 5 minutes (general purpose)
