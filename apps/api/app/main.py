@@ -31,6 +31,7 @@ from app.api.routes import (
     feedback,
     folders,
     health,
+    me_invoices,
     memory,
     upload,
     notifications,
@@ -186,6 +187,7 @@ app.include_router(bookmarks.router, prefix="/api")
 app.include_router(analysis.router, prefix="/api")
 app.include_router(organizations.router, prefix="/api")
 app.include_router(billing.router, prefix="/api")
+app.include_router(me_invoices.router, prefix="/api/billing")
 app.include_router(admin.router, prefix="/api")
 app.include_router(admin_saas.router, prefix="/api")
 app.include_router(rbac_admin.router, prefix="/api")
