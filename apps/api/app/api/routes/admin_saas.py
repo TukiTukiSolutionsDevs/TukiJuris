@@ -12,6 +12,9 @@ Audit: every successful request emits an AuditService.log_action entry.
 
 from __future__ import annotations
 
+from datetime import datetime
+from typing import Optional
+
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -55,18 +58,21 @@ def _ensure_admin(user: User) -> None:
     summary="Revenue snapshot — MRR/ARR with per-plan breakdown",
 )
 async def get_revenue(
+    date_from: Optional[datetime] = Query(default=None, description="Filter paid_at >= date_from (ISO 8601)"),
+    date_to: Optional[datetime] = Query(default=None, description="Filter paid_at <= date_to (ISO 8601)"),
     user: User = Depends(require_permission("billing:read")),
     db: AsyncSession = Depends(get_db),
     _rl: None = Depends(RateLimitGuard(RateLimitBucket.READ)),
 ) -> RevenueResponse:
-    """Compute MRR/ARR from canonical plan prices.
+    """Compute MRR/ARR from paid invoices (hard swap — no canonical fallback).
 
     Requires: billing:read permission AND is_admin=True.
+    Optionally filter by date range using date_from / date_to (ISO 8601 datetime).
     """
     _ensure_admin(user)
 
     service = AdminMetricsService(db=db, plan_service=PlanService())
-    snapshot = await service.compute_revenue()
+    snapshot = await service.compute_revenue(date_from=date_from, date_to=date_to)
 
     await AuditService(db=db).log_action(
         user_id=user.id,

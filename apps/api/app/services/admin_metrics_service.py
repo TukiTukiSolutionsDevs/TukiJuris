@@ -18,7 +18,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config.plans import PLANS
-from app.services.plan_service import PlanService
+from app.services.plan_service import PlanService  # retained for __init__ signature
 
 
 # ---------------------------------------------------------------------------
@@ -79,40 +79,43 @@ class AdminMetricsService:
 
     # ── Revenue ──────────────────────────────────────────────────────────
 
-    async def compute_revenue(self) -> RevenueSnapshot:
-        """Compute MRR/ARR.
+    async def compute_revenue(
+        self,
+        date_from: "datetime | None" = None,
+        date_to: "datetime | None" = None,
+    ) -> RevenueSnapshot:
+        """Compute MRR/ARR from paid invoices (HARD SWAP — no canonical fallback).
 
-        Preference: invoice-based SUM of paid totals (source="invoices").
-        Fallback: canonical plan prices when no paid invoices exist
-        (source="canonical_prices").
+        Source is always "invoices". When no paid invoices match the date range
+        the result is an honest S/0 snapshot rather than a fallback to canonical
+        prices. This honours locked-scope decision 7.
+
+        Args:
+            date_from: lower bound on paid_at (inclusive). None = no lower bound.
+            date_to:   upper bound on paid_at (inclusive). None = no upper bound.
         """
-        invoice_snapshot = await self._compute_revenue_from_invoices()
-        if invoice_snapshot is not None:
-            return invoice_snapshot
-        return await self._compute_revenue_from_canonical()
+        date_filters = ""
+        params: dict = {}
+        if date_from is not None:
+            date_filters += " AND paid_at >= :date_from"
+            params["date_from"] = date_from
+        if date_to is not None:
+            date_filters += " AND paid_at <= :date_to"
+            params["date_to"] = date_to
 
-    async def _compute_revenue_from_invoices(self) -> "RevenueSnapshot | None":
-        """Aggregate MRR from paid invoices grouped by plan.
-
-        Returns None when the invoices table has no paid rows (triggers fallback).
-        Revenue is the SUM of total_amount converted to integer cents.
-        """
         sql = text(
-            """
+            f"""
             SELECT
                 plan,
                 COUNT(DISTINCT org_id) AS org_count,
                 ROUND(SUM(total_amount) * 100)::bigint AS revenue_cents
             FROM invoices
-            WHERE status = 'paid'
+            WHERE status = 'paid'{date_filters}
             GROUP BY plan
             """
         )
-        result = await self._db.execute(sql)
+        result = await self._db.execute(sql, params)
         rows = result.mappings().fetchall()
-
-        if not rows:
-            return None
 
         breakdown: list[RevenueBreakdownItem] = []
         mrr_cents = 0
@@ -133,63 +136,6 @@ class AdminMetricsService:
 
         return RevenueSnapshot(
             source="invoices",
-            mrr_cents=mrr_cents,
-            arr_cents=mrr_cents * 12,
-            breakdown=breakdown,
-        )
-
-    async def _compute_revenue_from_canonical(self) -> RevenueSnapshot:
-        """Compute MRR/ARR using canonical prices (fallback when no invoices exist).
-
-        One SQL round-trip: returns one row per (org, plan) with active seat count.
-        Python-side: groups by plan and calls PlanService.get_price_cents per org
-        so seat overage is correctly calculated per organisation (not aggregated).
-        """
-        sql = text(
-            """
-            SELECT
-                o.plan,
-                o.id::text AS org_id,
-                COUNT(m.id) AS seat_count
-            FROM organizations o
-            LEFT JOIN org_memberships m
-                   ON m.organization_id = o.id AND m.is_active = true
-            WHERE o.is_active = true
-            GROUP BY o.plan, o.id
-            """
-        )
-        result = await self._db.execute(sql)
-        rows = result.mappings().fetchall()
-
-        # Group by plan for breakdown
-        plan_buckets: dict[str, list[int]] = {}  # plan → list of revenue_cents per org
-        for row in rows:
-            plan = row["plan"]
-            seat_count = int(row["seat_count"] or 0)
-            try:
-                org_revenue = PlanService.get_price_cents(plan, seat_count)
-            except ValueError:
-                # Unknown plan (legacy value) — treat as free
-                org_revenue = 0
-            plan_buckets.setdefault(plan, []).append(org_revenue)
-
-        breakdown: list[RevenueBreakdownItem] = []
-        mrr_cents = 0
-        for plan, revenues in plan_buckets.items():
-            plan_revenue = sum(revenues)
-            display_name = PLANS[plan].display_name if plan in PLANS else plan
-            breakdown.append(
-                RevenueBreakdownItem(
-                    plan=plan,
-                    display_name=display_name,
-                    org_count=len(revenues),
-                    revenue_cents=plan_revenue,
-                )
-            )
-            mrr_cents += plan_revenue
-
-        return RevenueSnapshot(
-            source="canonical_prices",
             mrr_cents=mrr_cents,
             arr_cents=mrr_cents * 12,
             breakdown=breakdown,
