@@ -407,3 +407,71 @@ def RateLimitGuard(bucket: RateLimitBucket):
             )
 
     return _guard
+
+
+# ---------------------------------------------------------------------------
+# Payment provider adapters & trial service (Sprint 3 — item 4c)
+# ---------------------------------------------------------------------------
+
+_shared_http_client: "httpx.AsyncClient | None" = None
+
+
+def _get_http_client() -> "httpx.AsyncClient":
+    """Shared httpx client — created once, reused across requests."""
+    import httpx
+
+    global _shared_http_client
+    if _shared_http_client is None:
+        _shared_http_client = httpx.AsyncClient(
+            limits=httpx.Limits(max_connections=50, max_keepalive_connections=10),
+        )
+    return _shared_http_client
+
+
+def get_culqi_adapter() -> "CulqiAdapter":
+    """Return a CulqiAdapter using settings credentials and the shared HTTP client."""
+    from app.config import settings
+    from app.services.payment_providers.culqi_adapter import CulqiAdapter
+
+    return CulqiAdapter(
+        secret_key=settings.culqi_secret_key,
+        client=_get_http_client(),
+    )
+
+
+def get_mp_adapter() -> "MPAdapter":
+    """Return an MPAdapter using settings credentials and the shared HTTP client."""
+    from app.config import settings
+    from app.services.payment_providers.mp_adapter import MPAdapter
+
+    return MPAdapter(
+        access_token=settings.mp_access_token,
+        client=_get_http_client(),
+    )
+
+
+def get_email_service() -> "EmailService":
+    """Return the singleton EmailService instance."""
+    from app.services.email_service import email_service
+
+    return email_service
+
+
+async def get_trial_service(
+    db: AsyncSession = Depends(get_db),
+    audit: "AuditService" = Depends(get_audit_service),
+) -> "TrialService":
+    """Create a TrialService bound to the current DB session.
+
+    Override via app.dependency_overrides[get_trial_service] in tests.
+    """
+    from app.services.trial_service import TrialService
+
+    return TrialService(
+        db=db,
+        audit=audit,
+        culqi=get_culqi_adapter(),
+        mp=get_mp_adapter(),
+        email=get_email_service(),
+        settings=__import__("app.config", fromlist=["settings"]).settings,
+    )
