@@ -2,6 +2,7 @@
 
 import logging
 import uuid
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, Cookie, Depends, HTTPException, Request, Response, status
 from fastapi.responses import JSONResponse
@@ -11,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from jose import JWTError, jwt as jose_jwt
 
-from app.api.deps import RateLimitBucket, RateLimitGuard, get_audit_service, get_current_user, get_refresh_service
+from app.api.deps import RateLimitBucket, RateLimitGuard, get_audit_service, get_current_user, get_denylist, get_refresh_service
 from app.config import settings
 from app.core.database import get_db
 from app.core.exceptions import AuthError
@@ -22,6 +23,7 @@ from app.core.security import (
     verify_password,
 )
 from app.core.validators import validate_password
+from app.models.refresh_token import RefreshToken
 from app.models.user import User
 from app.rbac.constants import SystemRole
 from app.rbac.dependencies import get_user_permissions_dep
@@ -483,24 +485,83 @@ async def logout(
 
 @router.post(
     "/logout-all",
-    response_model=LogoutAllResponse,
+    status_code=status.HTTP_204_NO_CONTENT,
     summary="Logout all devices",
-    description="Revoke all active refresh tokens for the current user.",
+    description=(
+        "Revoke all active refresh tokens for the current user and populate "
+        "the Redis denylist with precise TTLs so /refresh rejects them instantly. "
+        "Requires a valid access token."
+    ),
     responses={
-        200: {"description": "All sessions revoked"},
+        204: {"description": "All sessions revoked, cookies cleared"},
         401: {"description": "Access token missing or invalid"},
     },
 )
 async def logout_all(
-    response: Response,
     service: RefreshTokenService = Depends(get_refresh_service),
+    denylist: "TokenDenylist" = Depends(get_denylist),
     current_user: User = Depends(get_current_user),
-) -> LogoutAllResponse:
-    """Revoke all refresh tokens for the current user (all-device logout)."""
-    count = await service.revoke_all(current_user.id)
-    # Also clear the current device's session cookies
-    _clear_session_cookies(response)
-    return LogoutAllResponse(revoked=count)
+    db: AsyncSession = Depends(get_db),
+    audit: "AuditService" = Depends(get_audit_service),
+) -> Response:
+    """Revoke all refresh tokens for current user — pre-query JTIs, bulk DB revoke, Redis denylist.
+
+    Sequence:
+      1. Pre-query active JTIs + expires_at BEFORE bulk revoke (need TTLs for Redis).
+      2. Bulk revoke in DB via service.revoke_all().
+      3. Iterate pre-queried rows — write each JTI to Redis denylist with remaining TTL.
+      4. Clear session cookies on the current device.
+      5. Emit auth.logout_all audit entry.
+
+    Pre-query before bulk revoke is intentional: after revoke_all() the DB rows are
+    revoked and expires_at is still present, but this pattern is cleaner and avoids
+    a second query.
+    """
+    from app.core.token_denylist import TokenDenylist  # noqa: F401
+    from app.rbac.audit import AuditService  # noqa: F401
+
+    # Step 1: Pre-query active JTIs + expiry timestamps
+    result = await db.execute(
+        select(RefreshToken.jti, RefreshToken.expires_at).where(
+            RefreshToken.user_id == current_user.id,
+            RefreshToken.revoked_at.is_(None),
+        )
+    )
+    active_rows = result.all()
+
+    # Step 2: Bulk DB revoke
+    await service.revoke_all(current_user.id)
+
+    # Step 3: Populate Redis denylist with precise remaining TTLs
+    now = datetime.now(UTC)
+    for jti, expires_at in active_rows:
+        # Ensure timezone-aware for comparison
+        if expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=UTC)
+        ttl = max(0, int((expires_at - now).total_seconds()))
+        if ttl > 0:
+            try:
+                await denylist.add(jti, ttl_seconds=ttl)
+            except Exception as exc:
+                logger.warning("logout_all: denylist.add failed for jti=%s: %s", jti, exc)
+
+    # Step 4: Clear session cookies — build response directly to preserve Set-Cookie headers
+    resp = Response(status_code=status.HTTP_204_NO_CONTENT)
+    _clear_session_cookies(resp)
+
+    # Step 5: Emit audit
+    try:
+        await audit.log_action(
+            user_id=current_user.id,
+            action="auth.logout_all",
+            resource_type="user",
+            resource_id=str(current_user.id),
+        )
+        await db.commit()
+    except Exception:
+        logger.warning("audit.log_action failed for auth.logout_all user=%s", current_user.id)
+
+    return resp
 
 
 @router.get(

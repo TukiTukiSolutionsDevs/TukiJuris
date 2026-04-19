@@ -223,6 +223,7 @@ async def get_denylist() -> "TokenDenylist":
     """
     from redis import asyncio as aioredis
 
+    from app.config import settings
     from app.core.token_denylist import TokenDenylist
 
     redis = aioredis.from_url(settings.redis_url, encoding="utf-8", decode_responses=False)
