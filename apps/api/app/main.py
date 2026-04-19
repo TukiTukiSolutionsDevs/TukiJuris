@@ -15,6 +15,7 @@ from starlette.middleware.gzip import GZipMiddleware
 from app.api.middleware import RateLimitMiddleware, SecurityHeadersMiddleware
 from app.api.routes import (
     admin,
+    admin_saas,
     analysis,
     rbac_admin,
     analytics,
@@ -186,6 +187,7 @@ app.include_router(analysis.router, prefix="/api")
 app.include_router(organizations.router, prefix="/api")
 app.include_router(billing.router, prefix="/api")
 app.include_router(admin.router, prefix="/api")
+app.include_router(admin_saas.router, prefix="/api")
 app.include_router(rbac_admin.router, prefix="/api")
 app.include_router(analytics.router, prefix="/api")
 app.include_router(api_keys.router, prefix="/api")
