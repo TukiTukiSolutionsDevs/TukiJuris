@@ -13,6 +13,7 @@ from app.api.deps import RateLimitBucket, RateLimitGuard, get_current_user
 from app.config import settings
 from app.core.database import get_db
 from app.models.organization import OrgMembership, Organization
+from app.models.trial import Trial
 from app.models.user import User
 from app.services.email_service import email_service
 
@@ -219,6 +220,24 @@ async def invite_member(
     """
     await _get_org_or_404(org_id, db)
     await _require_role(org_id, current_user, db, ("owner", "admin"))
+
+    # Block studio trial owners from inviting members: studio trial is single-seat
+    # until payment is confirmed. Card-holders will be promoted after auto-charge.
+    active_studio_trial = (
+        await db.execute(
+            select(Trial).where(
+                Trial.user_id == current_user.id,
+                Trial.plan_code == "studio",
+                Trial.status == "active",
+            )
+        )
+    ).scalar_one_or_none()
+    if active_studio_trial is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Cannot invite members during an active studio trial. "
+                   "Add a payment card to unlock multi-user access.",
+        )
 
     # Resolve invite target
     user_result = await db.execute(select(User).where(User.email == body.email))

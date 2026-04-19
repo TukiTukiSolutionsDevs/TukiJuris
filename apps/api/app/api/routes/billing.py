@@ -31,12 +31,14 @@ from app.api.deps import (
     get_current_user,
     get_idempotency_service,
     get_invoice_service,
+    get_trial_service,
 )
 from app.config import settings
 from app.core.database import get_db
 from app.models.llm_key import UserLLMKey
 from app.models.organization import OrgMembership, Organization
 from app.models.subscription import Subscription
+from app.models.trial import Trial
 from app.models.user import User
 from app.config.plans import PLANS
 from app.rbac.audit import AuditService
@@ -411,6 +413,7 @@ async def mercadopago_webhook(
     audit: AuditService = Depends(get_audit_service),
     idem: WebhookIdempotencyService = Depends(get_idempotency_service),
     inv_svc=Depends(get_invoice_service),
+    trial_svc=Depends(get_trial_service),
 ) -> dict:
     """
     MercadoPago webhook endpoint — idempotent, signature-verified.
@@ -539,19 +542,31 @@ async def mercadopago_webhook(
             }
 
     elif event_type == "preapproval":
-        payment_data = {
-            "org_id": org_id_str,
-            "plan": plan,
-            "status": raw_status,
-            "subscription_id": data_id,
-            "provider": "mercadopago",
-        }
-        if raw_status == "cancelled":
-            await _handle_subscription_deleted(payment_data, db)
-            audit_action = "billing.subscription_deleted"
+        # Check if this preapproval_id belongs to a trial (MP stored-card charge path).
+        # provider_card_token stores the preapproval_id for MP trials.
+        _trial = (
+            await db.execute(select(Trial).where(Trial.provider_card_token == data_id))
+        ).scalar_one_or_none()
+
+        if _trial is not None and raw_status not in ("cancelled",):
+            # MP trial auto-charge authorized — Phase 1: flush trial transition.
+            # mark_charged logs its own audit event; suppress duplicate below.
+            await trial_svc.mark_charged(_trial.id, charge_id=data_id, provider="mp")
+            audit_action = None
         else:
-            await _handle_subscription_updated(payment_data, db)
-            audit_action = "billing.subscription_updated"
+            payment_data = {
+                "org_id": org_id_str,
+                "plan": plan,
+                "status": raw_status,
+                "subscription_id": data_id,
+                "provider": "mercadopago",
+            }
+            if raw_status == "cancelled":
+                await _handle_subscription_deleted(payment_data, db)
+                audit_action = "billing.subscription_deleted"
+            else:
+                await _handle_subscription_updated(payment_data, db)
+                audit_action = "billing.subscription_updated"
 
     else:
         logger.debug("billing.webhook.mp: unhandled event type=%s", event_type)
@@ -603,6 +618,7 @@ async def culqi_webhook(
     audit: AuditService = Depends(get_audit_service),
     idem: WebhookIdempotencyService = Depends(get_idempotency_service),
     inv_svc=Depends(get_invoice_service),
+    trial_svc=Depends(get_trial_service),
 ) -> dict:
     """
     Culqi webhook endpoint — idempotent, signature-verified.
@@ -673,28 +689,42 @@ async def culqi_webhook(
 
     # ── 6. Dispatch ────────────────────────────────────────────────────────
     if event_type in ("charge.succeeded", "order.paid"):
-        payment_data = {
-            "org_id": org_id_str,
-            "plan": plan,
-            "status": "active",
-            "subscription_id": data_id,
-            "provider": "culqi",
-        }
-        await _handle_checkout_completed(payment_data, db)
-        audit_action = "billing.checkout_completed"
-        org_uuid_for_inv = uuid.UUID(org_id_str) if org_id_str else None
-        if org_uuid_for_inv and (plan or data_id):
-            _invoice_params = {
-                "method": "create_from_culqi_charge",
-                "org_id": org_uuid_for_inv,
+        trial_id_str = metadata.get("trial_id", "")
+        if trial_id_str:
+            # Trial auto-charge — Phase 1: mark trial as charged (flush-only).
+            # Committed together with idem.update_response at step 8 below.
+            # mark_charged logs its own audit event; suppress duplicate.
+            try:
+                trial_uuid = uuid.UUID(trial_id_str)
+                await trial_svc.mark_charged(trial_uuid, charge_id=data_id, provider="culqi")
+            except Exception:
+                logger.exception(
+                    "billing.webhook.culqi: mark_charged failed trial_id=%s", trial_id_str
+                )
+            audit_action = None
+        else:
+            payment_data = {
+                "org_id": org_id_str,
                 "plan": plan,
-                "seats_count": int(metadata.get("seats_count", 0)),
-                "provider_charge_id": data_id or event_id,
-                "amount_payload_cents": data.get("amount"),
-                "paid_at_payload": None,
-                "webhook_received_at": datetime.now(UTC),
-                "provider_event_id": event_id,
+                "status": "active",
+                "subscription_id": data_id,
+                "provider": "culqi",
             }
+            await _handle_checkout_completed(payment_data, db)
+            audit_action = "billing.checkout_completed"
+            org_uuid_for_inv = uuid.UUID(org_id_str) if org_id_str else None
+            if org_uuid_for_inv and (plan or data_id):
+                _invoice_params = {
+                    "method": "create_from_culqi_charge",
+                    "org_id": org_uuid_for_inv,
+                    "plan": plan,
+                    "seats_count": int(metadata.get("seats_count", 0)),
+                    "provider_charge_id": data_id or event_id,
+                    "amount_payload_cents": data.get("amount"),
+                    "paid_at_payload": None,
+                    "webhook_received_at": datetime.now(UTC),
+                    "provider_event_id": event_id,
+                }
 
     elif event_type == "subscription.updated":
         payment_data = {
