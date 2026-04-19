@@ -1,5 +1,6 @@
 """SQLAlchemy ORM models for Agente Derecho."""
 
+from app.models.invoice import Invoice
 from app.models.user import User
 from app.models.conversation import Conversation, Message
 from app.models.document import Document, DocumentChunk
@@ -12,6 +13,7 @@ from app.models.llm_key import UserLLMKey
 from app.models.refresh_token import RefreshToken
 
 __all__ = [
+    "Invoice",
     "User",
     "Conversation",
     "Message",
