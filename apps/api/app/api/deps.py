@@ -215,6 +215,18 @@ async def get_api_key_user(
     return user
 
 
+async def get_audit_service(
+    db: AsyncSession = Depends(get_db),
+) -> "AuditService":
+    """Create an AuditService bound to the current DB session.
+
+    Follows Sprint 2 injection pattern — never use AuditService as a global/singleton.
+    """
+    from app.rbac.audit import AuditService
+
+    return AuditService(db)
+
+
 async def get_refresh_service(
     db: AsyncSession = Depends(get_db),
 ) -> "RefreshTokenService":

@@ -9,7 +9,7 @@ from pydantic import BaseModel, EmailStr
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import RateLimitBucket, RateLimitGuard, get_current_user, get_refresh_service
+from app.api.deps import RateLimitBucket, RateLimitGuard, get_audit_service, get_current_user, get_refresh_service
 from app.config import settings
 from app.core.database import get_db
 from app.core.exceptions import AuthError
@@ -559,3 +559,45 @@ async def update_profile(
         current_user.default_org_id = body.default_org_id
     await db.flush()
     return {"status": "updated"}
+
+
+@router.post(
+    "/me/onboarding",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Mark onboarding as completed",
+    description=(
+        "Idempotent — sets onboarding_completed=True for the current user. "
+        "Returns 204 whether the flag was already set or just flipped. "
+        "Emits an audit log entry on first call only."
+    ),
+    responses={
+        204: {"description": "Onboarding marked complete"},
+        401: {"description": "Access token missing or invalid"},
+    },
+)
+async def complete_onboarding(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+    audit: "AuditService" = Depends(get_audit_service),
+) -> Response:
+    """Flip onboarding_completed to True. Idempotent — skips update and audit if already done."""
+    from app.rbac.audit import AuditService  # noqa: F401 — used for type hint only
+
+    if not current_user.onboarding_completed:
+        current_user.onboarding_completed = True
+        await db.commit()
+        try:
+            await audit.log_action(
+                user_id=current_user.id,
+                action="auth.onboarding_completed",
+                resource_type="user",
+                resource_id=str(current_user.id),
+            )
+            await db.commit()
+        except Exception:
+            # Audit is non-blocking observability — do not fail the request.
+            logger.warning(
+                "audit.log_action failed for auth.onboarding_completed user=%s",
+                current_user.id,
+            )
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
