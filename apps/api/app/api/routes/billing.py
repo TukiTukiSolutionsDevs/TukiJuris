@@ -477,6 +477,8 @@ async def mercadopago_webhook(
     audit_action: str | None = None
 
     # ── 6. Dispatch ────────────────────────────────────────────────────────
+    _invoice_params: dict | None = None
+
     if event_type == "payment":
         payment_data = {
             "org_id": org_id_str,
@@ -487,49 +489,34 @@ async def mercadopago_webhook(
         }
         await _handle_checkout_completed(payment_data, db)
         audit_action = "billing.checkout_completed"
-        # ── Invoice creation (best-effort) ──────────────────────────────
-        try:
-            async with db.begin_nested():
-                org_uuid_for_inv = uuid.UUID(org_id_str) if org_id_str else None
-                if org_uuid_for_inv and (plan or data_id):
-                    await inv_svc.create_from_mp_payment(
-                        org_id=org_uuid_for_inv,
-                        subscription_id=None,
-                        plan=plan,
-                        seats_count=int(metadata.get("seats_count", 0)),
-                        provider_charge_id=data_id or event_id,
-                        webhook_received_at=datetime.now(UTC),
-                        provider_event_id=event_id,
-                        actor_id=None,
-                    )
-        except Exception:
-            logger.exception(
-                "billing.webhook.mp: invoice creation failed for event %s", event_id
-            )
+        org_uuid_for_inv = uuid.UUID(org_id_str) if org_id_str else None
+        if org_uuid_for_inv and (plan or data_id):
+            _invoice_params = {
+                "method": "create_from_mp_payment",
+                "org_id": org_uuid_for_inv,
+                "plan": plan,
+                "seats_count": int(metadata.get("seats_count", 0)),
+                "provider_charge_id": data_id or event_id,
+                "webhook_received_at": datetime.now(UTC),
+                "provider_event_id": event_id,
+            }
 
     elif event_type in ("payment.created", "payment.updated"):
         # MercadoPago payment lifecycle events — create invoice when approved.
         mp_status = raw_status or payload.get("data", {}).get("status", "")
         if mp_status == "approved" or event_type == "payment.created":
             audit_action = "billing.invoice_created_from_mp"
-            try:
-                async with db.begin_nested():
-                    org_uuid_for_inv = uuid.UUID(org_id_str) if org_id_str else None
-                    if org_uuid_for_inv and (plan or data_id):
-                        await inv_svc.create_from_mp_payment(
-                            org_id=org_uuid_for_inv,
-                            subscription_id=None,
-                            plan=plan,
-                            seats_count=int(metadata.get("seats_count", 0)),
-                            provider_charge_id=data_id or event_id,
-                            webhook_received_at=datetime.now(UTC),
-                            provider_event_id=event_id,
-                            actor_id=None,
-                        )
-            except Exception:
-                logger.exception(
-                    "billing.webhook.mp: invoice creation failed for event %s", event_id
-                )
+            org_uuid_for_inv = uuid.UUID(org_id_str) if org_id_str else None
+            if org_uuid_for_inv and (plan or data_id):
+                _invoice_params = {
+                    "method": "create_from_mp_payment",
+                    "org_id": org_uuid_for_inv,
+                    "plan": plan,
+                    "seats_count": int(metadata.get("seats_count", 0)),
+                    "provider_charge_id": data_id or event_id,
+                    "webhook_received_at": datetime.now(UTC),
+                    "provider_event_id": event_id,
+                }
         else:
             logger.debug(
                 "billing.webhook.mp: %s with status=%s — no invoice action", event_type, mp_status
@@ -538,25 +525,18 @@ async def mercadopago_webhook(
     elif event_type == "payment.failed":
         # MercadoPago explicit payment failure — record a failed invoice.
         audit_action = "billing.payment_failed"
-        try:
-            async with db.begin_nested():
-                org_uuid_for_inv = uuid.UUID(org_id_str) if org_id_str else None
-                if org_uuid_for_inv and (plan or data_id):
-                    await inv_svc.create_failed(
-                        provider="mercadopago",
-                        org_id=org_uuid_for_inv,
-                        subscription_id=None,
-                        plan=plan,
-                        seats_count=int(metadata.get("seats_count", 0)),
-                        provider_charge_id=data_id or event_id,
-                        webhook_received_at=datetime.now(UTC),
-                        provider_event_id=event_id,
-                        actor_id=None,
-                    )
-        except Exception:
-            logger.exception(
-                "billing.webhook.mp: failed-invoice creation failed for event %s", event_id
-            )
+        org_uuid_for_inv = uuid.UUID(org_id_str) if org_id_str else None
+        if org_uuid_for_inv and (plan or data_id):
+            _invoice_params = {
+                "method": "create_failed",
+                "provider": "mercadopago",
+                "org_id": org_uuid_for_inv,
+                "plan": plan,
+                "seats_count": int(metadata.get("seats_count", 0)),
+                "provider_charge_id": data_id or event_id,
+                "webhook_received_at": datetime.now(UTC),
+                "provider_event_id": event_id,
+            }
 
     elif event_type == "preapproval":
         payment_data = {
@@ -589,6 +569,30 @@ async def mercadopago_webhook(
     # ── 8. Persist response + commit ───────────────────────────────────────
     await idem.update_response(idem_row, 200, '{"status":"ok"}')
     await db.commit()
+
+    # ── 9. Invoice creation (best-effort, after main commit) ───────────────
+    if _invoice_params is not None:
+        _method = _invoice_params.pop("method")
+        try:
+            if _method == "create_from_mp_payment":
+                await inv_svc.create_from_mp_payment(
+                    subscription_id=None,
+                    actor_id=None,
+                    **_invoice_params,
+                )
+            elif _method == "create_failed":
+                await inv_svc.create_failed(
+                    subscription_id=None,
+                    actor_id=None,
+                    **_invoice_params,
+                )
+            await db.commit()
+        except Exception:
+            logger.exception(
+                "billing.webhook.mp: invoice creation failed for event %s", event_id
+            )
+            await db.rollback()
+
     return {"status": "ok"}
 
 
@@ -665,6 +669,7 @@ async def culqi_webhook(
     data_id = data.get("id", "")
 
     audit_action: str | None = None
+    _invoice_params: dict | None = None
 
     # ── 6. Dispatch ────────────────────────────────────────────────────────
     if event_type in ("charge.succeeded", "order.paid"):
@@ -677,27 +682,19 @@ async def culqi_webhook(
         }
         await _handle_checkout_completed(payment_data, db)
         audit_action = "billing.checkout_completed"
-        # ── Invoice creation (best-effort) ──────────────────────────────
-        try:
-            async with db.begin_nested():
-                org_uuid_for_inv = uuid.UUID(org_id_str) if org_id_str else None
-                if org_uuid_for_inv and (plan or data_id):
-                    await inv_svc.create_from_culqi_charge(
-                        org_id=org_uuid_for_inv,
-                        subscription_id=None,
-                        plan=plan,
-                        seats_count=int(metadata.get("seats_count", 0)),
-                        provider_charge_id=data_id or event_id,
-                        amount_payload_cents=data.get("amount"),
-                        paid_at_payload=None,
-                        webhook_received_at=datetime.now(UTC),
-                        provider_event_id=event_id,
-                        actor_id=None,
-                    )
-        except Exception:
-            logger.exception(
-                "billing.webhook.culqi: invoice creation failed for event %s", event_id
-            )
+        org_uuid_for_inv = uuid.UUID(org_id_str) if org_id_str else None
+        if org_uuid_for_inv and (plan or data_id):
+            _invoice_params = {
+                "method": "create_from_culqi_charge",
+                "org_id": org_uuid_for_inv,
+                "plan": plan,
+                "seats_count": int(metadata.get("seats_count", 0)),
+                "provider_charge_id": data_id or event_id,
+                "amount_payload_cents": data.get("amount"),
+                "paid_at_payload": None,
+                "webhook_received_at": datetime.now(UTC),
+                "provider_event_id": event_id,
+            }
 
     elif event_type == "subscription.updated":
         payment_data = {
@@ -731,26 +728,18 @@ async def culqi_webhook(
         }
         await _handle_payment_failed(payment_data, db)
         audit_action = "billing.payment_failed"
-        # ── Invoice creation (best-effort) ──────────────────────────────
-        try:
-            async with db.begin_nested():
-                org_uuid_for_inv = uuid.UUID(org_id_str) if org_id_str else None
-                if org_uuid_for_inv and (plan or data_id):
-                    await inv_svc.create_failed(
-                        provider="culqi",
-                        org_id=org_uuid_for_inv,
-                        subscription_id=None,
-                        plan=plan,
-                        seats_count=int(metadata.get("seats_count", 0)),
-                        provider_charge_id=data_id or event_id,
-                        webhook_received_at=datetime.now(UTC),
-                        provider_event_id=event_id,
-                        actor_id=None,
-                    )
-        except Exception:
-            logger.exception(
-                "billing.webhook.culqi: failed-invoice creation failed for event %s", event_id
-            )
+        org_uuid_for_inv = uuid.UUID(org_id_str) if org_id_str else None
+        if org_uuid_for_inv and (plan or data_id):
+            _invoice_params = {
+                "method": "create_failed",
+                "provider": "culqi",
+                "org_id": org_uuid_for_inv,
+                "plan": plan,
+                "seats_count": int(metadata.get("seats_count", 0)),
+                "provider_charge_id": data_id or event_id,
+                "webhook_received_at": datetime.now(UTC),
+                "provider_event_id": event_id,
+            }
 
     elif event_type == "charge.refunded":
         # Refund not yet processed server-side — emit audit stub per spec AC20.
@@ -772,6 +761,30 @@ async def culqi_webhook(
     # ── 8. Persist response + commit ───────────────────────────────────────
     await idem.update_response(idem_row, 200, '{"status":"ok"}')
     await db.commit()
+
+    # ── 9. Invoice creation (best-effort, after main commit) ───────────────
+    if _invoice_params is not None:
+        _method = _invoice_params.pop("method")
+        try:
+            if _method == "create_from_culqi_charge":
+                await inv_svc.create_from_culqi_charge(
+                    subscription_id=None,
+                    actor_id=None,
+                    **_invoice_params,
+                )
+            elif _method == "create_failed":
+                await inv_svc.create_failed(
+                    subscription_id=None,
+                    actor_id=None,
+                    **_invoice_params,
+                )
+            await db.commit()
+        except Exception:
+            logger.exception(
+                "billing.webhook.culqi: invoice creation failed for event %s", event_id
+            )
+            await db.rollback()
+
     return {"status": "ok"}
 
 
