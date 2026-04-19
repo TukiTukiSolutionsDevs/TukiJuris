@@ -12,6 +12,9 @@ When no payment provider is configured, endpoints degrade gracefully:
 When one or more providers are configured, all payment operations are live.
 """
 
+import hashlib
+import hmac
+import json
 import logging
 import uuid
 from datetime import UTC, datetime
@@ -21,15 +24,25 @@ from pydantic import BaseModel
 from sqlalchemy import exists, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import RateLimitBucket, RateLimitGuard, get_current_user
+from app.api.deps import (
+    RateLimitBucket,
+    RateLimitGuard,
+    get_audit_service,
+    get_current_user,
+    get_idempotency_service,
+)
+from app.config import settings
 from app.core.database import get_db
 from app.models.llm_key import UserLLMKey
 from app.models.organization import OrgMembership, Organization
 from app.models.subscription import Subscription
 from app.models.user import User
 from app.config.plans import PLANS
+from app.rbac.audit import AuditService
 from app.services.payment_service import PLAN_PRICING, payment_service
+from app.services.subscription_service import upsert_subscription_for_checkout
 from app.services.usage import usage_service
+from app.services.webhook_idempotency_service import WebhookIdempotencyService
 
 # Display metadata for plan listing — billing-facing only.
 # Canonical plan config (queries_day, byok_enabled, features) lives in config/plans.py.
@@ -339,6 +352,53 @@ async def create_checkout_session(
 
 
 # ---------------------------------------------------------------------------
+# Webhook signature helpers
+# ---------------------------------------------------------------------------
+
+
+def _verify_culqi_hmac(raw_body: bytes, received_sig: str, secret: str) -> bool:
+    """Constant-time HMAC-SHA256 verification for Culqi webhooks."""
+    expected = hmac.new(secret.encode("utf-8"), raw_body, hashlib.sha256).hexdigest()
+    return hmac.compare_digest(expected, received_sig)
+
+
+def _verify_mp_hmac(
+    raw_body: bytes,
+    x_signature: str,
+    x_request_id: str,
+    secret: str,
+) -> bool:
+    """
+    Verify MercadoPago webhook signature.
+
+    MP's signature format: "ts=<timestamp>,v1=<hmac_sha256>"
+    The signed manifest is: "id:<data_id>;request-id:<x_request_id>;ts:<ts>;"
+    where data_id comes from body["data"]["id"] (the resource id, not the event id).
+    """
+    parts: dict[str, str] = {}
+    for part in x_signature.split(","):
+        kv = part.strip().split("=", 1)
+        if len(kv) == 2:
+            parts[kv[0]] = kv[1]
+
+    ts = parts.get("ts", "")
+    received_hash = parts.get("v1", "")
+
+    if not ts or not received_hash:
+        return False
+
+    try:
+        data = json.loads(raw_body)
+    except Exception:
+        return False
+
+    data_id = data.get("data", {}).get("id", data.get("id", ""))
+    manifest = f"id:{data_id};request-id:{x_request_id};ts:{ts};"
+    expected = hmac.new(secret.encode("utf-8"), manifest.encode("utf-8"), hashlib.sha256).hexdigest()
+    return hmac.compare_digest(expected, received_hash)
+
+
+# ---------------------------------------------------------------------------
 # Webhooks — one endpoint per provider
 # ---------------------------------------------------------------------------
 
@@ -347,42 +407,75 @@ async def create_checkout_session(
 async def mercadopago_webhook(
     request: Request,
     db: AsyncSession = Depends(get_db),
-):
+    audit: AuditService = Depends(get_audit_service),
+    idem: WebhookIdempotencyService = Depends(get_idempotency_service),
+) -> dict:
     """
-    MercadoPago webhook endpoint.
+    MercadoPago webhook endpoint — idempotent, signature-verified.
 
     Handled event types:
-      - payment           -> payment approved → activate subscription
-      - preapproval       -> subscription updated / deleted
+      - payment     → payment approved → activate/upsert subscription
+      - preapproval → subscription updated / deleted
+
+    Responses:
+      200 {"status":"ok"}               — new event processed
+      200 {"status":"duplicate_ignored"} — replay, already processed
+      400 {"detail":"..."}              — malformed payload / missing event_id
+      401 {"detail":"invalid_signature"} — HMAC mismatch (strict mode only)
     """
-    provider = payment_service.get_provider("mercadopago")
-    if not provider:
-        logger.debug("billing.webhook.mp: MercadoPago not configured, skipping.")
-        return {"status": "skipped", "reason": "mercadopago not configured"}
+    raw_body = await request.body()
 
-    payload = await request.body()
-    headers = dict(request.headers)
+    # ── 1. Signature verification ──────────────────────────────────────────
+    mp_secret = settings.mp_webhook_secret
+    if mp_secret:
+        x_sig = request.headers.get("x-signature", "")
+        x_req_id = request.headers.get("x-request-id", "")
+        if not x_sig or not _verify_mp_hmac(raw_body, x_sig, x_req_id, mp_secret):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="invalid_signature",
+            )
 
-    event = await provider.verify_webhook(payload, headers)
-    if not event:
+    # ── 2. Parse ───────────────────────────────────────────────────────────
+    try:
+        payload = json.loads(raw_body)
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="invalid JSON")
+
+    # ── 3. Extract event_id ────────────────────────────────────────────────
+    event_id: str = payload.get("id", "") or ""
+    if not event_id:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid MercadoPago webhook payload.",
+            status_code=status.HTTP_400_BAD_REQUEST, detail="missing event id"
         )
 
-    event_type: str = event.get("type", "")
-    logger.info("billing.webhook.mp: received type=%s", event_type)
+    event_type: str = payload.get("type", "") or payload.get("topic", "")
+    payload_hash = hashlib.sha256(raw_body).hexdigest()
 
-    raw = event.get("raw", {})
+    logger.info("billing.webhook.mp: received event_id=%s type=%s", event_id, event_type)
 
-    # Extract payment/subscription metadata
-    metadata = raw.get("metadata", {})
+    # ── 4. Idempotency check ───────────────────────────────────────────────
+    is_new, idem_row = await idem.record_and_check(
+        provider="mercadopago",
+        event_id=event_id,
+        event_type=event_type,
+        payload_hash=payload_hash,
+    )
+    if not is_new:
+        logger.info("billing.webhook.mp: duplicate event_id=%s — skipping", event_id)
+        return {"status": "duplicate_ignored"}
+
+    # ── 5. Extract metadata ────────────────────────────────────────────────
+    metadata = payload.get("metadata", {})
     org_id_str = metadata.get("org_id", "")
     plan = metadata.get("plan", "")
-    data_id = event.get("data_id", "")
+    data_id = payload.get("data", {}).get("id", "")
+    raw_status = payload.get("status", "")
 
-    if event_type in ("payment",):
-        # Payment approved → activate plan
+    audit_action: str | None = None
+
+    # ── 6. Dispatch ────────────────────────────────────────────────────────
+    if event_type == "payment":
         payment_data = {
             "org_id": org_id_str,
             "plan": plan,
@@ -391,24 +484,39 @@ async def mercadopago_webhook(
             "provider": "mercadopago",
         }
         await _handle_checkout_completed(payment_data, db)
+        audit_action = "billing.checkout_completed"
 
-    elif event_type in ("preapproval",):
-        status_value = raw.get("status", "")
+    elif event_type == "preapproval":
         payment_data = {
             "org_id": org_id_str,
             "plan": plan,
-            "status": status_value,
+            "status": raw_status,
             "subscription_id": data_id,
             "provider": "mercadopago",
         }
-        if status_value == "cancelled":
+        if raw_status == "cancelled":
             await _handle_subscription_deleted(payment_data, db)
+            audit_action = "billing.subscription_deleted"
         else:
             await _handle_subscription_updated(payment_data, db)
+            audit_action = "billing.subscription_updated"
 
     else:
         logger.debug("billing.webhook.mp: unhandled event type=%s", event_type)
 
+    # ── 7. Audit log ───────────────────────────────────────────────────────
+    if audit_action:
+        await audit.log_action(
+            user_id=None,
+            action=audit_action,
+            resource_type="billing.webhook",
+            resource_id=event_id,
+            after_state={"provider": "mercadopago", "event_type": event_type},
+        )
+
+    # ── 8. Persist response + commit ───────────────────────────────────────
+    await idem.update_response(idem_row, 200, '{"status":"ok"}')
+    await db.commit()
     return {"status": "ok"}
 
 
@@ -416,43 +524,76 @@ async def mercadopago_webhook(
 async def culqi_webhook(
     request: Request,
     db: AsyncSession = Depends(get_db),
-):
+    audit: AuditService = Depends(get_audit_service),
+    idem: WebhookIdempotencyService = Depends(get_idempotency_service),
+) -> dict:
     """
-    Culqi webhook endpoint.
+    Culqi webhook endpoint — idempotent, signature-verified.
 
     Handled event types:
-      - charge.succeeded      -> payment approved → activate subscription
-      - order.paid            -> order paid → activate subscription
-      - subscription.updated  -> sync plan / status
-      - subscription.deleted  -> downgrade org to free
-      - charge.failed         -> mark subscription as past_due
+      - charge.succeeded      → payment approved → activate/upsert subscription
+      - order.paid            → order paid → activate/upsert subscription
+      - subscription.updated  → sync plan / status
+      - subscription.deleted  → downgrade org to free
+      - charge.failed         → mark subscription as past_due
+
+    Responses:
+      200 {"status":"ok"}               — new event processed
+      200 {"status":"duplicate_ignored"} — replay, already processed
+      400 {"detail":"..."}              — malformed payload / missing event_id
+      401 {"detail":"invalid_signature"} — HMAC mismatch (strict mode only)
     """
-    provider = payment_service.get_provider("culqi")
-    if not provider:
-        logger.debug("billing.webhook.culqi: Culqi not configured, skipping.")
-        return {"status": "skipped", "reason": "culqi not configured"}
+    raw_body = await request.body()
 
-    payload = await request.body()
-    headers = dict(request.headers)
+    # ── 1. Signature verification ──────────────────────────────────────────
+    culqi_secret = settings.culqi_webhook_secret
+    if culqi_secret:
+        received_sig = request.headers.get("x-culqi-signature", "")
+        if not received_sig or not _verify_culqi_hmac(raw_body, received_sig, culqi_secret):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="invalid_signature",
+            )
 
-    event = await provider.verify_webhook(payload, headers)
-    if not event:
+    # ── 2. Parse ───────────────────────────────────────────────────────────
+    try:
+        payload = json.loads(raw_body)
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="invalid JSON")
+
+    # ── 3. Extract event_id ────────────────────────────────────────────────
+    event_id: str = payload.get("id", "") or ""
+    if not event_id:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid Culqi webhook payload.",
+            status_code=status.HTTP_400_BAD_REQUEST, detail="missing event id"
         )
 
-    event_type: str = event.get("type", "")
-    logger.info("billing.webhook.culqi: received type=%s", event_type)
+    event_type: str = payload.get("type", "") or payload.get("object", "")
+    payload_hash = hashlib.sha256(raw_body).hexdigest()
 
-    raw = event.get("raw", {})
-    data = raw.get("data", {})
-    metadata = data.get("metadata", raw.get("metadata", {}))
+    logger.info("billing.webhook.culqi: received event_id=%s type=%s", event_id, event_type)
 
+    # ── 4. Idempotency check ───────────────────────────────────────────────
+    is_new, idem_row = await idem.record_and_check(
+        provider="culqi",
+        event_id=event_id,
+        event_type=event_type,
+        payload_hash=payload_hash,
+    )
+    if not is_new:
+        logger.info("billing.webhook.culqi: duplicate event_id=%s — skipping", event_id)
+        return {"status": "duplicate_ignored"}
+
+    # ── 5. Extract metadata ────────────────────────────────────────────────
+    data = payload.get("data", {})
+    metadata = data.get("metadata", payload.get("metadata", {}))
     org_id_str = metadata.get("org_id", "")
     plan = metadata.get("plan", "")
-    data_id = event.get("data_id", "")
+    data_id = data.get("id", "")
 
+    audit_action: str | None = None
+
+    # ── 6. Dispatch ────────────────────────────────────────────────────────
     if event_type in ("charge.succeeded", "order.paid"):
         payment_data = {
             "org_id": org_id_str,
@@ -462,6 +603,7 @@ async def culqi_webhook(
             "provider": "culqi",
         }
         await _handle_checkout_completed(payment_data, db)
+        audit_action = "billing.checkout_completed"
 
     elif event_type == "subscription.updated":
         payment_data = {
@@ -472,6 +614,7 @@ async def culqi_webhook(
             "provider": "culqi",
         }
         await _handle_subscription_updated(payment_data, db)
+        audit_action = "billing.subscription_updated"
 
     elif event_type == "subscription.deleted":
         payment_data = {
@@ -482,6 +625,7 @@ async def culqi_webhook(
             "provider": "culqi",
         }
         await _handle_subscription_deleted(payment_data, db)
+        audit_action = "billing.subscription_deleted"
 
     elif event_type == "charge.failed":
         payment_data = {
@@ -492,10 +636,24 @@ async def culqi_webhook(
             "provider": "culqi",
         }
         await _handle_payment_failed(payment_data, db)
+        audit_action = "billing.payment_failed"
 
     else:
         logger.debug("billing.webhook.culqi: unhandled event type=%s", event_type)
 
+    # ── 7. Audit log ───────────────────────────────────────────────────────
+    if audit_action:
+        await audit.log_action(
+            user_id=None,
+            action=audit_action,
+            resource_type="billing.webhook",
+            resource_id=event_id,
+            after_state={"provider": "culqi", "event_type": event_type},
+        )
+
+    # ── 8. Persist response + commit ───────────────────────────────────────
+    await idem.update_response(idem_row, 200, '{"status":"ok"}')
+    await db.commit()
     return {"status": "ok"}
 
 
@@ -555,30 +713,15 @@ async def _handle_checkout_completed(payment_data: dict, db: AsyncSession) -> No
     # Sync plan to all active org members
     await _sync_member_plans(org_uuid, plan, db)
 
-    # Cancel existing active subscriptions
-    existing_result = await db.execute(
-        select(Subscription).where(
-            Subscription.organization_id == org_uuid,
-            Subscription.status == "active",
-        )
-    )
-    for sub in existing_result.scalars().all():
-        sub.status = "canceled"
-
-    # Create the new subscription record
-    now = datetime.now(UTC)
-    new_sub = Subscription(
-        organization_id=org_uuid,
+    # Upsert subscription — idempotent: same (org, provider, sub_id) → update, not duplicate
+    await upsert_subscription_for_checkout(
+        db=db,
+        org_id=org_uuid,
+        provider=provider,
+        provider_subscription_id=subscription_id or None,
         plan=plan,
         status="active",
-        payment_subscription_id=subscription_id or None,
-        payment_plan_id=plan,
-        payment_provider=provider,
-        current_period_start=now,
-        current_period_end=None,  # MP/Culqi don't always return this on checkout
     )
-    db.add(new_sub)
-    await db.flush()
 
     # Fire-and-forget: payment confirmation email
     try:

@@ -1,0 +1,12 @@
+{
+  "id": "evt_mp_checkout_001",
+  "type": "payment",
+  "data": {
+    "id": "pay_test_001"
+  },
+  "metadata": {
+    "org_id": "00000000-0000-0000-0000-000000000099",
+    "plan": "pro",
+    "provider": "mercadopago"
+  }
+}

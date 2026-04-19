@@ -1,0 +1,13 @@
+{
+  "id": "evt_mp_sub_001",
+  "type": "preapproval",
+  "data": {
+    "id": "preaprob_test_001"
+  },
+  "status": "active",
+  "metadata": {
+    "org_id": "00000000-0000-0000-0000-000000000099",
+    "plan": "pro",
+    "provider": "mercadopago"
+  }
+}

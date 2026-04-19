@@ -1,0 +1,13 @@
+{
+  "id": "evt_culqi_sub_updated_001",
+  "type": "subscription.updated",
+  "data": {
+    "id": "sbn_test_001",
+    "status": "active",
+    "metadata": {
+      "org_id": "00000000-0000-0000-0000-000000000099",
+      "plan": "pro",
+      "provider": "culqi"
+    }
+  }
+}

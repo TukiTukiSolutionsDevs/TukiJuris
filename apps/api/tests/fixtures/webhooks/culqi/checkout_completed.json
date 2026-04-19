@@ -1,0 +1,22 @@
+{
+  "id": "evt_culqi_checkout_001",
+  "type": "charge.succeeded",
+  "data": {
+    "id": "chr_test_001",
+    "amount": 7000,
+    "currency_code": "PEN",
+    "email": "testowner@test.com",
+    "description": "Pro plan - TukiJuris",
+    "object": "charge",
+    "source": {
+      "object": "card",
+      "last_four": "4111",
+      "brand": "Visa"
+    },
+    "metadata": {
+      "org_id": "00000000-0000-0000-0000-000000000099",
+      "plan": "pro",
+      "provider": "culqi"
+    }
+  }
+}

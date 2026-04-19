@@ -1,0 +1,13 @@
+{
+  "id": "evt_culqi_pay_failed_001",
+  "type": "charge.failed",
+  "data": {
+    "id": "chr_fail_001",
+    "decline_code": "insufficient_funds",
+    "metadata": {
+      "org_id": "00000000-0000-0000-0000-000000000099",
+      "plan": "pro",
+      "provider": "culqi"
+    }
+  }
+}
