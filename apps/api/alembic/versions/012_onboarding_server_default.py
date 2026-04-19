@@ -11,7 +11,7 @@ the column.
 This migration re-applies the server_default so that every insert path
 is safe without requiring application-layer intervention.
 
-Revision ID: 012_add_onboarding_completed_server_default
+Revision ID: 012_onboarding_server_default
 Revises: 011_add_onboarding_completed
 Create Date: 2026-04-19
 """
@@ -19,7 +19,7 @@ Create Date: 2026-04-19
 import sqlalchemy as sa
 from alembic import op
 
-revision = "012_add_onboarding_completed_server_default"
+revision = "012_onboarding_server_default"
 down_revision = "011_add_onboarding_completed"
 branch_labels = None
 depends_on = None
