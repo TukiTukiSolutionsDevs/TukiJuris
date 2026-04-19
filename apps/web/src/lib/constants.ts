@@ -29,7 +29,6 @@ export const PUBLIC_PATHS = [
   '/auth/callback',
   '/auth/reset-password',
   '/compartido',
-  '/onboarding',
   '/status',
   '/guia',
   '/docs',

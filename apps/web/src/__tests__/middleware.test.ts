@@ -73,9 +73,13 @@ describe("middleware — public routes", () => {
     expect(res.status).not.toBe(302);
   });
 
-  it("allows /onboarding without a session", () => {
+  // /onboarding is a PROTECTED route — requires an active session.
+  // (Unauthenticated users cannot reach /onboarding; they are sent to login first.)
+  it("does NOT include /onboarding in public paths", () => {
     const res = middleware(req("/onboarding"));
-    expect(res.status).not.toBe(302);
+    // Must redirect unauthenticated requests to /auth/login
+    expect(res.status).toBeGreaterThanOrEqual(300);
+    expect(location(res)).toContain("/auth/login");
   });
 });
 
@@ -137,6 +141,11 @@ describe("middleware — auth-page bounce when session cookie present", () => {
 // ---------------------------------------------------------------------------
 
 describe("middleware — protected routes", () => {
+  it("allows /onboarding when session cookie is present", () => {
+    const res = middleware(req("/onboarding", { cookie: true }));
+    expect(res.status).not.toBeGreaterThanOrEqual(300);
+  });
+
   it("redirects /chat to /auth/login with returnTo when no session", () => {
     const res = middleware(req("/chat"));
     expect(res.status).toBeGreaterThanOrEqual(300);
