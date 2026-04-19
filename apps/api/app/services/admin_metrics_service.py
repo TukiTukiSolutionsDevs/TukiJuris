@@ -80,7 +80,66 @@ class AdminMetricsService:
     # ── Revenue ──────────────────────────────────────────────────────────
 
     async def compute_revenue(self) -> RevenueSnapshot:
-        """Compute MRR/ARR using canonical prices.
+        """Compute MRR/ARR.
+
+        Preference: invoice-based SUM of paid totals (source="invoices").
+        Fallback: canonical plan prices when no paid invoices exist
+        (source="canonical_prices").
+        """
+        invoice_snapshot = await self._compute_revenue_from_invoices()
+        if invoice_snapshot is not None:
+            return invoice_snapshot
+        return await self._compute_revenue_from_canonical()
+
+    async def _compute_revenue_from_invoices(self) -> "RevenueSnapshot | None":
+        """Aggregate MRR from paid invoices grouped by plan.
+
+        Returns None when the invoices table has no paid rows (triggers fallback).
+        Revenue is the SUM of total_amount converted to integer cents.
+        """
+        sql = text(
+            """
+            SELECT
+                plan,
+                COUNT(DISTINCT org_id) AS org_count,
+                ROUND(SUM(total_amount) * 100)::bigint AS revenue_cents
+            FROM invoices
+            WHERE status = 'paid'
+            GROUP BY plan
+            """
+        )
+        result = await self._db.execute(sql)
+        rows = result.mappings().fetchall()
+
+        if not rows:
+            return None
+
+        breakdown: list[RevenueBreakdownItem] = []
+        mrr_cents = 0
+        for row in rows:
+            plan = str(row["plan"])
+            revenue_cents = int(row["revenue_cents"] or 0)
+            org_count = int(row["org_count"] or 0)
+            display_name = PLANS[plan].display_name if plan in PLANS else plan
+            breakdown.append(
+                RevenueBreakdownItem(
+                    plan=plan,
+                    display_name=display_name,
+                    org_count=org_count,
+                    revenue_cents=revenue_cents,
+                )
+            )
+            mrr_cents += revenue_cents
+
+        return RevenueSnapshot(
+            source="invoices",
+            mrr_cents=mrr_cents,
+            arr_cents=mrr_cents * 12,
+            breakdown=breakdown,
+        )
+
+    async def _compute_revenue_from_canonical(self) -> RevenueSnapshot:
+        """Compute MRR/ARR using canonical prices (fallback when no invoices exist).
 
         One SQL round-trip: returns one row per (org, plan) with active seat count.
         Python-side: groups by plan and calls PlanService.get_price_cents per org

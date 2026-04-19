@@ -52,7 +52,7 @@ def _scalar_mock(execute_rows, scalar_value):
 @pytest.mark.asyncio
 async def test_compute_revenue_empty_when_no_active_orgs():
     """No active orgs → zeroed snapshot with empty breakdown."""
-    db = _exec_mock([])  # empty rows from org query
+    db = _exec_mock([], [])  # no invoices → fallback; no active orgs in canonical
 
     service = AdminMetricsService(db=db, plan_service=PlanService())
     snapshot = await service.compute_revenue()
@@ -70,7 +70,7 @@ async def test_compute_revenue_free_plan_contributes_zero():
         {"plan": "free", "org_id": str(uuid.uuid4()), "seat_count": 1},
         {"plan": "free", "org_id": str(uuid.uuid4()), "seat_count": 1},
     ]
-    db = _exec_mock(org_rows)
+    db = _exec_mock([], org_rows)  # no invoices → fallback to canonical
 
     service = AdminMetricsService(db=db, plan_service=PlanService())
     snapshot = await service.compute_revenue()
@@ -90,7 +90,7 @@ async def test_compute_revenue_pro_plan_flat():
         {"plan": "pro", "org_id": str(uuid.uuid4()), "seat_count": 1},
         {"plan": "pro", "org_id": str(uuid.uuid4()), "seat_count": 3},
     ]
-    db = _exec_mock(org_rows)
+    db = _exec_mock([], org_rows)  # no invoices → fallback to canonical
 
     service = AdminMetricsService(db=db, plan_service=PlanService())
     snapshot = await service.compute_revenue()
@@ -111,7 +111,7 @@ async def test_compute_revenue_sums_base_plus_seat_overage():
     org_rows = [
         {"plan": "studio", "org_id": str(uuid.uuid4()), "seat_count": 7},
     ]
-    db = _exec_mock(org_rows)
+    db = _exec_mock([], org_rows)  # no invoices → fallback to canonical
 
     service = AdminMetricsService(db=db, plan_service=PlanService())
     snapshot = await service.compute_revenue()
@@ -128,7 +128,7 @@ async def test_compute_revenue_sums_base_plus_seat_overage():
 async def test_compute_revenue_excludes_inactive_orgs():
     """The SQL WHERE is_active=true is enforced; service returns 0 if all orgs inactive."""
     # Service receives empty list (simulates DB filtering out inactive orgs)
-    db = _exec_mock([])
+    db = _exec_mock([], [])  # no invoices → fallback; no active orgs
 
     service = AdminMetricsService(db=db, plan_service=PlanService())
     snapshot = await service.compute_revenue()
@@ -145,7 +145,7 @@ async def test_compute_revenue_mixed_plans():
         {"plan": "pro", "org_id": str(uuid.uuid4()), "seat_count": 1},
         {"plan": "studio", "org_id": str(uuid.uuid4()), "seat_count": 5},  # no overage
     ]
-    db = _exec_mock(org_rows)
+    db = _exec_mock([], org_rows)  # no invoices → fallback to canonical
 
     service = AdminMetricsService(db=db, plan_service=PlanService())
     snapshot = await service.compute_revenue()

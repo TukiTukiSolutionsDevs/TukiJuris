@@ -30,6 +30,7 @@ from app.api.deps import (
     get_audit_service,
     get_current_user,
     get_idempotency_service,
+    get_invoice_service,
 )
 from app.config import settings
 from app.core.database import get_db
@@ -409,6 +410,7 @@ async def mercadopago_webhook(
     db: AsyncSession = Depends(get_db),
     audit: AuditService = Depends(get_audit_service),
     idem: WebhookIdempotencyService = Depends(get_idempotency_service),
+    inv_svc=Depends(get_invoice_service),
 ) -> dict:
     """
     MercadoPago webhook endpoint — idempotent, signature-verified.
@@ -485,6 +487,24 @@ async def mercadopago_webhook(
         }
         await _handle_checkout_completed(payment_data, db)
         audit_action = "billing.checkout_completed"
+        # ── Invoice creation (best-effort) ──────────────────────────────
+        try:
+            org_uuid_for_inv = uuid.UUID(org_id_str) if org_id_str else None
+            if org_uuid_for_inv and (plan or data_id):
+                await inv_svc.create_from_mp_payment(
+                    org_id=org_uuid_for_inv,
+                    subscription_id=None,
+                    plan=plan,
+                    seats_count=int(metadata.get("seats_count", 0)),
+                    provider_charge_id=data_id or event_id,
+                    webhook_received_at=datetime.now(UTC),
+                    provider_event_id=event_id,
+                    actor_id=None,
+                )
+        except Exception:
+            logger.exception(
+                "billing.webhook.mp: invoice creation failed for event %s", event_id
+            )
 
     elif event_type == "preapproval":
         payment_data = {
@@ -526,6 +546,7 @@ async def culqi_webhook(
     db: AsyncSession = Depends(get_db),
     audit: AuditService = Depends(get_audit_service),
     idem: WebhookIdempotencyService = Depends(get_idempotency_service),
+    inv_svc=Depends(get_invoice_service),
 ) -> dict:
     """
     Culqi webhook endpoint — idempotent, signature-verified.
@@ -604,6 +625,26 @@ async def culqi_webhook(
         }
         await _handle_checkout_completed(payment_data, db)
         audit_action = "billing.checkout_completed"
+        # ── Invoice creation (best-effort) ──────────────────────────────
+        try:
+            org_uuid_for_inv = uuid.UUID(org_id_str) if org_id_str else None
+            if org_uuid_for_inv and (plan or data_id):
+                await inv_svc.create_from_culqi_charge(
+                    org_id=org_uuid_for_inv,
+                    subscription_id=None,
+                    plan=plan,
+                    seats_count=int(metadata.get("seats_count", 0)),
+                    provider_charge_id=data_id or event_id,
+                    amount_payload_cents=data.get("amount"),
+                    paid_at_payload=None,
+                    webhook_received_at=datetime.now(UTC),
+                    provider_event_id=event_id,
+                    actor_id=None,
+                )
+        except Exception:
+            logger.exception(
+                "billing.webhook.culqi: invoice creation failed for event %s", event_id
+            )
 
     elif event_type == "subscription.updated":
         payment_data = {
@@ -637,6 +678,25 @@ async def culqi_webhook(
         }
         await _handle_payment_failed(payment_data, db)
         audit_action = "billing.payment_failed"
+        # ── Invoice creation (best-effort) ──────────────────────────────
+        try:
+            org_uuid_for_inv = uuid.UUID(org_id_str) if org_id_str else None
+            if org_uuid_for_inv and (plan or data_id):
+                await inv_svc.create_failed(
+                    provider="culqi",
+                    org_id=org_uuid_for_inv,
+                    subscription_id=None,
+                    plan=plan,
+                    seats_count=int(metadata.get("seats_count", 0)),
+                    provider_charge_id=data_id or event_id,
+                    webhook_received_at=datetime.now(UTC),
+                    provider_event_id=event_id,
+                    actor_id=None,
+                )
+        except Exception:
+            logger.exception(
+                "billing.webhook.culqi: failed-invoice creation failed for event %s", event_id
+            )
 
     else:
         logger.debug("billing.webhook.culqi: unhandled event type=%s", event_type)
