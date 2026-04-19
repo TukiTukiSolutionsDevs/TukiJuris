@@ -79,11 +79,21 @@ def _make_service(pair: TokenPair = FAKE_PAIR, sessions: list | None = None) -> 
 @pytest_asyncio.fixture
 async def rf_client():
     """Client with get_refresh_service + get_current_user overridden (no DB/Redis)."""
-    from app.api.deps import get_current_user, get_refresh_service
+    from unittest.mock import AsyncMock, MagicMock
+
+    from app.api.deps import get_audit_service, get_current_user, get_denylist, get_refresh_service
 
     svc = _make_service()
+    # Stub audit service so FK violations against test-only user IDs don't poison the session
+    audit_stub = AsyncMock()
+    # Stub denylist so Redis is not required for unit tests
+    denylist_stub = MagicMock()
+    denylist_stub.add = AsyncMock()
+
     app.dependency_overrides[get_refresh_service] = lambda: svc
     app.dependency_overrides[get_current_user] = lambda: MOCK_USER
+    app.dependency_overrides[get_audit_service] = lambda: audit_stub
+    app.dependency_overrides[get_denylist] = lambda: denylist_stub
 
     async with AsyncClient(
         transport=ASGITransport(app=app), base_url="http://test"
@@ -92,6 +102,8 @@ async def rf_client():
 
     app.dependency_overrides.pop(get_refresh_service, None)
     app.dependency_overrides.pop(get_current_user, None)
+    app.dependency_overrides.pop(get_audit_service, None)
+    app.dependency_overrides.pop(get_denylist, None)
 
 
 # ---------------------------------------------------------------------------
@@ -229,13 +241,18 @@ async def test_logout_without_cookie_still_returns_204(rf_client):
     svc.revoke.assert_not_awaited()
 
 
-async def test_logout_requires_auth():
-    """POST /auth/logout without Bearer → 401."""
+async def test_logout_without_bearer_returns_204():
+    """POST /auth/logout without Bearer → 204 (graceful, no revoke call).
+
+    Design change (fix-session-flow): logout is now intentionally unauthenticated.
+    A missing/invalid cookie results in a no-op 204 rather than 401, so clients
+    can always clear their local state even after token expiry.
+    """
     async with AsyncClient(
         transport=ASGITransport(app=app), base_url="http://test"
     ) as ac:
         res = await ac.post("/api/auth/logout")
-    assert res.status_code == 401
+    assert res.status_code == 204
 
 
 # ---------------------------------------------------------------------------
@@ -243,14 +260,16 @@ async def test_logout_requires_auth():
 # ---------------------------------------------------------------------------
 
 
-async def test_logout_all_returns_revoked_count(rf_client):
-    """POST /auth/logout-all → 200 {revoked: N}."""
+async def test_logout_all_returns_204(rf_client):
+    """POST /auth/logout-all → 204 No Content (all sessions revoked).
+
+    Design change (fix-session-flow): logout-all now returns 204 instead of
+    200 + JSON body, consistent with the single-device logout endpoint.
+    """
     ac, svc = rf_client
     svc.revoke_all.return_value = 3
     res = await ac.post("/api/auth/logout-all")
-    assert res.status_code == 200
-    body = res.json()
-    assert body["revoked"] == 3
+    assert res.status_code == 204
     svc.revoke_all.assert_awaited_once_with(MOCK_USER.id)
 
 
