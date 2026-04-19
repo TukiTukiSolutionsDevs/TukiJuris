@@ -521,6 +521,7 @@ async def get_current_profile(
         "plan": current_user.plan,
         "entitlements": entitlements,
         "is_admin": current_user.is_admin,
+        "onboarding_completed": current_user.onboarding_completed,
         "auth_provider": current_user.auth_provider,
         "created_at": current_user.created_at.isoformat() if current_user.created_at else None,
     }
