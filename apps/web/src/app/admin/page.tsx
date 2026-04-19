@@ -27,6 +27,12 @@ import { useAuth } from "@/lib/auth/AuthContext";
 import { AdminLayout } from "@/components/AdminLayout";
 import { InternalPageHeader } from "@/components/shell/InternalPageHeader";
 import { ShellUtilityActions } from "@/components/shell/ShellUtilityActions";
+// admin-saas-panel components — T2.7
+// State pattern: plain useState/useCallback/authFetch (mirrors existing page pattern, no new library)
+import { RevenueCards } from "./_components/RevenueCards";
+import { BYOKBadge } from "./_components/BYOKBadge";
+import { BYOKTable } from "./_components/BYOKTable";
+import { UsersPagination } from "./_components/UsersPagination";
 
 interface SystemStats {
   total_users: number;
@@ -44,6 +50,8 @@ interface UserRow {
   queries_this_month: number;
   created_at: string;
   is_admin?: boolean;
+  last_active?: string | null;  // admin-saas-panel: latest refresh_token.created_at
+  byok_count?: number;          // admin-saas-panel: active BYOK key count
 }
 
 interface KBStats {
@@ -147,6 +155,9 @@ function StatCard({
 export default function AdminPage() {
   const [stats, setStats] = useState<SystemStats | null>(null);
   const [users, setUsers] = useState<UserRow[]>([]);
+  const [usersTotal, setUsersTotal] = useState(0);
+  const [usersPage, setUsersPage] = useState(1);
+  const [usersPerPage] = useState(20);
   const [kbStats, setKbStats] = useState<KBStats[]>([]);
   const [recentQueries, setRecentQueries] = useState<RecentQuery[]>([]);
   const [health, setHealth] = useState<HealthData | null>(null);
@@ -165,7 +176,7 @@ export default function AdminPage() {
       // Load all data in parallel
       const [healthRes, usersRes, statsRes, queriesRes, kbHealthRes, readyRes] = await Promise.allSettled([
         authFetch("/api/health"),
-        authFetch("/api/admin/users"),
+        authFetch(`/api/admin/users?page=${usersPage}&per_page=${usersPerPage}`),
         authFetch("/api/admin/stats"),
         authFetch("/api/admin/activity"),
         authFetch("/api/health/knowledge"),
@@ -187,6 +198,7 @@ export default function AdminPage() {
       if (usersRes.status === "fulfilled" && usersRes.value.ok) {
         const ud = await usersRes.value.json();
         setUsers(Array.isArray(ud) ? ud : ud.users || []);
+        if (ud.total !== undefined) setUsersTotal(ud.total);
       }
 
       if (statsRes.status === "fulfilled" && statsRes.value.ok) {
@@ -229,7 +241,7 @@ export default function AdminPage() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [usersPage, usersPerPage]);
 
   useEffect(() => {
     loadData();
@@ -279,6 +291,9 @@ export default function AdminPage() {
             </div>
           ) : (
             <div className="space-y-8">
+              {/* Revenue — self-fetching; silently unmounts on 403 */}
+              <RevenueCards />
+
               {/* System Stats */}
               <div>
                  <h2 className="section-eyebrow text-on-surface/40 mb-4 flex items-center gap-2">
@@ -637,6 +652,12 @@ export default function AdminPage() {
                           <th className="text-right text-[10px] uppercase tracking-[0.1em] text-on-surface/40 px-4 sm:px-5 py-3 hidden xl:table-cell">
                             Registro
                           </th>
+                          <th className="text-right text-[10px] uppercase tracking-[0.1em] text-on-surface/40 px-4 sm:px-5 py-3 hidden xl:table-cell">
+                            Último acceso
+                          </th>
+                          <th className="text-center text-[10px] uppercase tracking-[0.1em] text-on-surface/40 px-4 sm:px-5 py-3 hidden lg:table-cell">
+                            BYOK
+                          </th>
                         </tr>
                       </thead>
                       <tbody>
@@ -682,13 +703,34 @@ export default function AdminPage() {
                                 ? new Date(user.created_at).toLocaleDateString("es-PE")
                                 : "—"}
                             </td>
+                            <td className="px-5 py-3 text-right text-xs text-on-surface/30 hidden xl:table-cell">
+                              {user.last_active
+                                ? new Date(user.last_active).toLocaleDateString("es-PE")
+                                : "—"}
+                            </td>
+                            <td className="px-5 py-3 text-center hidden lg:table-cell">
+                              <BYOKBadge count={user.byok_count ?? 0} />
+                            </td>
                           </tr>
                         ))}
                       </tbody>
                     </table>
                   </div>
+                  {usersTotal > usersPerPage && (
+                    <div className="px-5 py-3" style={{ borderTop: "1px solid rgba(79,70,51,0.15)" }}>
+                      <UsersPagination
+                        page={usersPage}
+                        perPage={usersPerPage}
+                        total={usersTotal}
+                        onPageChange={setUsersPage}
+                      />
+                    </div>
+                  )}
                 </div>
               )}
+
+              {/* BYOK Keys — self-fetching; silently unmounts on 403 */}
+              <BYOKTable />
 
               {/* Recent Queries Activity */}
               {recentQueries.length > 0 && (
