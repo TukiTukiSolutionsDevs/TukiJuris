@@ -26,6 +26,7 @@ class User(Base):
     avatar_url: Mapped[str | None] = mapped_column(Text)  # profile picture URL
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     is_admin: Mapped[bool] = mapped_column(Boolean, default=False)
+    onboarding_completed: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     plan: Mapped[str] = mapped_column(String(50), default="free")  # free, pro, enterprise
     preferences: Mapped[dict | None] = mapped_column(JSONB, default=dict)  # user UX/feature settings
     default_org_id: Mapped[uuid.UUID | None] = mapped_column(
