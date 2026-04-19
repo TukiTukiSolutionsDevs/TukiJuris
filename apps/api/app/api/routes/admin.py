@@ -114,7 +114,7 @@ async def admin_users(
     total_result = await db.execute(text(count_sql), params)
     total = total_result.scalar() or 0
 
-    # User rows + org name + query count this month
+    # User rows + org name + query count this month + last_active + byok_count (admin-saas-panel)
     rows_sql = f"""
         SELECT
             u.id,
@@ -125,7 +125,17 @@ async def admin_users(
             u.plan,
             u.created_at,
             o.name AS org_name,
-            COALESCE(mq.query_count, 0) AS queries_this_month
+            COALESCE(mq.query_count, 0) AS queries_this_month,
+            (
+                SELECT MAX(rt.created_at)
+                FROM refresh_tokens rt
+                WHERE rt.user_id = u.id
+            ) AS last_active,
+            (
+                SELECT COUNT(*)
+                FROM user_llm_keys k
+                WHERE k.user_id = u.id AND k.is_active = true
+            ) AS byok_count
         FROM users u
         LEFT JOIN organizations o ON o.id = u.default_org_id
         LEFT JOIN (
@@ -152,6 +162,8 @@ async def admin_users(
             "created_at": row["created_at"].isoformat() if row["created_at"] else None,
             "org_name": row["org_name"],
             "queries_this_month": row["queries_this_month"],
+            "last_active": row["last_active"].isoformat() if row["last_active"] else None,
+            "byok_count": int(row["byok_count"] or 0),
         })
 
     return {
