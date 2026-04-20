@@ -27,7 +27,14 @@ async def _assert_org_access(
     current_user: User,
     db: AsyncSession,
 ) -> None:
-    """Raise 403 unless the current user is owner or admin of the org."""
+    """Raise 403 unless the current user is owner or admin of the org.
+
+    Global system admins (is_admin=True) bypass org-role gating unconditionally
+    and can inspect any organisation's analytics.
+    """
+    # System-wide admins bypass the org-membership check entirely.
+    if current_user.is_admin:
+        return
     await require_org_role(current_user, org_id, "admin", db)
 
 
