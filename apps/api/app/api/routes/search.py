@@ -146,6 +146,12 @@ def _validate_filters(filters: SearchFilters | None) -> None:
             detail=f"Jerarquia invalida: '{filters.hierarchy}'",
         )
 
+    if filters.date_from and filters.date_to and filters.date_from > filters.date_to:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="La fecha de fin no puede ser anterior a la fecha de inicio",
+        )
+
 
 def _build_search_query(
     query_text: str,
@@ -279,7 +285,7 @@ async def _log_search_history(
             await session.commit()
     except Exception:
         # History logging must never fail a search request
-        logger.debug("Failed to log search history", exc_info=True)
+        logger.warning("Failed to log search history", exc_info=True)
 
 
 # ---------------------------------------------------------------------------
@@ -592,6 +598,7 @@ async def delete_saved_search(
     description="Returns the last 20 searches for the authenticated user.",
 )
 async def search_history(
+    limit: int = Query(20, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
     _rl: None = Depends(RateLimitGuard(RateLimitBucket.READ)),
@@ -600,7 +607,7 @@ async def search_history(
         select(SearchHistory)
         .where(SearchHistory.user_id == current_user.id)
         .order_by(SearchHistory.created_at.desc())
-        .limit(20)
+        .limit(limit)
     )
     items = result.scalars().all()
 

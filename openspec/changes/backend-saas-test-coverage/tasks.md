@@ -615,7 +615,7 @@ batches:
   - estimated_runtime: med
   - notes: Keep the list/read ownership expectations aligned with the user-owned 404 convention.
 
-- [ ] T-E-06  Add search filter validator unit cluster
+- [x] T-E-06  Add search filter validator unit cluster
   - spec: sdd/backend-saas-test-coverage/spec/documents-search
   - deliverable: `apps/api/tests/unit/test_search_filters.py`
   - test_ids: documents-search.unit.001, documents-search.unit.002, documents-search.unit.003
@@ -625,7 +625,7 @@ batches:
   - estimated_runtime: fast
   - notes: Keep pure filter validation/unit query construction out of the DB path.
 
-- [ ] T-E-07  Add search happy-path and auth coverage
+- [x] T-E-07  Add search happy-path and auth coverage
   - spec: sdd/backend-saas-test-coverage/spec/documents-search
   - deliverable: `apps/api/tests/integration/test_search.py`
   - test_ids: documents-search.unit.004, documents-search.unit.005
@@ -635,7 +635,7 @@ batches:
   - estimated_runtime: med
   - notes: Seed embeddings once per test cluster and keep auth coverage cheap.
 
-- [ ] T-E-08  Add saved-search and history coverage cluster
+- [x] T-E-08  Add saved-search and history coverage cluster
   - spec: sdd/backend-saas-test-coverage/spec/documents-search
   - deliverable: `apps/api/tests/integration/test_search.py`
   - test_ids: documents-search.unit.006, documents-search.unit.007
@@ -645,7 +645,7 @@ batches:
   - estimated_runtime: med
   - notes: Reuse the saved-search factory and assert pagination/auth together.
 
-- [ ] T-E-09  Land FIX-04 search history fail-safe
+- [x] T-E-09  Land FIX-04 search history fail-safe
   - spec: sdd/backend-saas-test-coverage/spec/documents-search
   - deliverable: `apps/api/app/api/routes/search.py`, `apps/api/tests/unit/test_search_logging.py`
   - test_ids: documents-search.unit.008
