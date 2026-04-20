@@ -517,7 +517,7 @@ batches:
   - estimated_runtime: med
   - notes: Reuse `assert_isolated` for mark-read ownership protection.
 
-- [ ] T-D-09  Add password-reset email flow coverage
+- [x] T-D-09  Add password-reset email flow coverage
   - spec: sdd/backend-saas-test-coverage/spec/notifications
   - deliverable: `apps/api/tests/integration/test_emails.py`
   - test_ids: notifications.unit.009, notifications.unit.010
@@ -527,7 +527,7 @@ batches:
   - estimated_runtime: med
   - notes: Use the mock provider to verify outbound email intent without touching a real vendor.
 
-- [ ] T-D-10  Add email service resilience coverage
+- [x] T-D-10  Add email service resilience coverage
   - spec: sdd/backend-saas-test-coverage/spec/notifications
   - deliverable: `apps/api/tests/unit/test_email_service.py`
   - test_ids: notifications.unit.011, notifications.unit.012

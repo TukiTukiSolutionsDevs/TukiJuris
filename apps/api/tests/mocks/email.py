@@ -75,17 +75,17 @@ async def mock_email_provider() -> MockEmailProvider:
     as a singleton, not via FastAPI Depends.
     """
     mock = MockEmailProvider()
-    original_provider = email_service.provider
-    email_service.provider = mock  # type: ignore[assignment]
+    original_provider = email_service._provider
+    email_service._provider = mock  # type: ignore[assignment]
     yield mock
-    email_service.provider = original_provider  # type: ignore[assignment]
+    email_service._provider = original_provider  # type: ignore[assignment]
 
 
 @pytest_asyncio.fixture
 async def mock_email_provider_failing() -> FailingMockEmailProvider:
     """Swap in the FailingMockEmailProvider — for resilience / bounce tests."""
     mock = FailingMockEmailProvider()
-    original_provider = email_service.provider
-    email_service.provider = mock  # type: ignore[assignment]
+    original_provider = email_service._provider
+    email_service._provider = mock  # type: ignore[assignment]
     yield mock
-    email_service.provider = original_provider  # type: ignore[assignment]
+    email_service._provider = original_provider  # type: ignore[assignment]
