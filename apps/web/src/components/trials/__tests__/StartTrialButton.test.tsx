@@ -121,7 +121,7 @@ describe("StartTrialButton", () => {
   });
 
   it("shows no status text for non-active trial", async () => {
-    mockFetchCurrent.mockResolvedValue({ ...ACTIVE_TRIAL, status: "expired" });
+    mockFetchCurrent.mockResolvedValue({ ...ACTIVE_TRIAL, status: "downgraded" });
     render(<StartTrialButton />);
 
     await waitFor(() => {

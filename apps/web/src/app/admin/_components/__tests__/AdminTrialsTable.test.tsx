@@ -122,7 +122,7 @@ describe("AdminTrialsTable", () => {
   it("does not show cancel button for non-active trial", async () => {
     mockFetch.mockResolvedValue({
       ...PAGE_ONE,
-      items: [{ ...TRIAL, status: "expired" }],
+      items: [{ ...TRIAL, status: "downgraded" }],
     });
     render(<AdminTrialsTable />);
 
@@ -132,9 +132,9 @@ describe("AdminTrialsTable", () => {
   });
 
   it("calls patchAdminTrial and updates row on cancel", async () => {
-    const cancelled = { ...TRIAL, status: "cancelled" };
+    const downgraded = { ...TRIAL, status: "downgraded" };
     mockFetch.mockResolvedValue(PAGE_ONE);
-    mockPatch.mockResolvedValue(cancelled);
+    mockPatch.mockResolvedValue(downgraded);
     const user = userEvent.setup();
     render(<AdminTrialsTable />);
 
@@ -142,7 +142,10 @@ describe("AdminTrialsTable", () => {
     await user.click(screen.getByTestId("cancel-trial-trial-1"));
 
     await waitFor(() => {
-      expect(mockPatch).toHaveBeenCalledWith(mockAuthFetch, "trial-1", { status: "cancelled" });
+      expect(mockPatch).toHaveBeenCalledWith(mockAuthFetch, "trial-1", {
+        action: "force_downgrade",
+        reason: "Admin cancelled trial",
+      });
       expect(screen.queryByTestId("cancel-trial-trial-1")).not.toBeInTheDocument();
     });
   });

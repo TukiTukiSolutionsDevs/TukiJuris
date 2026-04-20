@@ -2,10 +2,11 @@
 
 const STATUS_CONFIG: Record<string, { label: string; cls: string }> = {
   active: { label: "Activa", cls: "text-green-700 bg-green-50" },
-  expired: { label: "Vencida", cls: "text-red-700 bg-red-50" },
-  converted: { label: "Convertida", cls: "text-blue-700 bg-blue-50" },
-  cancelled: { label: "Cancelada", cls: "text-gray-500 bg-gray-100" },
   charged: { label: "Cobrada", cls: "text-purple-700 bg-purple-50" },
+  charge_failed: { label: "Cobro fallido", cls: "text-orange-700 bg-orange-50" },
+  downgraded: { label: "Vencida", cls: "text-red-700 bg-red-50" },
+  canceled_pending: { label: "Cancelando", cls: "text-yellow-700 bg-yellow-50" },
+  canceled: { label: "Cancelada", cls: "text-gray-500 bg-gray-100" },
 };
 
 export function TrialStatusBadge({ status }: { status: string }) {

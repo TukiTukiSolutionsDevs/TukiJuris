@@ -200,10 +200,16 @@ export async function fetchAdminTrials(
   return res.json() as Promise<TrialsAdminPage>;
 }
 
+export interface AdminTrialPatchBody {
+  action: "force_downgrade" | "extend";
+  reason: string;
+  extend_days?: number;
+}
+
 export async function patchAdminTrial(
   authFetch: AuthFetch,
   id: string,
-  body: { status: string },
+  body: AdminTrialPatchBody,
 ): Promise<TrialAdminRow> {
   const res = await authFetch(`/api/admin/trials/${id}`, {
     method: "PATCH",

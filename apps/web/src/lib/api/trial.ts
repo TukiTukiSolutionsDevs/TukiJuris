@@ -4,12 +4,11 @@
 
 export type TrialStatus =
   | "active"
-  | "expired"
-  | "converted"
-  | "cancelled"
-  | "canceled_pending"
   | "charged"
-  | "charge_failed";
+  | "charge_failed"
+  | "downgraded"
+  | "canceled_pending"
+  | "canceled";
 
 export interface Trial {
   id: string;

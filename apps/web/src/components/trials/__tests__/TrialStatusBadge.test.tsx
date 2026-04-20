@@ -9,24 +9,29 @@ describe("TrialStatusBadge", () => {
     expect(screen.getByTestId("trial-status-badge")).toHaveTextContent("Activa");
   });
 
-  it('renders "Vencida" for expired status', () => {
-    render(<TrialStatusBadge status="expired" />);
+  it('renders "Vencida" for downgraded status', () => {
+    render(<TrialStatusBadge status="downgraded" />);
     expect(screen.getByTestId("trial-status-badge")).toHaveTextContent("Vencida");
   });
 
-  it('renders "Cancelada" for cancelled status', () => {
-    render(<TrialStatusBadge status="cancelled" />);
+  it('renders "Cancelada" for canceled status', () => {
+    render(<TrialStatusBadge status="canceled" />);
     expect(screen.getByTestId("trial-status-badge")).toHaveTextContent("Cancelada");
   });
 
-  it('renders "Convertida" for converted status', () => {
-    render(<TrialStatusBadge status="converted" />);
-    expect(screen.getByTestId("trial-status-badge")).toHaveTextContent("Convertida");
+  it('renders "Cancelando" for canceled_pending status', () => {
+    render(<TrialStatusBadge status="canceled_pending" />);
+    expect(screen.getByTestId("trial-status-badge")).toHaveTextContent("Cancelando");
   });
 
   it('renders "Cobrada" for charged status', () => {
     render(<TrialStatusBadge status="charged" />);
     expect(screen.getByTestId("trial-status-badge")).toHaveTextContent("Cobrada");
+  });
+
+  it('renders "Cobro fallido" for charge_failed status', () => {
+    render(<TrialStatusBadge status="charge_failed" />);
+    expect(screen.getByTestId("trial-status-badge")).toHaveTextContent("Cobro fallido");
   });
 
   it("renders unknown status as-is", () => {

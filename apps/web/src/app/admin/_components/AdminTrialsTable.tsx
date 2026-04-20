@@ -5,7 +5,7 @@
  *
  * - Mirrors InvoicesTable pattern: authFetch + useState/useEffect/useCallback.
  * - Silently unmounts on 403 (non-admin).
- * - Cancel action: PATCH /admin/trials/{id} → { status: "cancelled" }.
+ * - Cancel action: PATCH /admin/trials/{id} → { action: "force_downgrade", reason: "..." }.
  */
 
 import { useState, useEffect, useCallback } from "react";
@@ -65,7 +65,10 @@ export function AdminTrialsTable() {
   async function handleCancel(id: string) {
     setCancelling(id);
     try {
-      const updated = await patchAdminTrial(authFetch, id, { status: "cancelled" });
+      const updated = await patchAdminTrial(authFetch, id, {
+        action: "force_downgrade",
+        reason: "Admin cancelled trial",
+      });
       setItems((prev) => prev.map((t) => (t.id === id ? updated : t)));
     } catch {
       // silently ignore — user can retry via refresh
