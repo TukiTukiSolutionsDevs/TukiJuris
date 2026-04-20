@@ -8,12 +8,11 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import RateLimitBucket, RateLimitGuard, get_db
+from app.api.deps import RateLimitBucket, RateLimitGuard, get_db, require_admin
 from app.models.user import User
 from app.rbac.audit import AuditService
 from app.rbac.dependencies import require_permission
 from app.rbac.schemas import AuditLogEntry, AuditLogPage
-from app.api.routes.admin_saas import _ensure_admin
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -93,11 +92,11 @@ async def admin_users(
     per_page: int = Query(20, ge=1, le=100, description="Items per page"),
     search: str | None = Query(None, description="Filter by email substring"),
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_permission("users:read")),
+    user: User = Depends(require_admin),
+    _perm: User = Depends(require_permission("users:read")),
     _rl: None = Depends(RateLimitGuard(RateLimitBucket.WRITE)),
 ) -> dict[str, Any]:
     """Paginated user list with organisation name and query count this month."""
-    _ensure_admin(user)
     offset = (page - 1) * per_page
 
     # Build WHERE clause for optional email search

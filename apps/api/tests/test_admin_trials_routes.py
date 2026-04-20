@@ -15,7 +15,8 @@ import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 
 from app.main import app
-from app.api.deps import get_trial_service
+from fastapi import HTTPException
+from app.api.deps import get_trial_service, require_admin
 from app.api.routes.admin_trials import _billing_read, _billing_update
 from app.services.trial_service import TrialError
 
@@ -78,6 +79,7 @@ async def admin_client():
 
     app.dependency_overrides[_billing_read] = lambda: user
     app.dependency_overrides[_billing_update] = lambda: user
+    app.dependency_overrides[require_admin] = lambda: user
     app.dependency_overrides[get_trial_service] = lambda: svc
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
@@ -85,6 +87,7 @@ async def admin_client():
 
     app.dependency_overrides.pop(_billing_read, None)
     app.dependency_overrides.pop(_billing_update, None)
+    app.dependency_overrides.pop(require_admin, None)
     app.dependency_overrides.pop(get_trial_service, None)
 
 
@@ -94,8 +97,12 @@ async def non_admin_client():
     user = _make_regular_user()
     svc = _make_svc()
 
+    def _raise_admin_required():
+        raise HTTPException(status_code=403, detail="admin_required")
+
     app.dependency_overrides[_billing_read] = lambda: user
     app.dependency_overrides[_billing_update] = lambda: user
+    app.dependency_overrides[require_admin] = _raise_admin_required
     app.dependency_overrides[get_trial_service] = lambda: svc
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
@@ -103,6 +110,7 @@ async def non_admin_client():
 
     app.dependency_overrides.pop(_billing_read, None)
     app.dependency_overrides.pop(_billing_update, None)
+    app.dependency_overrides.pop(require_admin, None)
     app.dependency_overrides.pop(get_trial_service, None)
 
 

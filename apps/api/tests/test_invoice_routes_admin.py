@@ -89,21 +89,12 @@ def _mock_svc(**kwargs) -> MagicMock:
 
 class TestEnsureAdmin:
     async def test_non_admin_user_raises_403(self):
-        from app.api.routes.admin_invoices import list_invoices_admin
+        from app.api.deps import require_admin
 
         non_admin = _make_user(is_admin=False)
-        svc = _mock_svc(list_return=([], 0))
 
         with pytest.raises(HTTPException) as exc_info:
-            await list_invoices_admin(
-                page=1,
-                per_page=20,
-                invoice_status=None,
-                org_id=None,
-                user=non_admin,
-                svc=svc,
-                _rl=None,
-            )
+            await require_admin(current_user=non_admin)
         assert exc_info.value.status_code == 403
         assert exc_info.value.detail == "admin_required"
 
@@ -197,16 +188,10 @@ class TestGetInvoiceAdmin:
         assert exc_info.value.status_code == 404
 
     async def test_non_admin_raises_403(self):
-        from app.api.routes.admin_invoices import get_invoice_admin
+        from app.api.deps import require_admin
 
-        svc = _mock_svc(get_return=_make_invoice())
         with pytest.raises(HTTPException) as exc_info:
-            await get_invoice_admin(
-                invoice_id=uuid.uuid4(),
-                user=_make_user(is_admin=False),
-                svc=svc,
-                _rl=None,
-            )
+            await require_admin(current_user=_make_user(is_admin=False))
         assert exc_info.value.status_code == 403
 
 
@@ -287,17 +272,8 @@ class TestPatchInvoiceAdmin:
         db.commit.assert_not_called()
 
     async def test_non_admin_raises_403(self):
-        from app.api.routes.admin_invoices import patch_invoice_admin
-
-        svc = _mock_svc(get_return=_make_invoice())
-        db = AsyncMock()
-        body = InvoiceAdminPatchRequest(action="refund")
+        from app.api.deps import require_admin
 
         with pytest.raises(HTTPException) as exc_info:
-            await patch_invoice_admin(
-                invoice_id=uuid.uuid4(), body=body,
-                user=_make_user(is_admin=False),
-                db=db, svc=svc, _rl=None,
-            )
+            await require_admin(current_user=_make_user(is_admin=False))
         assert exc_info.value.status_code == 403
-        db.commit.assert_not_called()

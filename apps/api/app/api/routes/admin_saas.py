@@ -4,7 +4,7 @@ Separate from admin.py (infra/system) to keep RBAC scoping clean:
   - billing:read  → /revenue
   - users:read    → /byok
 
-Defense-in-depth: require_permission enforces RBAC AND _ensure_admin enforces
+Defense-in-depth: require_permission enforces RBAC AND require_admin enforces
 User.is_admin = True. Both guards must pass.
 
 Audit: every successful request emits an AuditService.log_action entry.
@@ -15,10 +15,10 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import RateLimitBucket, RateLimitGuard, get_db
+from app.api.deps import RateLimitBucket, RateLimitGuard, get_db, require_admin
 from app.models.user import User
 from app.rbac.audit import AuditService
 from app.rbac.dependencies import require_permission
@@ -27,24 +27,6 @@ from app.services.admin_metrics_service import AdminMetricsService
 from app.services.plan_service import PlanService
 
 router = APIRouter(prefix="/admin", tags=["admin-saas"])
-
-
-# ---------------------------------------------------------------------------
-# Guard helper
-# ---------------------------------------------------------------------------
-
-
-def _ensure_admin(user: User) -> None:
-    """Defense-in-depth: RBAC permission is necessary but not sufficient.
-
-    An attacker who manages to bypass RBAC still can't reach admin data
-    unless the user row itself has is_admin=True.
-    """
-    if not user.is_admin:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="admin_required",
-        )
 
 
 # ---------------------------------------------------------------------------
@@ -60,7 +42,8 @@ def _ensure_admin(user: User) -> None:
 async def get_revenue(
     date_from: Optional[datetime] = Query(default=None, description="Filter paid_at >= date_from (ISO 8601)"),
     date_to: Optional[datetime] = Query(default=None, description="Filter paid_at <= date_to (ISO 8601)"),
-    user: User = Depends(require_permission("billing:read")),
+    user: User = Depends(require_admin),
+    _perm: User = Depends(require_permission("billing:read")),
     db: AsyncSession = Depends(get_db),
     _rl: None = Depends(RateLimitGuard(RateLimitBucket.READ)),
 ) -> RevenueResponse:
@@ -69,7 +52,6 @@ async def get_revenue(
     Requires: billing:read permission AND is_admin=True.
     Optionally filter by date range using date_from / date_to (ISO 8601 datetime).
     """
-    _ensure_admin(user)
 
     service = AdminMetricsService(db=db, plan_service=PlanService())
     snapshot = await service.compute_revenue(date_from=date_from, date_to=date_to)
@@ -110,7 +92,8 @@ async def list_byok(
     page: int = Query(1, ge=1, description="Page number (1-based)"),
     per_page: int = Query(20, ge=1, le=100, description="Items per page"),
     provider: str | None = Query(None, description="Filter by provider (e.g. openai)"),
-    user: User = Depends(require_permission("users:read")),
+    user: User = Depends(require_admin),
+    _perm: User = Depends(require_permission("users:read")),
     db: AsyncSession = Depends(get_db),
     _rl: None = Depends(RateLimitGuard(RateLimitBucket.READ)),
 ) -> BYOKListResponse:
@@ -119,7 +102,6 @@ async def list_byok(
     Requires: users:read permission AND is_admin=True.
     Returns api_key_hint only — never the encrypted key material.
     """
-    _ensure_admin(user)
 
     service = AdminMetricsService(db=db, plan_service=PlanService())
     items, total = await service.list_byok(page=page, per_page=per_page, provider=provider)

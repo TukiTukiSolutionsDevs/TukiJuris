@@ -28,6 +28,7 @@ __all__ = [
     "get_authenticated_user",
     "get_api_key_user",
     "get_db",
+    "require_admin",
     "require_org_role",
 ]
 
@@ -92,6 +93,25 @@ async def get_optional_user(
         return await get_current_user(credentials, db)
     except HTTPException:
         return None
+
+
+async def require_admin(current_user: User = Depends(get_current_user)) -> User:
+    """Defense-in-depth: enforce is_admin=True above RBAC permissions.
+
+    Raises HTTPException(403) if the authenticated user does not have
+    is_admin=True. Use as a FastAPI dependency on any admin-only route::
+
+        user: User = Depends(require_admin)
+
+    FIX-02: consolidated from duplicated helpers in admin_saas.py,
+    admin_invoices.py, admin_trials.py (admin-rbac.unit.001).
+    """
+    if not current_user.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="admin_required",
+        )
+    return current_user
 
 
 # TODO: Remove or integrate — get_current_user_with_org is currently unused
