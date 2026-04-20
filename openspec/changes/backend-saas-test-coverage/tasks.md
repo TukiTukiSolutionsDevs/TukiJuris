@@ -15,7 +15,7 @@ batches:
 
 ## Global pre-flight
 
-- [ ] T-000  Verify backend test runtime is available
+- [x] T-000  Verify backend test runtime is available
   - spec: sdd/backend-saas-test-coverage/design
   - deliverable: docker runtime state for `tukijuris-api-1`; optional `docker compose` startup from `/Users/soulkin/Documents/TukiJuris`
   - test_ids: NONE
@@ -25,7 +25,7 @@ batches:
   - estimated_runtime: fast
   - notes: If the container is down, run `make up` and wait 15s before any pytest work.
 
-- [ ] T-001  Pin W7 pre-existing webhook race as strict xfail
+- [x] T-001  Pin W7 pre-existing webhook race as strict xfail
   - spec: sdd/backend-saas-test-coverage/design
   - deliverable: `apps/api/tests/integration/test_webhook_idempotency.py`
   - test_ids: NONE
@@ -35,7 +35,7 @@ batches:
   - estimated_runtime: fast
   - notes: Only add the marker if `test_concurrent_same_event_id_no_duplicate_processing` is not already strict-xfailed.
 
-- [ ] T-002  Lock coverage baseline JSON
+- [x] T-002  Lock coverage baseline JSON
   - spec: sdd/backend-saas-test-coverage/design
   - deliverable: `openspec/changes/backend-saas-test-coverage/baseline-coverage.json`
   - test_ids: NONE
@@ -45,7 +45,7 @@ batches:
   - estimated_runtime: med
   - notes: Run `pytest --cov=app --cov-report=json:/tmp/cov-baseline.json` once and copy the JSON artifact into openspec.
 
-- [ ] T-003  Confirm Makefile shells into Docker for tests
+- [x] T-003  Confirm Makefile shells into Docker for tests
   - spec: sdd/backend-saas-test-coverage/design
   - deliverable: `Makefile`
   - test_ids: NONE
@@ -63,7 +63,7 @@ batches:
 
 **Exit criteria**: Batch A infra primitives are available for later batches, auth+billing tests are green, and baseline+A delta passes inside Docker with coverage enforcement runnable.
 
-- [ ] T-A-01  Create core factory package and user/org factories
+- [x] T-A-01  Create core factory package and user/org factories
   - spec: sdd/backend-saas-test-coverage/design
   - deliverable: `apps/api/tests/factories/__init__.py`, `apps/api/tests/factories/user.py`, `apps/api/tests/factories/org.py`
   - test_ids: NONE
@@ -73,7 +73,7 @@ batches:
   - estimated_runtime: fast
   - notes: Keep each module ≤50 LOC and HTTP-first, matching the design budget.
 
-- [ ] T-A-02  Create conversation/invoice/api-key factories
+- [x] T-A-02  Create conversation/invoice/api-key factories
   - spec: sdd/backend-saas-test-coverage/design
   - deliverable: `apps/api/tests/factories/conversation.py`, `apps/api/tests/factories/invoice.py`, `apps/api/tests/factories/api_key.py`
   - test_ids: NONE
@@ -83,7 +83,7 @@ batches:
   - estimated_runtime: fast
   - notes: These unblock Batch B/C/E route-level setup without in-test duplication.
 
-- [ ] T-A-03  Create llm-key/notification/saved-search factories
+- [x] T-A-03  Create llm-key/notification/saved-search factories
   - spec: sdd/backend-saas-test-coverage/design
   - deliverable: `apps/api/tests/factories/llm_key.py`, `apps/api/tests/factories/notification.py`, `apps/api/tests/factories/saved_search.py`
   - test_ids: NONE
@@ -93,7 +93,7 @@ batches:
   - estimated_runtime: fast
   - notes: Service-backed factories only for states that are awkward to reach via HTTP.
 
-- [ ] T-A-04  Create tenant-pair fixture module
+- [x] T-A-04  Create tenant-pair fixture module
   - spec: sdd/backend-saas-test-coverage/design
   - deliverable: `apps/api/tests/fixtures/tenants.py`
   - test_ids: NONE
@@ -103,7 +103,7 @@ batches:
   - estimated_runtime: fast
   - notes: Implement `two_orgs_two_users` exactly as the canonical cross-tenant harness entrypoint.
 
-- [ ] T-A-05  Create isolation helper package
+- [x] T-A-05  Create isolation helper package
   - spec: sdd/backend-saas-test-coverage/design
   - deliverable: `apps/api/tests/helpers/__init__.py`, `apps/api/tests/helpers/isolation.py`
   - test_ids: NONE
@@ -113,7 +113,7 @@ batches:
   - estimated_runtime: fast
   - notes: Encode the project-wide 403-vs-404 rule so later tests stay consistent.
 
-- [ ] T-A-06  Create SSE assertion helper
+- [x] T-A-06  Create SSE assertion helper
   - spec: sdd/backend-saas-test-coverage/design
   - deliverable: `apps/api/tests/helpers/sse.py`
   - test_ids: NONE
@@ -123,7 +123,7 @@ batches:
   - estimated_runtime: fast
   - notes: Build `assert_sse_yields` around `httpx.AsyncClient.stream()` and the documented frame contract.
 
-- [ ] T-A-07  Create shared LLM patch helper
+- [x] T-A-07  Create shared LLM patch helper
   - spec: sdd/backend-saas-test-coverage/design
   - deliverable: `apps/api/tests/helpers/llm.py`
   - test_ids: NONE
@@ -133,7 +133,7 @@ batches:
   - estimated_runtime: fast
   - notes: Reuse the existing AsyncMock pattern instead of introducing a new mocks module.
 
-- [ ] T-A-08  Create email mock provider package
+- [x] T-A-08  Create email mock provider package
   - spec: sdd/backend-saas-test-coverage/spec/notifications
   - deliverable: `apps/api/tests/mocks/__init__.py`, `apps/api/tests/mocks/email.py`
   - test_ids: notifications.unit.009, notifications.unit.010, notifications.unit.011, notifications.unit.012
@@ -143,7 +143,7 @@ batches:
   - estimated_runtime: fast
   - notes: Include success and failing provider variants for Batch D consumers.
 
-- [ ] T-A-09  Wire new fixtures into pytest discovery safely
+- [x] T-A-09  Wire new fixtures into pytest discovery safely
   - spec: sdd/backend-saas-test-coverage/design
   - deliverable: `apps/api/tests/conftest.py`
   - test_ids: NONE
@@ -153,7 +153,7 @@ batches:
   - estimated_runtime: fast
   - notes: Import only what should be globally discoverable; keep helpers/factories explicit imports.
 
-- [ ] T-A-10  Add coverage enforcement artifacts
+- [x] T-A-10  Add coverage enforcement artifacts
   - spec: sdd/backend-saas-test-coverage/design
   - deliverable: `apps/api/scripts/check_coverage.py`, `apps/api/coverage-targets.yaml`
   - test_ids: NONE
@@ -163,7 +163,7 @@ batches:
   - estimated_runtime: fast
   - notes: MUST targets stay script-enforced; STRETCH targets warn only.
 
-- [ ] T-A-11  Add auth unit coverage cluster
+- [x] T-A-11  Add auth unit coverage cluster
   - spec: sdd/backend-saas-test-coverage/spec/auth
   - deliverable: `apps/api/tests/unit/test_auth_sessions.py`, `apps/api/tests/unit/test_auth_me.py`, `apps/api/tests/unit/test_auth_helpers.py`, `apps/api/tests/unit/test_oauth_microsoft.py`
   - test_ids: auth.unit.001, auth.unit.002, auth.unit.003, auth.unit.004
@@ -173,7 +173,7 @@ batches:
   - estimated_runtime: fast
   - notes: Keep this batch confirmatory; no production code changes are expected.
 
-- [ ] T-A-12  Add auth integration coverage cluster
+- [x] T-A-12  Add auth integration coverage cluster
   - spec: sdd/backend-saas-test-coverage/spec/auth
   - deliverable: `apps/api/tests/integration/test_onboarding_flow.py`, `apps/api/tests/integration/test_refresh_token.py`
   - test_ids: auth.int.001, auth.int.002
@@ -183,7 +183,7 @@ batches:
   - estimated_runtime: med
   - notes: Reuse existing auth fixtures rather than inventing alternate token setup.
 
-- [ ] T-A-13  Add billing unit coverage cluster
+- [x] T-A-13  Add billing unit coverage cluster
   - spec: sdd/backend-saas-test-coverage/spec/billing
   - deliverable: `apps/api/tests/unit/test_payment_webhooks.py`, `apps/api/tests/unit/test_subscription_service.py`
   - test_ids: billing.unit.001, billing.unit.002, billing.unit.003, billing.unit.004
@@ -193,7 +193,7 @@ batches:
   - estimated_runtime: fast
   - notes: Stay within the deferred boundary; do not absorb Sprint 3 Batch 6 webhook fixes here.
 
-- [ ] T-A-14  Add billing integration coverage cluster
+- [x] T-A-14  Add billing integration coverage cluster
   - spec: sdd/backend-saas-test-coverage/spec/billing
   - deliverable: `apps/api/tests/integration/test_me_invoices.py`, `apps/api/tests/test_trials_routes.py`
   - test_ids: billing.int.001, billing.int.002
@@ -203,7 +203,7 @@ batches:
   - estimated_runtime: med
   - notes: Use the tenant harness for org-membership 403 and settings override for `TRIALS_ENABLED=False`.
 
-- [ ] T-A-99  Verify Batch A and commit
+- [x] T-A-99  Verify Batch A and commit
   - spec: sdd/backend-saas-test-coverage/design
   - deliverable: `openspec/changes/backend-saas-test-coverage/baseline-coverage.json`, `apps/api/coverage-targets.yaml`, Batch A test files, git commit
   - test_ids: auth.unit.001, auth.unit.002, auth.unit.003, auth.unit.004, auth.int.001, auth.int.002, billing.unit.001, billing.unit.002, billing.unit.003, billing.unit.004, billing.int.001, billing.int.002
@@ -221,7 +221,7 @@ batches:
 
 **Exit criteria**: chat, stream, and v1 tests are green; `stream.py` matches `chat.py` quota semantics; `/api/v1/*` responses emit rate-limit headers.
 
-- [ ] T-B-01  Add chat route coverage cluster
+- [x] T-B-01  Add chat route coverage cluster
   - spec: sdd/backend-saas-test-coverage/spec/chat-stream
   - deliverable: `apps/api/tests/integration/test_chat.py`
   - test_ids: chat-stream.unit.001, chat-stream.unit.002, chat-stream.unit.003
@@ -231,7 +231,7 @@ batches:
   - estimated_runtime: med
   - notes: Establish the current `chat.py` quota payload as the reference contract for FIX-01.
 
-- [ ] T-B-02  Add stream SSE contract coverage cluster
+- [x] T-B-02  Add stream SSE contract coverage cluster
   - spec: sdd/backend-saas-test-coverage/spec/chat-stream
   - deliverable: `apps/api/tests/unit/test_stream_sse.py`, `apps/api/tests/integration/test_stream.py`
   - test_ids: chat-stream.unit.004, chat-stream.unit.005, chat-stream.unit.006
@@ -241,7 +241,7 @@ batches:
   - estimated_runtime: med
   - notes: Use `assert_sse_yields` rather than hand-rolled frame parsing.
 
-- [ ] T-B-03  Land FIX-01 stream quota alignment
+- [x] T-B-03  Land FIX-01 stream quota alignment
   - spec: sdd/backend-saas-test-coverage/spec/chat-stream
   - deliverable: `apps/api/app/services/usage.py`, `apps/api/app/api/routes/chat.py`, `apps/api/app/api/routes/stream.py`, `apps/api/tests/integration/test_stream.py`
   - test_ids: chat-stream.unit.002, chat-stream.unit.007
@@ -251,7 +251,7 @@ batches:
   - estimated_runtime: med
   - notes: Extract a shared `ensure_quota` helper and reject over-quota streams before first token emission.
 
-- [ ] T-B-04  Add stream auth and disconnect coverage cluster
+- [x] T-B-04  Add stream auth and disconnect coverage cluster
   - spec: sdd/backend-saas-test-coverage/spec/chat-stream
   - deliverable: `apps/api/tests/integration/test_stream.py`
   - test_ids: chat-stream.unit.008, chat-stream.unit.009
@@ -261,7 +261,7 @@ batches:
   - estimated_runtime: med
   - notes: Reuse the SSE helper's disconnect support to assert server-side cancellation.
 
-- [ ] T-B-05  Add public API dual-auth happy-path tests
+- [x] T-B-05  Add public API dual-auth happy-path tests
   - spec: sdd/backend-saas-test-coverage/spec/chat-stream
   - deliverable: `apps/api/tests/integration/test_v1_public.py`
   - test_ids: chat-stream.unit.010, chat-stream.unit.011
@@ -271,7 +271,7 @@ batches:
   - estimated_runtime: med
   - notes: Cover both JWT and developer API key auth using the shared API-key factory.
 
-- [ ] T-B-06  Add public API scope and usage coverage
+- [x] T-B-06  Add public API scope and usage coverage
   - spec: sdd/backend-saas-test-coverage/spec/chat-stream
   - deliverable: `apps/api/tests/unit/test_v1_scopes.py`, `apps/api/tests/integration/test_v1_public.py`
   - test_ids: chat-stream.unit.012, chat-stream.unit.013
@@ -281,7 +281,7 @@ batches:
   - estimated_runtime: fast
   - notes: Keep scope validation unit-level and quota state integration-level.
 
-- [ ] T-B-07  Land FIX-06 v1 rate-limit headers
+- [x] T-B-07  Land FIX-06 v1 rate-limit headers
   - spec: sdd/backend-saas-test-coverage/spec/chat-stream
   - deliverable: `apps/api/app/api/middleware.py`, `apps/api/app/api/routes/v1.py`, `apps/api/tests/integration/test_v1_public.py`
   - test_ids: chat-stream.unit.014
@@ -291,7 +291,7 @@ batches:
   - estimated_runtime: med
   - notes: Prefer middleware-scoped injection for `/api/v1/` only, exactly as the design resolved.
 
-- [ ] T-B-99  Verify Batch B and commit
+- [x] T-B-99  Verify Batch B and commit
   - spec: sdd/backend-saas-test-coverage/design
   - deliverable: Batch B route/test files, coverage output, git commit
   - test_ids: chat-stream.unit.001, chat-stream.unit.002, chat-stream.unit.003, chat-stream.unit.004, chat-stream.unit.005, chat-stream.unit.006, chat-stream.unit.007, chat-stream.unit.008, chat-stream.unit.009, chat-stream.unit.010, chat-stream.unit.011, chat-stream.unit.012, chat-stream.unit.013, chat-stream.unit.014
@@ -309,7 +309,7 @@ batches:
 
 **Exit criteria**: admin routes reject non-admins end-to-end, BYOK CRUD/isolation passes, organization access is airtight, and wave 1 cross-tenant audits are complete.
 
-- [ ] T-C-01  Land FIX-02 centralized admin dependency
+- [x] T-C-01  Land FIX-02 centralized admin dependency
   - spec: sdd/backend-saas-test-coverage/spec/admin-rbac
   - deliverable: `apps/api/app/api/deps.py`, `apps/api/app/api/routes/admin.py`, `apps/api/app/api/routes/admin_saas.py`, `apps/api/app/api/routes/admin_invoices.py`, `apps/api/app/api/routes/admin_trials.py`
   - test_ids: admin-rbac.unit.001, admin-rbac.int.001, admin-rbac.int.002, admin-rbac.int.003
@@ -319,7 +319,7 @@ batches:
   - estimated_runtime: fast
   - notes: Delete all local `_ensure_admin` copies and move to `require_admin` in deps.
 
-- [ ] T-C-02  Add admin guard coverage cluster
+- [x] T-C-02  Add admin guard coverage cluster
   - spec: sdd/backend-saas-test-coverage/spec/admin-rbac
   - deliverable: `apps/api/tests/unit/test_admin_helpers.py`, `apps/api/tests/integration/test_admin_routes.py`
   - test_ids: admin-rbac.unit.001, admin-rbac.int.001, admin-rbac.int.002, admin-rbac.int.003
@@ -329,7 +329,7 @@ batches:
   - estimated_runtime: med
   - notes: The unit test proves the dependency contract; integration tests prove every route still enforces it.
 
-- [ ] T-C-03  Add admin RBAC lifecycle coverage cluster
+- [x] T-C-03  Add admin RBAC lifecycle coverage cluster
   - spec: sdd/backend-saas-test-coverage/spec/admin-rbac
   - deliverable: `apps/api/tests/integration/test_rbac_admin.py`
   - test_ids: admin-rbac.int.004, admin-rbac.int.005
@@ -339,7 +339,7 @@ batches:
   - estimated_runtime: med
   - notes: Keep the flow end-to-end: assign, inspect permissions, revoke, then verify loss of access.
 
-- [ ] T-C-04  Add BYOK unit coverage cluster
+- [x] T-C-04  Add BYOK unit coverage cluster
   - spec: sdd/backend-saas-test-coverage/spec/byok
   - deliverable: `apps/api/tests/unit/test_api_keys.py`
   - test_ids: byok.unit.001, byok.unit.002
@@ -349,7 +349,7 @@ batches:
   - estimated_runtime: fast
   - notes: Keep unknown-scope rejection and key-uniqueness checks fast and isolated.
 
-- [ ] T-C-05  Add developer API key CRUD coverage
+- [x] T-C-05  Add developer API key CRUD coverage
   - spec: sdd/backend-saas-test-coverage/spec/byok
   - deliverable: `apps/api/tests/integration/test_api_keys.py`
   - test_ids: byok.int.001
@@ -359,7 +359,7 @@ batches:
   - estimated_runtime: med
   - notes: Cover POST→GET→PATCH→DELETE in one cohesive route-level cluster.
 
-- [ ] T-C-06  Add LLM key provider-error coverage
+- [x] T-C-06  Add LLM key provider-error coverage
   - spec: sdd/backend-saas-test-coverage/spec/byok
   - deliverable: `apps/api/tests/integration/test_llm_keys.py`
   - test_ids: byok.int.002
@@ -369,7 +369,7 @@ batches:
   - estimated_runtime: med
   - notes: Ensure provider 401/400 responses stay user-facing instead of bubbling to 500.
 
-- [ ] T-C-07  Add upload validation and isolation coverage
+- [x] T-C-07  Add upload validation and isolation coverage
   - spec: sdd/backend-saas-test-coverage/spec/byok
   - deliverable: `apps/api/tests/integration/test_upload.py`, `apps/api/app/api/routes/upload.py`
   - test_ids: byok.int.003, byok.int.004
@@ -379,7 +379,7 @@ batches:
   - estimated_runtime: med
   - notes: Land test-first; if DELETE/GET isolation leaks, let FIX-03a absorb the route patch.
 
-- [ ] T-C-08  Add organization membership mutation coverage
+- [x] T-C-08  Add organization membership mutation coverage
   - spec: sdd/backend-saas-test-coverage/spec/organizations
   - deliverable: `apps/api/tests/integration/test_organizations.py`
   - test_ids: orgs.int.001, orgs.int.003
@@ -389,7 +389,7 @@ batches:
   - estimated_runtime: med
   - notes: Keep owner-removal rejection explicit so sole-owner semantics never regress silently.
 
-- [ ] T-C-09  Add organization role and read-isolation coverage
+- [x] T-C-09  Add organization role and read-isolation coverage
   - spec: sdd/backend-saas-test-coverage/spec/organizations
   - deliverable: `apps/api/tests/integration/test_organizations.py`
   - test_ids: orgs.int.002, orgs.int.004
@@ -399,7 +399,7 @@ batches:
   - estimated_runtime: med
   - notes: Use the tenant harness to lock the 403 org-membership convention.
 
-- [ ] T-C-10  Add organization seat-sync coverage
+- [x] T-C-10  Add organization seat-sync coverage
   - spec: sdd/backend-saas-test-coverage/spec/organizations
   - deliverable: `apps/api/tests/integration/test_organizations.py`
   - test_ids: orgs.int.005, orgs.int.006
@@ -409,7 +409,7 @@ batches:
   - estimated_runtime: med
   - notes: Spy on `subscription_service` rather than duplicating billing internals in the test.
 
-- [ ] T-C-11  FIX-03a cross-tenant filter audit wave 1
+- [x] T-C-11  FIX-03a cross-tenant filter audit wave 1
   - spec: sdd/backend-saas-test-coverage/spec/organizations
   - deliverable: `apps/api/app/api/routes/organizations.py`, `apps/api/app/api/routes/conversations.py`, `apps/api/app/api/routes/feedback.py`, `apps/api/app/api/routes/upload.py`
   - test_ids: orgs.int.004, byok.int.004, conversations.unit.001, conversations.unit.003, conversations.unit.004, conversations.unit.015
@@ -419,7 +419,7 @@ batches:
   - estimated_runtime: med
   - notes: Cap this audit to ≤8 touched files and prepare conversation-write/user-owned filters for Batch D.
 
-- [ ] T-C-99  Verify Batch C and commit
+- [x] T-C-99  Verify Batch C and commit
   - spec: sdd/backend-saas-test-coverage/design
   - deliverable: Batch C route/test files, grep audit output, git commit
   - test_ids: admin-rbac.unit.001, admin-rbac.int.001, admin-rbac.int.002, admin-rbac.int.003, admin-rbac.int.004, admin-rbac.int.005, byok.unit.001, byok.unit.002, byok.int.001, byok.int.002, byok.int.003, byok.int.004, orgs.int.001, orgs.int.002, orgs.int.003, orgs.int.004, orgs.int.005, orgs.int.006

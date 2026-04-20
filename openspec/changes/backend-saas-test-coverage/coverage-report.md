@@ -386,7 +386,7 @@ All 9 target routes audited via `rg` for `user_id`/`org_id` filter presence plus
 
 | FIX | Batch | Commit | Description |
 |---|---|---|---|
-| FIX-06 (stream auth hardening) | B | Batch B | Chat/stream authentication |
+| FIX-06 (v1 rate-limit headers — Response dep injection) | B | Batch B | `/api/v1/*` responses inject `X-RateLimit-*` headers via `Response` dependency in `deps.py` |
 | FIX-02 (admin gate centralisation) | C | Batch C | `_ensure_admin` → `require_admin` in `deps.py`, 7 routes refactored, −36/+15 LOC |
 | FIX-04 (search history fail-safe) | E.2a | `a924523` | Date-range validator, warning-level log, history limit param |
 | `is_admin` bypass (unbudgeted) | D.2 | `0c34de2` | `_assert_org_access` bypass for system admins — 8 LOC, explicit and documented |
@@ -433,4 +433,22 @@ All 9 target routes audited via `rg` for `user_id`/`org_id` filter presence plus
 - [x] FIX-04 landed in E.2a (`a924523`)
 - [x] `observability.unit.008` formally marked scope-reduced
 
-**Ready for `sdd-verify`** — run against all 10 spec files, then `sdd-archive`.
+**Ready for `sdd-archive`** — sdd-verify passed (with warnings); post-remediation commit applied; archive-ready is YES.
+
+---
+
+## Verify remediation (post-hoc)
+
+Applied in a single commit after sdd-verify flagged 1 CRITICAL + 4 cosmetic items. All addressed.
+
+| # | Severity | Item | Action |
+|---|---|---|---|
+| 1 | CRITICAL | `tasks.md` — 39 unchecked boxes for Batches A/B/C | Ticked all `[ ]` → `[x]` (T-000 through T-C-99) |
+| 2 | WARNING | `openspec/changes/backend-saas-test-coverage/coverage-targets.yaml` missing | Copied from `apps/api/coverage-targets.yaml` |
+| 3 | WARNING | `test_handle_payment_failed_notification_triggered` — `xfail(strict=False)` | Changed to `strict=True`; confirmed still xfails |
+| 4 | WARNING | `test_stream_401_without_auth` — `xfail(strict=False)` | Changed to `strict=True`; confirmed still xfails |
+| 5 | SUGGESTION | FIX-06 row mislabeled "stream auth hardening" | Corrected to "v1 rate-limit headers — Response dep injection" |
+| 6 | MINOR | `tukijuris/byok-fix-03b-unique-constraint` not standalone in Engram | Saved as independent topic |
+
+**Regression after remediation**: `1229 passed, 13 xfailed, 0 failed` ✅  
+**Archive-ready**: YES

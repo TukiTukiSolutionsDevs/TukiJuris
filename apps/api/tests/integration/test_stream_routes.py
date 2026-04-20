@@ -312,7 +312,7 @@ async def test_stream_sse_done_event(auth_client: AsyncClient) -> None:
 
 @pytest.mark.asyncio
 @pytest.mark.xfail(
-    strict=False,
+    strict=True,
     reason=(
         "chat-stream.unit.008: stream endpoint uses get_optional_user (deps.py line 84), "
         "which returns None for anonymous requests instead of raising 401. "

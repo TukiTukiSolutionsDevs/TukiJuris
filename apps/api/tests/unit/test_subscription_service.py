@@ -241,7 +241,7 @@ class TestHandleSubscriptionDeletedDowngrade:
         "It does NOT call notification_service with failure reason. "
         "Owner notification on payment failure is not yet implemented — deferred billing gap."
     ),
-    strict=False,
+    strict=True,
 )
 @pytest.mark.asyncio
 async def test_handle_payment_failed_notification_triggered():
