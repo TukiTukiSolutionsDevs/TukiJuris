@@ -565,7 +565,7 @@ batches:
 
 **Exit criteria**: all shared subresources and documents/search/export/analysis specs are green, FIX-04 is landed, and wave 3 isolation audits are closed.
 
-- [ ] T-E-01  Add shared conversation lifecycle coverage
+- [x] T-E-01  Add shared conversation lifecycle coverage
   - spec: sdd/backend-saas-test-coverage/spec/conversations
   - deliverable: `apps/api/tests/integration/test_shared.py`
   - test_ids: conversations.unit.005, conversations.unit.006, conversations.unit.007
@@ -575,7 +575,7 @@ batches:
   - estimated_runtime: med
   - notes: Cover share creation, public read, and revocation in one file because they share the same link lifecycle.
 
-- [ ] T-E-02  Add bookmark coverage cluster
+- [x] T-E-02  Add bookmark coverage cluster
   - spec: sdd/backend-saas-test-coverage/spec/conversations
   - deliverable: `apps/api/tests/integration/test_bookmarks.py`
   - test_ids: conversations.unit.008, conversations.unit.009
