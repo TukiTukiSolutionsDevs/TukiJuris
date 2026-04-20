@@ -39,7 +39,7 @@ async def _register_free_user(client: AsyncClient) -> tuple[str, uuid.UUID]:
     data = res.json()
     token = data["access_token"]
     # Decode without verification to extract sub (user_id)
-    payload = jwt.decode(token, settings.secret_key, algorithms=["HS256"])
+    payload = jwt.decode(token, settings.jwt_secret, algorithms=["HS256"])
     user_id = uuid.UUID(payload["sub"])
     return token, user_id
 

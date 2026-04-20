@@ -30,7 +30,7 @@ export interface Trial {
   subscription_id: string | null;
 }
 
-type AuthFetch = (input: RequestInfo, init?: RequestInit) => Promise<Response>;
+type AuthFetch = (input: string, init?: RequestInit) => Promise<Response>;
 
 export async function fetchCurrentTrial(authFetch: AuthFetch): Promise<Trial | null> {
   const res = await authFetch("/api/trials/me");

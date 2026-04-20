@@ -106,7 +106,7 @@ export interface TrialsAdminPage {
   per_page: number;
 }
 
-type AuthFetch = (input: RequestInfo, init?: RequestInit) => Promise<Response>;
+type AuthFetch = (input: string, init?: RequestInit) => Promise<Response>;
 
 export async function fetchRevenue(authFetch: AuthFetch): Promise<RevenueData> {
   const res = await authFetch("/api/admin/revenue");

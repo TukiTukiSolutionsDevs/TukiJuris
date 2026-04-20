@@ -54,6 +54,11 @@ dev = [
     "pytest-cov>=6.0.0",
     "httpx>=0.28.0",
     "ruff>=0.8.0",
+    # Sync driver required by Alembic migration schema tests
+    # (test_plan_migration, test_rbac_migration, test_refresh_migration).
+    # asyncpg is async-only and cannot be introspected by Alembic's
+    # ScriptDirectory / MetaData inspection paths.
+    "psycopg2-binary>=2.9.0",
 ]
 
 [tool.ruff]
