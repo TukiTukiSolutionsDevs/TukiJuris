@@ -47,9 +47,9 @@ async def run_trial_tick(
     rows = list(
         (
             await db.execute(
-                select(Trial).where(
-                    Trial.status.in_(["active", "charge_failed", "canceled_pending"])
-                )
+                select(Trial)
+                .where(Trial.status.in_(["active", "charge_failed", "canceled_pending"]))
+                .with_for_update(skip_locked=True)
             )
         )
         .scalars()
@@ -123,7 +123,7 @@ async def run_trial_tick(
                 else:
                     # HTTP charge OUTSIDE db.begin() (R-D3: avoid idle-in-transaction)
                     idem_key = f"{trial_id}:scheduler:{int(now.timestamp() // 3600)}"
-                    adapter = trial_svc.culqi if provider == "culqi" else trial_svc.mp
+                    adapter = trial_svc.provider_for(provider)
                     amount_cents = PlanService.get_price_cents(plan_code, seat_count=1)
 
                     charge_result = await adapter.charge_stored_card(
