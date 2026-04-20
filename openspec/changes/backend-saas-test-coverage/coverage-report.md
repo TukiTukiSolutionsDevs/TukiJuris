@@ -1,0 +1,81 @@
+# Coverage Report — `backend-saas-test-coverage`
+
+Status: **Batch A complete**. Batches B–E pending.
+
+## Snapshot
+
+| Phase | Tests passing | Tests xfailed | Tests failed | Wall time |
+|---|---|---|---|---|
+| Baseline (pre-change) | 1111 | 0 | 1 (W7) | — |
+| After Batch A | **1145** | **3** | **0** | 30.84s |
+| **Delta** | **+34** | +3 (W7 pinned + 2 new gaps) | −1 (W7 moved to xfail) | — |
+
+## Line coverage
+
+| Metric | Baseline | After Batch A | Delta |
+|---|---|---|---|
+| Total statements | 8004 | 8004 | 0 |
+| Covered lines | 5161 | 5190 | **+29** |
+| Overall % | 64.48% | 64.84% | **+0.36 pp** |
+
+The small overall delta is expected: Batch A focused on edge cases in already-well-covered domains (auth, billing, admin-rbac). The larger gains come in Batch B (stream.py 0% → 75% target) and Batch D (notifications/analytics 0% → 75% target).
+
+## Top domain gains (Batch A)
+
+| Module | Before | After | Delta |
+|---|---|---|---|
+| `app/api/routes/billing.py` | 60.7% | 66.8% | **+6.1 pp** |
+| `app/rbac/service.py` | 92.5% | 95.3% | +2.8 pp |
+
+## Tests added (Batch A)
+
+| Sub-batch | Domain | Files | Tests | Commit |
+|---|---|---|---|---|
+| A.1 (infra) | — | 9 factories + 3 helpers + 1 mock + 1 fixture | 0 | `3fdd7f7` |
+| A.1 (unit) | auth | `test_auth_{helpers,me,sessions}.py` | 3 | `9887d95` |
+| A.2 | auth | `test_auth_refresh_reuse.py`, `test_auth_logout_all.py`, `test_auth_oauth_state.py` | 11 (10 pass + 1 xfail) | `6957811`, `808b3b8`, `1673291` |
+| A.3 | billing | `test_payment_webhooks.py`, `test_subscription_service.py` (appended), `test_me_invoices.py`, `test_trials_routes.py` (appended) | 17 (16 pass + 1 xfail) | `951ede9` |
+| A.4 | admin-rbac | `test_admin_routes.py`, `test_rbac_admin.py` | 5 | `7dc01d5` |
+| **Total** | | | **36 (34 pass + 2 xfail)** | 6 commits |
+
+(W7 xfail was pinned separately in `de9ce83` — not counted in Batch A additions.)
+
+## Bugs surfaced (documented, deferred)
+
+Each xfail(strict=True) pins a real production bug found by the new coverage:
+
+| ID | Severity | Area | Engram topic | Fix micro-change |
+|---|---|---|---|---|
+| FIX-REUSE | **HIGH** (security) | `RefreshTokenService.rotate()` | `tukijuris/refresh-family-kill-bug` | `fix-refresh-family-kill` |
+| billing.unit.004 | MEDIUM (ops) | `_handle_payment_failed` missing owner notification | `tukijuris/payment-failed-notification-gap` | `fix-payment-failed-notification` |
+
+**These are NOT in this change's scope.** They are surfaced; fixes ship in their own SDD changes.
+
+## Remaining work (Batches B–E)
+
+| Batch | Domains | Expected gains |
+|---|---|---|
+| B | chat + stream + public-api-v1 (+ FIX-01) | +15–20 tests, large coverage gain on stream.py |
+| C | admin (FIX-02) + byok CRUD + orgs isolation (+ FIX-03a) | +20 tests, cross-tenant harness exercise |
+| D | conversations write + analytics + notifications/emails (+ FIX-03b) | +25 tests, big coverage gain on analytics (0 → ~70) and notifications (0 → ~75) |
+| E | bookmarks/tags/folders/memory/shared + documents/search/export/analysis (+ FIX-03c) | +30 tests, broad gain on product content domains |
+
+## Test infrastructure installed
+
+Reusable from Batch B onward:
+- `apps/api/tests/factories/` — 9 model factories (user, org, conversation, invoice, llm_key, notification, api_key, saved_search)
+- `apps/api/tests/helpers/isolation.py` — `two_orgs_two_users` + `assert_isolated`
+- `apps/api/tests/helpers/sse.py` — SSE assertion helper for Batch B
+- `apps/api/tests/helpers/llm.py` — mock LLM
+- `apps/api/tests/mocks/email.py` — mock email provider with `last_sent` introspection
+- `apps/api/tests/fixtures/tenants.py` — `TenantPair` context manager (wired to `tenant_pair` pytest fixture)
+- `apps/api/coverage-targets.yaml` — per-domain coverage targets
+- `apps/api/scripts/check_coverage.py` — enforcement script
+
+## Pre-existing smells flagged (not in scope, not fixed)
+
+- Welcome-notification FK violation during register flow — notification insert runs before user commit in the chain triggered by `refresh.issued`. Caught by `try/except`; currently emits a WARNING log. Separate micro-change candidate.
+
+## Next
+
+`sdd-apply` Batch B: chat + stream + public-api-v1. FIX-01 (stream quota alignment with chat.py) lands paired with stream tests per design §3.
