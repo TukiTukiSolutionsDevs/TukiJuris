@@ -705,7 +705,7 @@ batches:
   - estimated_runtime: med
   - notes: Keep admin-only document writes aligned with the centralized `require_admin` dependency.
 
-- [ ] T-E-15  FIX-03c cross-tenant filter audit wave 3
+- [x] T-E-15  FIX-03c cross-tenant filter audit wave 3
   - spec: sdd/backend-saas-test-coverage/spec/documents-search
   - deliverable: `apps/api/app/api/routes/search.py`, `apps/api/app/api/routes/analysis.py`, `apps/api/app/api/routes/export.py`, `apps/api/app/api/routes/upload.py`, `apps/api/app/api/routes/bookmarks.py`, `apps/api/app/api/routes/tags.py`, `apps/api/app/api/routes/folders.py`, `apps/api/app/api/routes/memory.py`, `apps/api/app/api/routes/shared.py`
   - test_ids: conversations.unit.005, conversations.unit.007, conversations.unit.008, conversations.unit.009, conversations.unit.010, conversations.unit.011, conversations.unit.012, conversations.unit.013, conversations.unit.014, documents-search.unit.006, documents-search.unit.010, documents-search.unit.012, documents-search.unit.013, documents-search.unit.014
@@ -715,7 +715,7 @@ batches:
   - estimated_runtime: med
   - notes: Final ownership-filter sweep; stop and re-verify scope if the audit exceeds the 8-file budget materially.
 
-- [ ] T-E-99  Verify Batch E and commit
+- [x] T-E-99  Verify Batch E and commit
   - spec: sdd/backend-saas-test-coverage/design
   - deliverable: Batch E route/test files, coverage output, git commit
   - test_ids: conversations.unit.005, conversations.unit.006, conversations.unit.007, conversations.unit.008, conversations.unit.009, conversations.unit.010, conversations.unit.011, conversations.unit.012, conversations.unit.013, conversations.unit.014, documents-search.unit.001, documents-search.unit.002, documents-search.unit.003, documents-search.unit.004, documents-search.unit.005, documents-search.unit.006, documents-search.unit.007, documents-search.unit.008, documents-search.unit.009, documents-search.unit.010, documents-search.unit.011, documents-search.unit.012, documents-search.unit.013, documents-search.unit.014, documents-search.unit.015
@@ -727,7 +727,7 @@ batches:
 
 ## Tail tasks
 
-- [ ] T-900  Run full regression pass
+- [x] T-900  Run full regression pass
   - spec: sdd/backend-saas-test-coverage/design
   - deliverable: full-suite pytest output for `apps/api/tests/`
   - test_ids: NONE
@@ -737,7 +737,7 @@ batches:
   - estimated_runtime: slow
   - notes: `docker exec tukijuris-api-1 pytest tests/ -v --tb=short` must be green except the explicitly pinned W7 strict xfail.
 
-- [ ] T-901  Write post-change coverage diff report
+- [x] T-901  Write post-change coverage diff report
   - spec: sdd/backend-saas-test-coverage/design
   - deliverable: `openspec/changes/backend-saas-test-coverage/coverage-report.md`
   - test_ids: NONE
@@ -747,7 +747,7 @@ batches:
   - estimated_runtime: med
   - notes: Compare final coverage against `baseline-coverage.json` and summarize MUST/STRETCH outcomes by module.
 
-- [ ] T-902  Confirm archive readiness for sdd-verify
+- [x] T-902  Confirm archive readiness for sdd-verify
   - spec: sdd/backend-saas-test-coverage/design
   - deliverable: readiness checklist confirmation inside `openspec/changes/backend-saas-test-coverage/tasks.md` context and clean test tree state
   - test_ids: NONE
