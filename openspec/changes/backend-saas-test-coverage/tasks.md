@@ -655,7 +655,7 @@ batches:
   - estimated_runtime: fast
   - notes: Wrap history logging with warning-level fail-safe behavior instead of failing the request.
 
-- [ ] T-E-10  Add analysis happy-path coverage
+- [x] T-E-10  Add analysis happy-path coverage
   - spec: sdd/backend-saas-test-coverage/spec/documents-search
   - deliverable: `apps/api/tests/integration/test_analysis.py`
   - test_ids: documents-search.unit.009
@@ -665,7 +665,7 @@ batches:
   - estimated_runtime: med
   - notes: Use the shared LLM helper so analysis stays deterministic.
 
-- [ ] T-E-11  Add analysis isolation coverage
+- [x] T-E-11  Add analysis isolation coverage
   - spec: sdd/backend-saas-test-coverage/spec/documents-search
   - deliverable: `apps/api/tests/integration/test_analysis.py`
   - test_ids: documents-search.unit.010
@@ -675,7 +675,7 @@ batches:
   - estimated_runtime: med
   - notes: Assert foreign document IDs are rejected or filtered without leaking data.
 
-- [ ] T-E-12  Add export shape and consultation ownership coverage
+- [x] T-E-12  Add export shape and consultation ownership coverage
   - spec: sdd/backend-saas-test-coverage/spec/documents-search
   - deliverable: `apps/api/tests/integration/test_export.py`
   - test_ids: documents-search.unit.011, documents-search.unit.012
@@ -685,7 +685,7 @@ batches:
   - estimated_runtime: med
   - notes: Pair happy-path PDF bytes assertions with consultation ownership checks.
 
-- [ ] T-E-13  Add export conversation and upload isolation coverage
+- [x] T-E-13  Add export conversation and upload isolation coverage
   - spec: sdd/backend-saas-test-coverage/spec/documents-search
   - deliverable: `apps/api/tests/integration/test_export.py`, `apps/api/tests/integration/test_upload.py`
   - test_ids: documents-search.unit.013, documents-search.unit.014
@@ -695,7 +695,7 @@ batches:
   - estimated_runtime: med
   - notes: Reuse the upload fixtures from Batch C so document ownership stays consistent.
 
-- [ ] T-E-14  Add documents admin-mutation guard coverage
+- [x] T-E-14  Add documents admin-mutation guard coverage
   - spec: sdd/backend-saas-test-coverage/spec/documents-search
   - deliverable: `apps/api/tests/integration/test_documents.py`
   - test_ids: documents-search.unit.015
