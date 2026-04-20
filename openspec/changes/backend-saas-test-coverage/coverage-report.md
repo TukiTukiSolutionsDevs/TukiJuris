@@ -136,3 +136,59 @@ Both documented in engram `tukijuris/stream-anonymous-abuse-vector`.
 ### Next
 
 Batch C — admin FIX-02 (`_ensure_admin` consolidation) + byok CRUD + orgs cross-tenant isolation (first wave of FIX-03).
+
+---
+
+## Batch C — closed
+
+### Snapshot after Batch C
+
+| Phase | Tests passing | Tests xfailed | Tests failed | Wall time |
+|---|---|---|---|---|
+| After Batch A | 1145 | 3 | 0 | 30.84s |
+| After Batch B | 1165 | 4–5 (W7 flaky) | 0–1 (W7 flaky) | 137.59s |
+| **After Batch C** | **1181** | **5** | 0–1 (W7 flaky) | 47.76s |
+
+### Line coverage — Batch C delta
+
+| Metric | Post-B | Post-C | Δ (C-only) | Δ (baseline→C) |
+|---|---|---|---|---|
+| Covered lines | 5377 | 5370 | −7 (FIX-02 removed duplicated code) | +209 |
+| Overall % | 67.15% | **67.18%** | **+0.03 pp** | **+2.70 pp** |
+
+Coverage % rose only marginally because Batch C covered code paths already touched (byok/orgs) and FIX-02 shrank the denominator by removing duplicated `_ensure_admin` helpers.
+
+### Top Batch C gains
+
+| Module | Post-B | Post-C | Δ |
+|---|---|---|---|
+| `app/services/email_service.py` | 42.6% | 45.7% | +3.2 pp |
+| `app/services/llm_key_service.py` | 43.3% | 46.3% | +3.0 pp |
+| `app/api/routes/api_keys.py` | 54.4% | 56.2% | +1.9 pp |
+| `app/api/routes/organizations.py` | 55.2% | 55.9% | +0.7 pp |
+| `app/api/deps.py` | 78.6% | 79.1% | +0.5 pp (FIX-02) |
+
+### Tests added — Batch C
+
+| Sub-batch | File | Tests | Commit |
+|---|---|---|---|
+| C.1 FIX-02 | `test_admin_deps.py` + 4 route refactors | 2 pass | `015368d` |
+| C.2 | `test_byok_crud.py` | 8 (7 pass + 1 xfail FIX-03b) | `4f90a2c` |
+| C.3a | `factories/org.py` fix | — | `3f13fa8` |
+| C.3b | `test_organizations_isolation.py` | 7 pass | `c2fd4c8` |
+
+### FIX status (after Batch C)
+
+| FIX | Status | Notes |
+|---|---|---|
+| FIX-02 | **Landed** | `_ensure_admin` → `require_admin` in `deps.py`, 7 routes refactored, −36/+15 LOC net |
+| FIX-03a (orgs/conversations) | **Confirmed NON-ISSUE** | `_require_role()` + `user_id` filters already correct |
+| FIX-03b (byok unique constraint) | **Surfaced, xfailed** | `UniqueConstraint(user_id, provider)` missing on `UserLLMKey`; duplicate POST returns 201 not 409 |
+
+### New policy-decision xfails (Batch C)
+
+- `FIX-03b` — low urgency; cosmetic DB noise, `get_user_key_for_provider` returns most recent. Engram: `tukijuris/byok-fix-03b-unique-constraint`.
+
+### Next
+
+Batch D — conversations write paths + analytics (848 LOC, 0 baseline tests) + notifications (377 LOC, 0 baseline tests). Expected largest coverage jump of the change.
