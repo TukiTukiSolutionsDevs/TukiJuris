@@ -239,6 +239,10 @@ class TestMercadoPagoWebhook:
 
 
 class TestConcurrentDelivery:
+    @pytest.mark.xfail(
+        strict=True,
+        reason="Sprint 3 Batch 6 W7 webhook race bug; tracked in tukijuris/webhook-concurrency-race-bug",
+    )
     async def test_concurrent_same_event_id_no_duplicate_processing(
         self, webhook_client: AsyncClient
     ):

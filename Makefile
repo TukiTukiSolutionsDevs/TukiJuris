@@ -121,10 +121,13 @@ fe-build:               ## Build frontend
 
 # === Testing ===
 test:                   ## Run test suite (requires DB + Redis running)
-	cd apps/api && python -m pytest tests/ -v --tb=short
+	docker exec tukijuris-api-1 pytest tests/ -v --tb=short
 
 test-cov:               ## Run test suite with coverage report
-	cd apps/api && python -m pytest tests/ -v --tb=short --cov=app --cov-report=term-missing
+	docker exec tukijuris-api-1 pytest tests/ \
+	    --cov=app \
+	    --cov-report=term-missing \
+	    --cov-report=json:/tmp/coverage.json
 
 query:                  ## Test a legal query (usage: make query Q="tu pregunta")
 	@curl -s -X POST http://localhost:8000/api/chat/query \
