@@ -1,15 +1,19 @@
 """
-Billing routes — plan listing, usage, subscription management.
+Billing routes — plan listing, usage, subscriptions, checkout, webhooks.
 
 Supports MercadoPago and Culqi as payment providers (dual-provider).
 
-When no payment provider is configured, endpoints degrade gracefully:
+Webhook contract (items 4a idempotency + 4b invoices-model + 4c trials-lifecycle):
+  - Signatures strictly verified; prod requires webhook secrets (BETA_MODE=false).
+  - WebhookIdempotencyService dedup via check-first SELECT (composable canonical pattern).
+  - Phase 1 (atomic): idempotency + subscription/trial dispatch + business audit.
+  - Phase 2 (best-effort): invoice creation; failure logs, webhook still returns 200.
+  - Trial charge branches delegate to TrialService state machine.
+
+Endpoint degradation when no provider configured:
   - /plans, /usage, /subscription work as before.
   - /checkout returns 503 with a human-readable message.
-  - /webhook/mp and /webhook/culqi return {"status": "skipped"}.
   - /config returns payments_enabled: false, providers: [].
-
-When one or more providers are configured, all payment operations are live.
 """
 
 import hashlib

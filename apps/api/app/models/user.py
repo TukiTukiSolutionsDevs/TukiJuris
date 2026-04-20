@@ -27,7 +27,7 @@ class User(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     is_admin: Mapped[bool] = mapped_column(Boolean, default=False)
     onboarding_completed: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
-    plan: Mapped[str] = mapped_column(String(50), default="free")  # free, pro, enterprise
+    plan: Mapped[str] = mapped_column(String(50), default="free")  # free, pro, studio
     preferences: Mapped[dict | None] = mapped_column(JSONB, default=dict)  # user UX/feature settings
     default_org_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),

@@ -20,7 +20,7 @@ class RevenueBreakdownItem(BaseModel):
 
 
 class RevenueResponse(BaseModel):
-    source: str = Field(description="'canonical_prices' or 'invoices'")
+    source: str = Field(description="Always 'invoices' (post item 4b hard-swap).")
     mrr_cents: int
     arr_cents: int
     breakdown: list[RevenueBreakdownItem]

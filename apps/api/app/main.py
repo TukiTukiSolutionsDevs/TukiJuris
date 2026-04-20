@@ -147,6 +147,7 @@ Requieren autenticacion via JWT o API key con los scopes correspondientes.
         {"name": "stream", "description": "Streaming SSE de respuestas del chat"},
         {"name": "documents", "description": "Busqueda y navegacion de la base de conocimiento legal"},
         {"name": "organizations", "description": "Gestion multi-tenant de organizaciones"},
+        {"name": "plans", "description": "Catalogo publico de planes — pricing, IGV, BYOK y features"},
         {"name": "billing", "description": "Planes, suscripciones y pagos"},
         {"name": "admin", "description": "Administracion del sistema (solo admins)"},
         {"name": "analytics", "description": "Analiticas de uso y metricas"},
