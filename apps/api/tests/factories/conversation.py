@@ -30,7 +30,7 @@ async def make_conversation(
     for msg in messages:
         body: dict = {"message": msg}
         if conv_id is not None:
-            body["conversation_id"] = uuid.UUID(conv_id)
+            body["conversation_id"] = conv_id  # str — httpx JSON-encodes it; Pydantic parses it
         res = await auth_client.post("/api/chat/query", json=body)
         assert res.status_code == 200, f"make_conversation failed: {res.status_code} {res.text}"
         if conv_id is None:
