@@ -32,7 +32,7 @@ from app.models.user import User
 from app.rbac.audit import AuditService
 from app.schemas.trials import AdminTrialFilters, AdminTrialPatch
 from app.services.email_service import EmailService
-from app.services.payment_providers.base import ChargeResult, PaymentProviderAdapter
+from app.services.payment_providers.base import ChargeResult, PaymentProviderAdapter, ProviderError
 from app.services.plan_service import PlanService
 from app.services.subscription_service import upsert_subscription_for_checkout
 
@@ -95,18 +95,23 @@ class TrialService:
 
     # ── DB helpers ──────────────────────────────────────────────────────────
 
+    def provider_for(self, name: str) -> PaymentProviderAdapter:
+        """Public accessor for payment provider adapters (used by scheduler)."""
+        return self._provider_for(name)
+
     async def _load_owned_for_update(
         self, trial_id: UUID, user_id: UUID
     ) -> Trial:
-        """Load a trial with FOR UPDATE, checking ownership. Raises 404 if absent."""
-        q = (
-            select(Trial)
-            .where(Trial.id == trial_id, Trial.user_id == user_id)
-            .with_for_update()
-        )
+        """Load a trial by id with FOR UPDATE, checking ownership.
+
+        Raises 404 if trial does not exist, 403 if it belongs to another user (AC12).
+        """
+        q = select(Trial).where(Trial.id == trial_id).with_for_update()
         trial = (await self.db.execute(q)).scalar_one_or_none()
         if trial is None:
             raise TrialError(404, "Trial not found")
+        if trial.user_id != user_id:
+            raise TrialError(403, "Forbidden")
         return trial
 
     async def _resolve_user_and_org(
@@ -332,25 +337,28 @@ class TrialService:
 
             provider = self._provider_for(provider_name)
 
-            # Create or reuse provider customer
-            customer_id = trial.provider_customer_id
-            if customer_id is None:
-                customer_id = await provider.create_customer(
-                    email=getattr(customer_info, "email", ""),
-                    first_name=getattr(customer_info, "first_name", ""),
-                    last_name=getattr(customer_info, "last_name", ""),
-                    phone=getattr(customer_info, "phone_number", None),
-                )
+            # Create or reuse provider customer; map invalid-token errors to 400 (AC8)
+            try:
+                customer_id = trial.provider_customer_id
+                if customer_id is None:
+                    customer_id = await provider.create_customer(
+                        email=getattr(customer_info, "email", ""),
+                        first_name=getattr(customer_info, "first_name", ""),
+                        last_name=getattr(customer_info, "last_name", ""),
+                        phone=getattr(customer_info, "phone_number", None),
+                    )
 
-            # Metadata passed to create_card — required by MPAdapter for preapproval
-            amount_cents = PlanService.get_price_cents(trial.plan_code, seat_count=1)
-            meta = {
-                "email": getattr(customer_info, "email", ""),
-                "amount_cents": amount_cents,
-                "plan_code": trial.plan_code,
-                "currency": "PEN",
-            }
-            card_token = await provider.create_card(customer_id, token_id, meta)
+                # Metadata passed to create_card — required by MPAdapter for preapproval
+                amount_cents = PlanService.get_price_cents(trial.plan_code, seat_count=1)
+                meta = {
+                    "email": getattr(customer_info, "email", ""),
+                    "amount_cents": amount_cents,
+                    "plan_code": trial.plan_code,
+                    "currency": "PEN",
+                }
+                card_token = await provider.create_card(customer_id, token_id, meta)
+            except ProviderError as exc:
+                raise TrialError(400, exc.message or str(exc)) from exc
 
             now = datetime.now(UTC)
             trial.provider = provider_name

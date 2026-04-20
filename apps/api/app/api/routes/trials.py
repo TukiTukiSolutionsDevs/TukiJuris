@@ -1,6 +1,6 @@
 """Trial lifecycle routes — user-facing endpoints.
 
-All endpoints (except GET /trials/current) return 503 when TRIALS_ENABLED=false.
+All endpoints (except GET /trials/me) return 503 when TRIALS_ENABLED=false.
 """
 
 from __future__ import annotations
@@ -27,11 +27,11 @@ def _guard_trials_enabled() -> None:
 
 
 # ---------------------------------------------------------------------------
-# GET /api/trials/current
+# GET /api/trials/me  (spec AC22)
 # ---------------------------------------------------------------------------
 
 
-@router.get("/current", response_model=TrialResponse | None)
+@router.get("/me", response_model=TrialResponse | None)
 async def get_current_trial(
     current_user: User = Depends(get_current_user),
     trial_svc: TrialService = Depends(get_trial_service),
@@ -41,11 +41,11 @@ async def get_current_trial(
 
 
 # ---------------------------------------------------------------------------
-# POST /api/trials
+# POST /api/trials/start  (spec AC1–AC5)
 # ---------------------------------------------------------------------------
 
 
-@router.post("", response_model=TrialResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/start", response_model=TrialResponse, status_code=status.HTTP_201_CREATED)
 async def start_trial(
     body: StartTrialRequest,
     current_user: User = Depends(get_current_user),
@@ -58,22 +58,30 @@ async def start_trial(
 
 
 # ---------------------------------------------------------------------------
-# POST /api/trials/{trial_id}/add-card
+# POST /api/trials/add-card  (spec AC6–AC9 — trial resolved from JWT subject)
 # ---------------------------------------------------------------------------
 
 
-@router.post("/{trial_id}/add-card", response_model=TrialResponse)
+@router.post("/add-card", response_model=TrialResponse)
 async def add_card(
-    trial_id: uuid.UUID,
     body: AddCardRequest,
     current_user: User = Depends(get_current_user),
     trial_svc: TrialService = Depends(get_trial_service),
     _rl: None = Depends(RateLimitGuard(RateLimitBucket.WRITE)),
 ) -> object:
-    """Add a payment card to an active trial (triggers auto-charge at end of trial)."""
+    """Add a payment card to the current user's active trial.
+
+    Trial is resolved from the JWT subject — no path parameter required.
+    """
     _guard_trials_enabled()
+    current_trial = await trial_svc.get_current(current_user.id)
+    if current_trial is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No active trial found",
+        )
     return await trial_svc.add_card(
-        trial_id,
+        current_trial.id,
         current_user.id,
         body.provider,
         body.token_id,
@@ -82,11 +90,11 @@ async def add_card(
 
 
 # ---------------------------------------------------------------------------
-# DELETE /api/trials/{trial_id}
+# POST /api/trials/{trial_id}/cancel  (spec AC10–AC12)
 # ---------------------------------------------------------------------------
 
 
-@router.delete("/{trial_id}", response_model=TrialResponse)
+@router.post("/{trial_id}/cancel", response_model=TrialResponse)
 async def cancel_trial(
     trial_id: uuid.UUID,
     current_user: User = Depends(get_current_user),
