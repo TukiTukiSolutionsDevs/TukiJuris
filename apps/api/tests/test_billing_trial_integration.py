@@ -48,11 +48,21 @@ def _make_audit() -> MagicMock:
 
 
 def _mock_db(trial=None) -> AsyncMock:
-    """DB mock that returns a trial (or None) for Trial lookups."""
+    """DB mock that returns a trial (or None) for Trial lookups.
+
+    Also supports ``async with db.begin():`` (canonical two-phase commit pattern).
+    """
     db = AsyncMock()
     mock_result = MagicMock()
     mock_result.scalar_one_or_none.return_value = trial
     db.execute = AsyncMock(return_value=mock_result)
+
+    # async with db.begin(): — must be a sync call returning an async context manager
+    begin_cm = MagicMock()
+    begin_cm.__aenter__ = AsyncMock(return_value=None)
+    begin_cm.__aexit__ = AsyncMock(return_value=False)
+    db.begin = MagicMock(return_value=begin_cm)
+
     return db
 
 
@@ -146,8 +156,8 @@ class TestCulqiTrialBranch:
             trial_id, charge_id=charge_id, provider="culqi"
         )
         mock_checkout.assert_not_called()
-        # No invoice created for trial charges
-        inv_svc.create_from_culqi_charge.assert_not_called()
+        # AC20 — invoice IS created for trial charges (Phase 2, best-effort)
+        inv_svc.create_from_culqi_charge.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_charge_succeeded_invalid_trial_uuid_does_not_crash(self):
@@ -236,6 +246,37 @@ class TestCulqiTrialBranch:
         assert result == {"status": "duplicate_ignored"}
         trial_svc.mark_charged.assert_not_called()
 
+    @pytest.mark.asyncio
+    async def test_phase2_invoice_failure_does_not_affect_response(self):
+        """Phase 2 invoice failure is best-effort — webhook still returns ok (AC20)."""
+        from app.api.routes.billing import culqi_webhook
+
+        trial_id = uuid.uuid4()
+        charge_id = f"chr_{uuid.uuid4().hex[:10]}"
+        raw = _culqi_payload_with_trial(str(trial_id), charge_id)
+
+        db = _mock_db()
+        trial_svc = _make_trial_svc()
+        idem = _make_idem()
+        inv_svc = MagicMock()
+        inv_svc.create_from_culqi_charge = AsyncMock(side_effect=Exception("invoice DB down"))
+
+        with patch("app.config.settings") as mock_settings:
+            mock_settings.culqi_webhook_secret = None
+
+            result = await culqi_webhook(
+                request=_make_request(raw),
+                db=db,
+                audit=_make_audit(),
+                idem=idem,
+                inv_svc=inv_svc,
+                trial_svc=trial_svc,
+            )
+
+        # Phase 2 failure must NOT propagate — webhook always returns ok
+        assert result == {"status": "ok"}
+        trial_svc.mark_charged.assert_called_once()
+
 
 # ---------------------------------------------------------------------------
 # MP preapproval — trial path
@@ -258,6 +299,8 @@ class TestMPTrialBranch:
 
         trial_svc = _make_trial_svc()
         raw = _mp_preapproval_payload(preapproval_id, status="authorized")
+        inv_svc = MagicMock()
+        inv_svc.create_from_mp_payment = AsyncMock()
 
         with patch("app.config.settings") as mock_settings, \
              patch("app.api.routes.billing._handle_subscription_updated") as mock_sub_update:
@@ -268,7 +311,7 @@ class TestMPTrialBranch:
                 db=db,
                 audit=_make_audit(),
                 idem=_make_idem(),
-                inv_svc=MagicMock(),
+                inv_svc=inv_svc,
                 trial_svc=trial_svc,
             )
 
@@ -277,6 +320,8 @@ class TestMPTrialBranch:
             trial_id, charge_id=preapproval_id, provider="mp"
         )
         mock_sub_update.assert_not_called()
+        # AC20 — invoice IS created for MP trial charges (Phase 2, best-effort)
+        inv_svc.create_from_mp_payment.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_preapproval_cancelled_with_trial_does_not_mark_charged(self):
