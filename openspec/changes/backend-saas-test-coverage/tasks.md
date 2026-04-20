@@ -437,7 +437,7 @@ batches:
 
 **Exit criteria**: conversation write paths are owner-safe, analytics endpoints and health probes are covered, notifications/email tests are green, and wave 2 isolation fixes are contained.
 
-- [ ] T-D-01  Add conversation write-path owner coverage
+- [x] T-D-01  Add conversation write-path owner coverage
   - spec: sdd/backend-saas-test-coverage/spec/conversations
   - deliverable: `apps/api/tests/integration/test_conversations_write.py`
   - test_ids: conversations.unit.001, conversations.unit.002, conversations.unit.003
@@ -447,7 +447,7 @@ batches:
   - estimated_runtime: med
   - notes: Group rename/pin/archive together because they share the same conversation fixture setup.
 
-- [ ] T-D-02  Add conversation delete and feedback isolation coverage
+- [x] T-D-02  Add conversation delete and feedback isolation coverage
   - spec: sdd/backend-saas-test-coverage/spec/conversations
   - deliverable: `apps/api/tests/integration/test_conversations_write.py`, `apps/api/tests/test_feedback.py`
   - test_ids: conversations.unit.004, conversations.unit.015
@@ -455,9 +455,9 @@ batches:
   - code_fix: NONE
   - estimated_loc: 65 lines
   - estimated_runtime: med
-  - notes: Keep delete cascade and cross-tenant feedback coupled to the same ownership model.
+  - notes: Keep delete cascade and cross-tenant feedback coupled to the same ownership model. conversations.unit.015 is XFAIL(strict=True) — feedback route has no ownership check, bug deferred to T-D-11. Factory bug fixed: uuid.UUID(conv_id) → conv_id (str) in factories/conversation.py.
 
-- [ ] T-D-03  Add analytics access-gate coverage cluster
+- [x] T-D-03  Add analytics access-gate coverage cluster
   - spec: sdd/backend-saas-test-coverage/spec/observability
   - deliverable: `apps/api/tests/integration/test_analytics.py`
   - test_ids: observability.unit.001, observability.unit.002, observability.unit.003, observability.unit.004
@@ -467,7 +467,7 @@ batches:
   - estimated_runtime: med
   - notes: Exercise member, org-admin, free-user, and system-admin access paths explicitly.
 
-- [ ] T-D-04  Add analytics aggregation/export coverage cluster
+- [x] T-D-04  Add analytics aggregation/export coverage cluster
   - spec: sdd/backend-saas-test-coverage/spec/observability
   - deliverable: `apps/api/tests/integration/test_analytics.py`
   - test_ids: observability.unit.005, observability.unit.006, observability.unit.007
@@ -477,7 +477,7 @@ batches:
   - estimated_runtime: med
   - notes: Group areas, top-queries isolation, and CSV export around one seeded analytics dataset.
 
-- [ ] T-D-05  Add health probe coverage cluster
+- [x] T-D-05  Add health probe coverage cluster
   - spec: sdd/backend-saas-test-coverage/spec/observability
   - deliverable: `apps/api/tests/integration/test_health.py`
   - test_ids: observability.unit.010, observability.unit.011, observability.unit.012, observability.unit.013, observability.unit.014
@@ -487,7 +487,7 @@ batches:
   - estimated_runtime: med
   - notes: Keep health routes rate-limit-exempt and shape-validated without overfitting to host metrics.
 
-- [ ] T-D-06  Land FIX-05 analytics date-range correction
+- [x] T-D-06  Land FIX-05 analytics date-range correction
   - spec: sdd/backend-saas-test-coverage/spec/observability
   - deliverable: `apps/api/app/api/routes/analytics.py`, `apps/api/tests/unit/test_analytics_dates.py`
   - test_ids: observability.unit.009
