@@ -192,3 +192,71 @@ Coverage % rose only marginally because Batch C covered code paths already touch
 ### Next
 
 Batch D — conversations write paths + analytics (848 LOC, 0 baseline tests) + notifications (377 LOC, 0 baseline tests). Expected largest coverage jump of the change.
+
+---
+
+## Batch D — closed
+
+### Snapshot after Batch D
+
+| Phase | Tests passing | Tests xfailed | Tests failed | Line coverage |
+|---|---|---|---|---|
+| Baseline | 1111 | 0 | 1 (W7) | 64.5% |
+| After Batch A | 1145 | 3 | 0 | 64.8% |
+| After Batch B | 1165 | 4–5 (W7 flaky) | 0–1 (W7 flaky) | 67.2% |
+| After Batch C | 1181 | 5 | 0–1 (W7 flaky) | 67.2% |
+| **After Batch D** | **1208** | **9** | **0** | **68.3%** |
+
+### Line coverage — Batch D delta
+
+| Metric | Post-C | Post-D | Δ (D-only) | Δ (baseline→D) |
+|---|---|---|---|---|
+| Total statements | 7993 | 7995 | +2 | −9 |
+| Covered lines | 5370 | 5464 | **+94** | +303 |
+| Overall % | 67.2% | **68.3%** | **+1.1 pp** | **+3.8 pp** |
+
+### Top Batch D gains
+
+| Module | Post-C | Post-D | Δ |
+|---|---|---|---|
+| `app/api/routes/analytics.py` | 20.7% | 33.3% | **+12.6 pp** |
+| `app/api/routes/emails.py` | 46.9% | 59.4% | **+12.5 pp** |
+| `app/services/notification_service.py` | 42.9% | 53.1% | +10.2 pp |
+| `app/services/email_service.py` | 45.7% | 55.3% | +9.6 pp |
+| `app/api/routes/notifications.py` | 60.3% | 68.5% | +8.2 pp |
+
+### Tests added — Batch D
+
+| Sub-batch | Commit | Tests | Notes |
+|---|---|---|---|
+| D.1 | `8962508` | 4 pass + 1 xfail | Conversation write paths; `conversations.unit.015` xfail: feedback ownership bug |
+| D.2 | `0c34de2` | 8 pass | Analytics access-gate + aggregation; `_assert_org_access` `is_admin` bypass fix (8 LOC) |
+| D.3 | `fff7413` | 5 pass | Health probes + FIX-05 analytics date-range (confirmed non-issue) |
+| D.4a | `67443f7` | 7 pass + 1 xfail | Notifications service + mutations + preferences; `test_notification_preferences_crud` xfail: missing `/api/notifications/preferences` route |
+| D.4b | `2b95871` | 3 pass + 1 xfail | Password-reset email flow + email service resilience; `test_email_password_reset_confirm_flow` xfail: token replay bug |
+| **Total** | | **27 pass + 4 xfail = 31 new tests** | (3 xfail per spec; 4th is `test_notification_preferences_crud` missing-feature) |
+
+### FIX status (after Batch D)
+
+| FIX | Status | Notes |
+|---|---|---|
+| FIX-05 (analytics date-range) | **Confirmed NON-ISSUE** | `created_at` filters already use ISO UTC datetime objects, not bare dates |
+| FIX-03b wave 2 (analytics + notifications + emails cross-tenant) | **Confirmed NON-ISSUE** | All analytics endpoints gate via `_assert_org_access` + `om.organization_id = :org_id` joins; all notification mutations filter `Notification.user_id == current_user.id`; auth reset paths are JWT `sub`-scoped with no path-level cross-user access |
+| Not budgeted — landed anyway | `_assert_org_access` `is_admin` bypass (D.2, `0c34de2`) | 8 LOC; system admins can inspect any org's analytics — explicit and documented |
+
+### Bugs surfaced — Batch D
+
+| ID | Severity | Area | Engram topic | Notes |
+|---|---|---|---|---|
+| `conversations.unit.015` | MEDIUM | Feedback route has no conversation ownership check | `tukijuris/conversations-feedback-ownership-bug` | Surfaced D.1; xfail strict |
+| `tukijuris/password-reset-token-replay-bug` | **HIGH** (security) | `POST /api/auth/password-reset/confirm` accepts same JWT twice within 15-min TTL | `tukijuris/password-reset-token-replay-bug` | Surfaced D.4b; xfail strict; fix: Redis JTI denylist or `password_updated_at` guard |
+
+**Missing feature (not a bug, separate ticket):** `test_notification_preferences_crud` — `/api/notifications/preferences` route does not exist. No engram entry; backlog item.
+
+### Scope gap — observability.unit.008
+
+`test_analytics_models_cost_calculation` (`observability.unit.008`) appears in `specs/observability.md` but was absent from T-D-03 through T-D-06 and T-D-99 test_ids. The `_estimate_cost` helper and `analytics_costs` endpoint have partial coverage (33% on `analytics.py` post-D). **sdd-verify to decide**: backfill in Batch E or mark scope-reduced.
+
+### Next
+
+Batch E opens with T-E-01 (shared conversations) + T-E-02 (bookmarks). Largest remaining uncovered domains: `search.py` (41%), `folders.py` (38%), `memory_service.py` (38%), `export.py` (33%), `payment_service.py` (31%).

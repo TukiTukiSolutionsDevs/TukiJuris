@@ -537,7 +537,7 @@ batches:
   - estimated_runtime: fast
   - notes: Assert graceful handling when the provider raises, especially on non-critical paths.
 
-- [ ] T-D-11  FIX-03b cross-tenant filter audit wave 2
+- [x] T-D-11  FIX-03b cross-tenant filter audit wave 2
   - spec: sdd/backend-saas-test-coverage/spec/notifications
   - deliverable: `apps/api/app/api/routes/analytics.py`, `apps/api/app/api/routes/notifications.py`, `apps/api/app/api/routes/emails.py`
   - test_ids: observability.unit.006, notifications.unit.006
@@ -547,7 +547,7 @@ batches:
   - estimated_runtime: med
   - notes: Keep this wave surgical: org scoping in analytics, user scoping in notifications/email side paths.
 
-- [ ] T-D-99  Verify Batch D and commit
+- [x] T-D-99  Verify Batch D and commit
   - spec: sdd/backend-saas-test-coverage/design
   - deliverable: Batch D route/test files, coverage output, git commit
   - test_ids: conversations.unit.001, conversations.unit.002, conversations.unit.003, conversations.unit.004, conversations.unit.015, observability.unit.001, observability.unit.002, observability.unit.003, observability.unit.004, observability.unit.005, observability.unit.006, observability.unit.007, observability.unit.009, observability.unit.010, observability.unit.011, observability.unit.012, observability.unit.013, observability.unit.014, notifications.unit.001, notifications.unit.002, notifications.unit.003, notifications.unit.004, notifications.unit.005, notifications.unit.006, notifications.unit.007, notifications.unit.008, notifications.unit.009, notifications.unit.010, notifications.unit.011, notifications.unit.012
