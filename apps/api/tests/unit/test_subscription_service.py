@@ -161,3 +161,94 @@ class TestUpsertSubscriptionForCheckout:
         )
 
         db.add.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
+# billing.unit.003 — _handle_subscription_deleted downgrades org to free
+# billing.unit.004 — _handle_payment_failed triggers notification (xfail)
+# ---------------------------------------------------------------------------
+
+
+class TestHandleSubscriptionDeletedDowngrade:
+    """billing.unit.003 — subscription.deleted event reverts org plan to free."""
+
+    @pytest.mark.asyncio
+    async def test_subscription_deleted_sets_org_plan_free(self):
+        from unittest.mock import MagicMock
+        from app.api.routes.billing import _handle_subscription_deleted
+        from app.models.organization import Organization
+
+        org_id = uuid.uuid4()
+
+        sub = _make_sub(org_id, payment_subscription_id="sub_del_001", plan="pro")
+        sub.status = "active"
+
+        org = Organization()
+        org.id = org_id
+        org.plan = "pro"
+        org.payment_subscription_id = "sub_del_001"
+        org.plan_queries_limit = -1
+        org.plan_models_allowed = ["*"]
+
+        db = _make_db()
+        db.flush = AsyncMock()
+        db.scalar = AsyncMock(return_value=False)  # no BYOK keys
+
+        sub_result = MagicMock()
+        sub_result.scalar_one_or_none.return_value = sub
+
+        org_result = MagicMock()
+        org_result.scalar_one_or_none.return_value = org
+
+        members_result = MagicMock()
+        members_result.scalars.return_value = []
+
+        db.execute = AsyncMock(side_effect=[sub_result, org_result, members_result])
+
+        await _handle_subscription_deleted(
+            {"subscription_id": "sub_del_001", "org_id": str(org_id), "status": "cancelled", "provider": "culqi"},
+            db,
+        )
+
+        assert sub.status == "canceled", f"Expected 'canceled', got '{sub.status}'"
+        assert org.plan == "free", f"Expected 'free', got '{org.plan}'"
+        assert org.payment_subscription_id is None
+        db.flush.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_subscription_deleted_missing_sub_returns_gracefully(self):
+        """No subscription found → exits without error or flush."""
+        from unittest.mock import MagicMock
+        from app.api.routes.billing import _handle_subscription_deleted
+
+        db = _make_db()
+        db.flush = AsyncMock()
+
+        no_result = MagicMock()
+        no_result.scalar_one_or_none.return_value = None
+        db.execute = AsyncMock(return_value=no_result)
+
+        await _handle_subscription_deleted(
+            {"subscription_id": "nonexistent", "org_id": "", "status": "cancelled", "provider": "culqi"},
+            db,
+        )
+        db.flush.assert_not_called()
+
+
+@pytest.mark.xfail(
+    reason=(
+        "_handle_payment_failed only marks subscription past_due. "
+        "It does NOT call notification_service with failure reason. "
+        "Owner notification on payment failure is not yet implemented — deferred billing gap."
+    ),
+    strict=False,
+)
+@pytest.mark.asyncio
+async def test_handle_payment_failed_notification_triggered():
+    """billing.unit.004 — xfail: payment failure should notify the org owner (not yet implemented)."""
+    # Desired: _handle_payment_failed calls notification_service.create with failure reason.
+    # Actual: only sets subscription.status = "past_due". No notification fired.
+    raise AssertionError(
+        "_handle_payment_failed does not call notification_service. "
+        "Implement owner notification to resolve this xfail."
+    )
