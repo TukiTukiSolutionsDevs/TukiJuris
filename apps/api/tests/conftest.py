@@ -195,3 +195,48 @@ async def auth_client_with_pair(client: AsyncClient):
 
     client.headers["Authorization"] = f"Bearer {access_token}"
     yield client, access_token, refresh_token
+
+
+# ---------------------------------------------------------------------------
+# DB session fixture — for service-backed factories (invoice, llm_key, etc.)
+# ---------------------------------------------------------------------------
+
+
+@pytest_asyncio.fixture
+async def db_session():
+    """Provide a live AsyncSession for the duration of one test.
+
+    Used by service-backed factories (make_invoice, make_llm_key, make_saved_search)
+    that cannot reach their target state via the HTTP surface.
+    The session is rolled back and closed on teardown — test data does not persist.
+    """
+    from app.core.database import async_session_factory
+
+    async with async_session_factory() as session:
+        yield session
+        await session.rollback()
+
+
+# ---------------------------------------------------------------------------
+# Cross-tenant isolation fixture
+# ---------------------------------------------------------------------------
+
+
+@pytest_asyncio.fixture
+async def tenant_pair():
+    """Yield a TenantPair (two isolated org+user pairs with authenticated clients).
+
+    Wraps two_orgs_two_users() and properly manages client lifecycle.
+    Use in any test that needs to verify cross-tenant isolation.
+    """
+    from tests.fixtures.tenants import two_orgs_two_users
+
+    async with two_orgs_two_users() as pair:
+        yield pair
+
+
+# ---------------------------------------------------------------------------
+# Email mock fixtures — imported here for global pytest discovery
+# ---------------------------------------------------------------------------
+
+from tests.mocks.email import mock_email_provider, mock_email_provider_failing  # noqa: E402, F401

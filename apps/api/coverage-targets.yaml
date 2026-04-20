@@ -1,0 +1,147 @@
+# Coverage targets — backend-saas-test-coverage
+#
+# MUST  = CI-blocking minimum. check_coverage.py exits 1 on any violation.
+# STRETCH = Warning-only. check_coverage.py prints a warning but exits 0.
+#
+# Thresholds anchored against Batch A baseline — Batch B tightens them.
+# All values are integer percentages (0-100).
+
+modules:
+  - path: app/api/routes/auth.py
+    must: 95
+    stretch: 100
+    spec: auth
+
+  - path: app/api/routes/oauth.py
+    must: 85
+    stretch: 95
+    spec: auth
+
+  - path: app/api/routes/billing.py
+    must: 85
+    stretch: 95
+    spec: billing
+
+  - path: app/services/webhook_idempotency_service.py
+    must: 95
+    stretch: 100
+    spec: billing
+
+  - path: app/api/routes/admin.py
+    must: 80
+    stretch: 90
+    spec: admin-rbac
+
+  - path: app/api/routes/admin_saas.py
+    must: 85
+    stretch: 95
+    spec: admin-rbac
+
+  - path: app/api/routes/rbac_admin.py
+    must: 80
+    stretch: 90
+    spec: admin-rbac
+
+  - path: app/api/routes/api_keys.py
+    must: 80
+    stretch: 90
+    spec: byok
+
+  - path: app/api/routes/upload.py
+    must: 75
+    stretch: 85
+    spec: byok
+
+  - path: app/api/routes/organizations.py
+    must: 85
+    stretch: 95
+    spec: organizations
+
+  - path: app/api/routes/conversations.py
+    must: 80
+    stretch: 90
+    spec: conversations
+
+  - path: app/api/routes/bookmarks.py
+    must: 75
+    stretch: 85
+    spec: conversations
+
+  - path: app/api/routes/tags.py
+    must: 75
+    stretch: 85
+    spec: conversations
+
+  - path: app/api/routes/folders.py
+    must: 75
+    stretch: 85
+    spec: conversations
+
+  - path: app/api/routes/memory.py
+    must: 75
+    stretch: 85
+    spec: conversations
+
+  - path: app/api/routes/shared.py
+    must: 75
+    stretch: 85
+    spec: conversations
+
+  - path: app/api/routes/chat.py
+    must: 85
+    stretch: 95
+    spec: chat-stream
+
+  - path: app/api/routes/stream.py
+    must: 75
+    stretch: 85
+    spec: chat-stream
+
+  - path: app/api/routes/v1.py
+    must: 80
+    stretch: 90
+    spec: chat-stream
+
+  - path: app/api/routes/documents.py
+    must: 80
+    stretch: 90
+    spec: documents-search
+
+  - path: app/api/routes/search.py
+    must: 85
+    stretch: 95
+    spec: documents-search
+
+  - path: app/api/routes/analysis.py
+    must: 75
+    stretch: 85
+    spec: documents-search
+
+  - path: app/api/routes/export.py
+    must: 80
+    stretch: 90
+    spec: documents-search
+
+  - path: app/api/routes/notifications.py
+    must: 85
+    stretch: 95
+    spec: notifications
+
+  - path: app/api/routes/emails.py
+    must: 75
+    stretch: 85
+    spec: notifications
+
+  - path: app/api/routes/analytics.py
+    must: 75
+    stretch: 85
+    spec: observability
+
+  - path: app/api/routes/health.py
+    must: 85
+    stretch: 95
+    spec: observability
+
+global:
+  must: 75
+  stretch: 82
