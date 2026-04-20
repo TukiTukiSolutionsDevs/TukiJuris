@@ -24,12 +24,6 @@ function formatDate(iso: string | null): string {
   });
 }
 
-function formatAmount(amount: string, currency: string): string {
-  const num = parseFloat(amount);
-  if (isNaN(num)) return amount;
-  const symbol = currency === "PEN" ? "S/" : currency;
-  return `${symbol} ${num.toFixed(2)}`;
-}
 
 export function AdminTrialsTable() {
   const { authFetch } = useAuth();
@@ -126,7 +120,7 @@ export function AdminTrialsTable() {
             <table className="w-full min-w-[640px] text-sm">
               <thead>
                 <tr className="bg-surface-container-low">
-                  {["Org", "Estado", "Vence", "Monto", "Proveedor", "Acción"].map((h) => (
+                  {["Usuario", "Estado", "Vence", "Plan", "Proveedor", "Acción"].map((h) => (
                     <th
                       key={h}
                       className="text-left text-[10px] uppercase tracking-[0.1em] text-on-surface/40 px-4 sm:px-5 py-3"
@@ -143,16 +137,16 @@ export function AdminTrialsTable() {
                     className={i % 2 === 0 ? "bg-surface-container-low" : "bg-surface-container"}
                   >
                     <td className="px-4 sm:px-5 py-3 font-mono text-xs text-on-surface/80">
-                      {trial.org_id}
+                      {trial.user_id}
                     </td>
                     <td className="px-4 sm:px-5 py-3">
                       <TrialStatusBadge status={trial.status} />
                     </td>
                     <td className="px-4 sm:px-5 py-3 text-on-surface/60">
-                      {formatDate(trial.trial_ends_at)}
+                      {formatDate(trial.ends_at)}
                     </td>
-                    <td className="px-4 sm:px-5 py-3 text-on-surface font-medium">
-                      {formatAmount(trial.charge_amount, trial.currency)}
+                    <td className="px-4 sm:px-5 py-3 text-on-surface font-medium capitalize">
+                      {trial.plan_code}
                     </td>
                     <td className="px-4 sm:px-5 py-3 text-on-surface/60 capitalize">
                       {trial.provider ?? "—"}

@@ -88,11 +88,11 @@ export interface InvoicesPage {
 
 export interface TrialAdminRow {
   id: string;
-  org_id: string;
+  user_id: string;
+  plan_code: string;
   status: string;
-  trial_ends_at: string;
-  charge_amount: string;
-  currency: string;
+  started_at: string;
+  ends_at: string;
   provider: string | null;
   charge_id: string | null;
   charged_at: string | null;

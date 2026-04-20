@@ -5,10 +5,12 @@ import React from "react";
 import { StartTrialButton } from "../StartTrialButton";
 
 // ---------------------------------------------------------------------------
-// Mocks
+// Mocks — vi.hoisted() ensures refs are available before vi.mock() hoisting
 // ---------------------------------------------------------------------------
 
-const mockAuthFetch = vi.fn();
+const { mockAuthFetch } = vi.hoisted(() => ({
+  mockAuthFetch: vi.fn(),
+}));
 
 vi.mock("@/lib/auth/AuthContext", () => ({
   useAuth: () => ({ authFetch: mockAuthFetch }),
@@ -26,13 +28,22 @@ const mockStartTrial = startTrial as ReturnType<typeof vi.fn>;
 
 const ACTIVE_TRIAL = {
   id: "trial-1",
-  org_id: "org-1",
+  user_id: "user-1",
+  plan_code: "pro",
   status: "active" as const,
-  trial_ends_at: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString(), // 5 days from now
-  charge_amount: "50.00",
-  currency: "PEN",
+  started_at: new Date().toISOString(),
+  ends_at: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString(), // 5 days from now
+  days_remaining: 5,
+  card_added_at: null,
   provider: null,
-  created_at: new Date().toISOString(),
+  charged_at: null,
+  charge_failed_at: null,
+  charge_failure_reason: null,
+  retry_count: 0,
+  canceled_at: null,
+  canceled_by_user: false,
+  downgraded_at: null,
+  subscription_id: null,
 };
 
 beforeEach(() => {

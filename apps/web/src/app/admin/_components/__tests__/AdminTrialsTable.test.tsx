@@ -5,10 +5,12 @@ import React from "react";
 import { AdminTrialsTable } from "../AdminTrialsTable";
 
 // ---------------------------------------------------------------------------
-// Mocks
+// Mocks — vi.hoisted() ensures refs are available before vi.mock() hoisting
 // ---------------------------------------------------------------------------
 
-const mockAuthFetch = vi.fn();
+const { mockAuthFetch } = vi.hoisted(() => ({
+  mockAuthFetch: vi.fn(),
+}));
 
 vi.mock("@/lib/auth/AuthContext", () => ({
   useAuth: () => ({ authFetch: mockAuthFetch }),
@@ -32,11 +34,11 @@ const mockPatch = patchAdminTrial as ReturnType<typeof vi.fn>;
 
 const TRIAL: import("@/lib/api/admin").TrialAdminRow = {
   id: "trial-1",
-  org_id: "org-abc",
+  user_id: "user-abc",
+  plan_code: "pro",
   status: "active",
-  trial_ends_at: "2026-05-01T00:00:00Z",
-  charge_amount: "50.00",
-  currency: "PEN",
+  started_at: "2026-04-01T00:00:00Z",
+  ends_at: "2026-05-01T00:00:00Z",
   provider: "culqi",
   charge_id: null,
   charged_at: null,
@@ -65,8 +67,8 @@ describe("AdminTrialsTable", () => {
     render(<AdminTrialsTable />);
 
     await waitFor(() => {
-      expect(screen.getByText("org-abc")).toBeInTheDocument();
-      expect(screen.getByText("S/ 50.00")).toBeInTheDocument();
+      expect(screen.getByText("user-abc")).toBeInTheDocument();
+      expect(screen.getByText("pro")).toBeInTheDocument();
       expect(screen.getByText("culqi")).toBeInTheDocument();
     });
   });

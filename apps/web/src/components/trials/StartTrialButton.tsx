@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { Loader2, Zap } from "lucide-react";
 import { useAuth } from "@/lib/auth/AuthContext";
-import { fetchCurrentTrial, startTrial, type TrialRead } from "@/lib/api/trial";
+import { fetchCurrentTrial, startTrial, type Trial } from "@/lib/api/trial";
 import { TrialStatusBadge } from "./TrialStatusBadge";
 
 function daysRemaining(endsAt: string): number {
@@ -13,7 +13,7 @@ function daysRemaining(endsAt: string): number {
 
 export function StartTrialButton() {
   const { authFetch } = useAuth();
-  const [trial, setTrial] = useState<TrialRead | null>(null);
+  const [trial, setTrial] = useState<Trial | null>(null);
   const [loading, setLoading] = useState(true);
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -48,7 +48,7 @@ export function StartTrialButton() {
   }
 
   if (trial) {
-    const days = daysRemaining(trial.trial_ends_at);
+    const days = daysRemaining(trial.ends_at);
     return (
       <div className="flex items-center gap-3" data-testid="trial-status">
         <TrialStatusBadge status={trial.status} />
