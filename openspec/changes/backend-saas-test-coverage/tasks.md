@@ -585,7 +585,7 @@ batches:
   - estimated_runtime: med
   - notes: Use message/conversation factories so the tests stay focused on bookmark semantics.
 
-- [ ] T-E-03  Add tag coverage cluster
+- [x] T-E-03  Add tag coverage cluster
   - spec: sdd/backend-saas-test-coverage/spec/conversations
   - deliverable: `apps/api/tests/integration/test_tags.py`
   - test_ids: conversations.unit.010, conversations.unit.011
@@ -595,7 +595,7 @@ batches:
   - estimated_runtime: med
   - notes: Group CRUD and assign/unassign because both consume the same tag fixture state.
 
-- [ ] T-E-04  Add folder coverage cluster
+- [x] T-E-04  Add folder coverage cluster
   - spec: sdd/backend-saas-test-coverage/spec/conversations
   - deliverable: `apps/api/tests/integration/test_folders.py`
   - test_ids: conversations.unit.012
@@ -605,7 +605,7 @@ batches:
   - estimated_runtime: med
   - notes: One focused file is enough because CRUD and isolation share the same route family.
 
-- [ ] T-E-05  Add memory coverage cluster
+- [x] T-E-05  Add memory coverage cluster
   - spec: sdd/backend-saas-test-coverage/spec/conversations
   - deliverable: `apps/api/tests/integration/test_memory.py`
   - test_ids: conversations.unit.013, conversations.unit.014
