@@ -5,7 +5,7 @@ import logging
 import time
 import uuid
 
-from fastapi import Depends, HTTPException, Request, status
+from fastapi import Depends, HTTPException, Request, Response, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -353,6 +353,7 @@ def RateLimitGuard(bucket: RateLimitBucket):
 
     async def _guard(
         request: Request,
+        response: Response,
         user: User | None = Depends(get_optional_user),
     ) -> None:
         from app.core.rate_limiter import rate_limiter
@@ -396,6 +397,11 @@ def RateLimitGuard(bucket: RateLimitBucket):
                         "Retry-After": str(retry_after),
                     },
                 )
+            # FIX-06: inject rate-limit headers on successful (allowed) responses
+            # so API consumers can track their quota without waiting for a 429.
+            response.headers["X-RateLimit-Limit"] = str(result["limit"])
+            response.headers["X-RateLimit-Remaining"] = str(result["remaining"])
+            response.headers["X-RateLimit-Reset"] = str(result["reset_at"])
         except HTTPException:
             raise
         except Exception as exc:
