@@ -17,12 +17,13 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 
 def _mock_db() -> AsyncMock:
-    """AsyncMock DB with begin_nested() properly returning an async context manager.
+    """AsyncMock DB with begin() and begin_nested() returning async context managers.
 
-    SQLAlchemy's begin_nested() is a sync method returning an async CM — not a coroutine.
-    Plain AsyncMock() returns a coroutine which breaks 'async with db.begin_nested():'.
+    SQLAlchemy's begin() / begin_nested() are sync methods returning an async CM — not coroutines.
+    Plain AsyncMock() returns a coroutine which breaks 'async with db.begin():'.
     """
     db = AsyncMock()
+    db.begin = MagicMock(return_value=AsyncMock())
     db.begin_nested = MagicMock(return_value=AsyncMock())
     return db
 

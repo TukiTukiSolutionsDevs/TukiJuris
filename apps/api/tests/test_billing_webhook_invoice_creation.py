@@ -60,12 +60,13 @@ def _make_idem(is_new: bool = True) -> MagicMock:
 
 
 def _mock_db() -> AsyncMock:
-    """AsyncMock DB with begin_nested() properly returning an async context manager.
+    """AsyncMock DB with begin() and begin_nested() properly returning async context managers.
 
-    SQLAlchemy's begin_nested() is a sync call that returns an async CM.
-    Plain AsyncMock() makes it return a coroutine which breaks 'async with'.
+    SQLAlchemy's begin() / begin_nested() are sync calls that return an async CM.
+    Plain AsyncMock() makes them return a coroutine which breaks 'async with'.
     """
     db = AsyncMock()
+    db.begin = MagicMock(return_value=AsyncMock())
     db.begin_nested = MagicMock(return_value=AsyncMock())
     return db
 

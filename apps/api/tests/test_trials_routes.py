@@ -283,6 +283,24 @@ class TestCancelTrial:
 
         assert res.status_code == 422
 
+    @pytest.mark.asyncio
+    async def test_cancel_non_owner_returns_403(self, client_with_overrides):
+        """AC12: foreign-owner cancel returns 403 (not 404).
+
+        When the trial exists but belongs to a different user, the service's
+        `_load_owned_for_update` raises TrialError(403, "Forbidden").
+        """
+        ac, user, svc = client_with_overrides
+        trial_id = uuid.uuid4()  # trial exists, but not owned by user
+        svc.cancel.side_effect = TrialError(403, "Forbidden")
+
+        with patch("app.api.routes.trials.settings") as mock_settings:
+            mock_settings.trials_enabled = True
+            res = await ac.post(f"/api/trials/{trial_id}/cancel")
+
+        assert res.status_code == 403
+        assert res.json()["detail"] == "Forbidden"
+
 
 # ---------------------------------------------------------------------------
 # POST /api/trials/{trial_id}/retry-charge

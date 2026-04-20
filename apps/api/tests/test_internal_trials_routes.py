@@ -54,6 +54,11 @@ def _mock_svc(db) -> MagicMock:
     svc.mark_charge_failed = AsyncMock()
     svc.culqi = MagicMock()
     svc.mp = MagicMock()
+    # Runtime code calls `trial_svc.provider_for(name)` — route it to svc.culqi/svc.mp
+    # so tests that configure `svc.culqi.charge_stored_card` still work.
+    svc.provider_for = MagicMock(
+        side_effect=lambda name: svc.culqi if name == "culqi" else svc.mp
+    )
     return svc
 
 
