@@ -79,3 +79,60 @@ Reusable from Batch B onward:
 ## Next
 
 `sdd-apply` Batch B: chat + stream + public-api-v1. FIX-01 (stream quota alignment with chat.py) lands paired with stream tests per design §3.
+
+---
+
+## Batch B — closed
+
+### Snapshot after Batch B
+
+| Phase | Tests passing | Tests xfailed | Tests failed | Wall time |
+|---|---|---|---|---|
+| Baseline | 1111 | 0 | 1 (W7) | — |
+| After Batch A | 1145 | 3 | 0 | 30.84s |
+| **After Batch B** | **1165** | **4**–5 (W7 flaky) | 0–1 (W7 flaky race) | 137.59s |
+
+The 1-failed count in the post-B run was the W7 xfail flipping to XPASS (strict=True reports as FAIL). This is PRE-EXISTING flakiness, not a Batch B regression. Other xfails stable: FIX-REUSE, billing.unit.004, stream.008 anonymous, stream.009 disconnect.
+
+### Line coverage — Batch B delta
+
+| Metric | Post-A | Post-B | Δ (B-only) | Δ (baseline→B) |
+|---|---|---|---|---|
+| Covered lines | 5190 | 5377 | **+187** | +216 |
+| Overall % | 64.84% | **67.15%** | **+2.31 pp** | **+2.67 pp** |
+
+### Top Batch B gains
+
+| Module | Post-A | Post-B | Δ |
+|---|---|---|---|
+| `app/api/routes/stream.py` | 22.9% | 65.3% | **+42.4 pp** |
+| `app/agents/base_agent.py` | 48.9% | 64.4% | +15.6 pp |
+| `app/api/routes/v1.py` | 53.5% | 68.2% | +14.7 pp |
+| `app/api/deps.py` | 66.7% | 78.6% | +11.9 pp (FIX-06) |
+| `app/api/routes/chat.py` | 52.7% | 62.2% | +9.5 pp |
+
+### Tests added — Batch B
+
+| Sub-batch | File | Tests | Commit |
+|---|---|---|---|
+| B.1 | `test_chat_routes.py` | 6 pass | `59eaf12` |
+| B.2 | `test_stream_routes.py` | 6 (4 pass + 2 xfail policy) | `1f3f0e6` |
+| B.3 | `test_v1_api.py` | 10 pass + FIX-06 | `ec46c9b` |
+
+### FIX status (after Batch B)
+
+| FIX | Predicted | Actual | Resolution |
+|---|---|---|---|
+| FIX-01 stream quota | missing | **confirmed non-issue** — stream.py already enforced it | Design §3 should be amended; no code change |
+| FIX-06 v1 headers | missing | **confirmed real** — fixed in `deps.py` via Response dep | Committed as part of `ec46c9b` |
+
+### Deferred to policy (new xfails from B.2)
+
+- `stream.008` anonymous access — stream.py uses `get_optional_user`. Owner decides: enforce auth / IP-limit anonymous / dual-mode
+- `stream.009` client disconnect cancellation — untested runaway LLM cost vector
+
+Both documented in engram `tukijuris/stream-anonymous-abuse-vector`.
+
+### Next
+
+Batch C — admin FIX-02 (`_ensure_admin` consolidation) + byok CRUD + orgs cross-tenant isolation (first wave of FIX-03).
