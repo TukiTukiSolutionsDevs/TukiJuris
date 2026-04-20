@@ -497,7 +497,7 @@ batches:
   - estimated_runtime: fast
   - notes: Lock the inclusive/exclusive contract in code comments and in the unit test.
 
-- [ ] T-D-07  Add notifications service + list/count coverage
+- [x] T-D-07  Add notifications service + list/count coverage
   - spec: sdd/backend-saas-test-coverage/spec/notifications
   - deliverable: `apps/api/tests/unit/test_notification_service.py`, `apps/api/tests/integration/test_notifications.py`
   - test_ids: notifications.unit.001, notifications.unit.002, notifications.unit.003, notifications.unit.004
@@ -507,7 +507,7 @@ batches:
   - estimated_runtime: med
   - notes: Cover auth, creation, pagination, and unread count before mutation tests.
 
-- [ ] T-D-08  Add notifications mutation/preference coverage
+- [x] T-D-08  Add notifications mutation/preference coverage
   - spec: sdd/backend-saas-test-coverage/spec/notifications
   - deliverable: `apps/api/tests/integration/test_notifications.py`
   - test_ids: notifications.unit.005, notifications.unit.006, notifications.unit.007, notifications.unit.008
