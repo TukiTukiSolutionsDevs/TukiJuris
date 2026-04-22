@@ -74,7 +74,11 @@ services:
     ports:
       - "3000:3000"
     environment:
+      # Browser-facing — used by client-side fetch() calls running in the user's browser.
       - NEXT_PUBLIC_API_URL=http://localhost:8000
+      # Server-side / SSR — used by Next.js server (inside container) for rewrites
+      # and any fetch() executed during SSR. Resolves via the docker-compose network.
+      - INTERNAL_API_URL=http://api:8000
     volumes:
       - ./apps/web:/app
       - /app/node_modules

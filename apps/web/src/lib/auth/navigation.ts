@@ -33,9 +33,19 @@ export function redirectToPublic(
   if (typeof window === "undefined") return;
 
   if (reason === "missing") {
+    // Already on /landing → skip redirect to prevent boot-refresh loops
+    // when the AuthProvider fires onRefreshFailure on a public page.
+    if (window.location.pathname === "/landing") return;
     window.location.href = "/landing";
     return;
   }
+
+  // Already on /auth/login → skip redirect. The refresh-failure listener
+  // fires a redirect even when we're already on the login page; without
+  // this guard, window.location.href triggers a reload, the AuthProvider
+  // remounts, refresh() runs again, fails, and we loop forever (and
+  // saturate the backend /auth/refresh rate limiter to 429).
+  if (window.location.pathname === "/auth/login") return;
 
   const url = new URL("/auth/login", window.location.origin);
   if (returnTo) url.searchParams.set("returnTo", returnTo);

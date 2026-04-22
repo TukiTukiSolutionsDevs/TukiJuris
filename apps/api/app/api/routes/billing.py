@@ -46,6 +46,8 @@ from app.models.trial import Trial
 from app.models.user import User
 from app.config.plans import PLANS
 from app.rbac.audit import AuditService
+from app.services.email_service import email_service
+from app.services.notification_service import notification_service
 from app.services.payment_service import PLAN_PRICING, payment_service
 from app.services.subscription_service import upsert_subscription_for_checkout
 from app.services.usage import usage_service
@@ -1147,3 +1149,51 @@ async def _handle_payment_failed(payment_data: dict, db: AsyncSession) -> None:
         "billing.webhook payment.failed: id=%s marked past_due",
         subscription_id,
     )
+
+    # Notify org owner — fail-safe: never let this break the past_due stamp
+    try:
+        m_res = await db.execute(
+            select(OrgMembership).where(
+                OrgMembership.organization_id == local_sub.organization_id,
+                OrgMembership.role == "owner",
+                OrgMembership.is_active.is_(True),
+            )
+        )
+        membership = m_res.scalar_one_or_none()
+        if membership:
+            u_res = await db.execute(select(User).where(User.id == membership.user_id))
+            owner = u_res.scalar_one_or_none()
+            if owner:
+                await notification_service.create(
+                    db=db,
+                    user_id=owner.id,
+                    type="payment.failed",
+                    title="Pago rechazado",
+                    message=(
+                        f"El pago de tu suscripción {local_sub.plan} falló. "
+                        "Actualiza tu método de pago para evitar la suspensión del servicio."
+                    ),
+                    action_url=f"{settings.frontend_url}/settings/billing",
+                )
+                await db.flush()
+                try:
+                    o_res = await db.execute(
+                        select(Organization).where(Organization.id == local_sub.organization_id)
+                    )
+                    org = o_res.scalar_one_or_none()
+                    await email_service.send_payment_failed(
+                        to=owner.email,
+                        org_name=org.name if org else "",
+                        plan=local_sub.plan,
+                        billing_url=f"{settings.frontend_url}/settings/billing",
+                    )
+                except Exception as exc:
+                    logger.warning(
+                        "billing.payment_failed email dispatch failed sub=%s user=%s: %s",
+                        subscription_id, owner.id, exc,
+                    )
+    except Exception as exc:
+        logger.warning(
+            "billing.payment_failed notification dispatch failed sub=%s: %s",
+            subscription_id, exc,
+        )

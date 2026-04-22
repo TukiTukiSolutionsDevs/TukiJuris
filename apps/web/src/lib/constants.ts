@@ -8,7 +8,10 @@
 // ---------------------------------------------------------------------------
 
 export const ROUTE_AFTER_LOGIN_ADMIN = '/admin';
-export const ROUTE_AFTER_LOGIN_USER = '/chat';
+// The chat UI lives at `/` (see apps/web/src/app/page.tsx). The ./chat
+// subdirectory holds components, not a route. Do NOT change this to '/chat' —
+// that path returns 404 and causes a post-login redirect loop.
+export const ROUTE_AFTER_LOGIN_USER = '/';
 
 // ---------------------------------------------------------------------------
 // Auth entry points

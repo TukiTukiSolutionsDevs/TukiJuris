@@ -108,7 +108,7 @@ export default function OnboardingPage() {
     }
     try {
       await completeOnboarding();
-      router.push("/chat");
+      router.push("/");
     } catch {
       // network error — remain on page
     }
@@ -122,7 +122,7 @@ export default function OnboardingPage() {
     }
     try {
       await completeOnboarding();
-      router.push("/chat");
+      router.push("/");
     } catch {
       // network error — remain on page
     }

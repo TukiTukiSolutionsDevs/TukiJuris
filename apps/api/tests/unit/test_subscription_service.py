@@ -235,20 +235,64 @@ class TestHandleSubscriptionDeletedDowngrade:
         db.flush.assert_not_called()
 
 
-@pytest.mark.xfail(
-    reason=(
-        "_handle_payment_failed only marks subscription past_due. "
-        "It does NOT call notification_service with failure reason. "
-        "Owner notification on payment failure is not yet implemented — deferred billing gap."
-    ),
-    strict=True,
-)
 @pytest.mark.asyncio
 async def test_handle_payment_failed_notification_triggered():
-    """billing.unit.004 — xfail: payment failure should notify the org owner (not yet implemented)."""
-    # Desired: _handle_payment_failed calls notification_service.create with failure reason.
-    # Actual: only sets subscription.status = "past_due". No notification fired.
-    raise AssertionError(
-        "_handle_payment_failed does not call notification_service. "
-        "Implement owner notification to resolve this xfail."
-    )
+    """billing.unit.004 — payment failure notifies org owner (in-app + email)."""
+    from unittest.mock import MagicMock, patch
+
+    from app.api.routes.billing import _handle_payment_failed
+    from app.models.organization import OrgMembership, Organization
+    from app.models.user import User
+
+    org_id = uuid.uuid4()
+    owner_id = uuid.uuid4()
+
+    sub = _make_sub(org_id, payment_subscription_id="sub_pf_001", status="active")
+
+    membership = OrgMembership()
+    membership.user_id = owner_id
+    membership.organization_id = org_id
+    membership.role = "owner"
+    membership.is_active = True
+
+    owner = User()
+    owner.id = owner_id
+    owner.email = "owner@example.com"
+
+    org = Organization()
+    org.id = org_id
+    org.name = "TestOrg"
+
+    sub_result = MagicMock()
+    sub_result.scalar_one_or_none.return_value = sub
+
+    m_result = MagicMock()
+    m_result.scalar_one_or_none.return_value = membership
+
+    u_result = MagicMock()
+    u_result.scalar_one_or_none.return_value = owner
+
+    o_result = MagicMock()
+    o_result.scalar_one_or_none.return_value = org
+
+    db = _make_db()
+    db.execute = AsyncMock(side_effect=[sub_result, m_result, u_result, o_result])
+
+    with (
+        patch("app.api.routes.billing.notification_service") as mock_notif,
+        patch("app.api.routes.billing.email_service") as mock_email,
+    ):
+        mock_notif.create = AsyncMock()
+        mock_email.send_payment_failed = AsyncMock(return_value=True)
+
+        await _handle_payment_failed(
+            {"subscription_id": "sub_pf_001", "org_id": str(org_id)},
+            db,
+        )
+
+    assert sub.status == "past_due"
+    mock_notif.create.assert_called_once()
+    call_kwargs = mock_notif.create.call_args.kwargs
+    assert call_kwargs["type"] == "payment.failed"
+    assert call_kwargs["user_id"] == owner_id
+    mock_email.send_payment_failed.assert_called_once()

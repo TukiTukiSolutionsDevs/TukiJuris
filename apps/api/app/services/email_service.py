@@ -183,6 +183,24 @@ PAYMENT_CONFIRMATION_TEMPLATE = """
 </div>
 """.format(base_style=_BASE_STYLE, header=_HEADER, footer=_FOOTER)
 
+PAYMENT_FAILED_TEMPLATE = """
+<div style="{base_style}">
+  {header}
+  <h2 style="color: #f5f5f5; font-size: 20px; margin: 0 0 16px 0;">
+    Pago rechazado
+  </h2>
+  <p style="color: #d1d5db; line-height: 1.7; margin: 0 0 16px 0;">
+    El pago de la suscripcion de <strong style="color: #f59e0b;">{{org_name}}</strong>
+    al plan <strong style="color: #f59e0b;">{{plan}}</strong> fue rechazado.
+  </p>
+  <p style="color: #d1d5db; line-height: 1.7; margin: 0 0 24px 0;">
+    Actualiza tu metodo de pago para evitar la suspension del servicio.
+    <a href="{{billing_url}}" style="color: #f59e0b;">Ir a facturacion</a>.
+  </p>
+  {footer}
+</div>
+""".format(base_style=_BASE_STYLE, header=_HEADER, footer=_FOOTER)
+
 
 # ---------------------------------------------------------------------------
 # Provider abstraction
@@ -360,6 +378,22 @@ class EmailService:
             .replace("{next_date}", next_billing_date)
         )
         return await self._send(to, f"Pago confirmado - Plan {plan_name}", html)
+
+    async def send_payment_failed(
+        self,
+        to: str,
+        org_name: str,
+        plan: str,
+        billing_url: str = "",
+    ) -> bool:
+        """Notify the org owner that their renewal charge failed."""
+        html = (
+            PAYMENT_FAILED_TEMPLATE
+            .replace("{org_name}", org_name)
+            .replace("{plan}", plan)
+            .replace("{billing_url}", billing_url)
+        )
+        return await self._send(to, "Pago rechazado - TukiJuris", html)
 
     # ── Trial lifecycle emails (stub — item 3b wires real delivery) ───────
 
