@@ -161,15 +161,17 @@ async def test_reuse_no_typeerror_from_denylist_add(svc, mock_repo, fake_user):
 # ---------------------------------------------------------------------------
 
 
-async def test_rotate_skips_db_when_jti_in_denylist(
+async def test_rotate_denylist_hit_does_not_skip_db_lookup(
     svc, mock_repo, fake_user, real_denylist
 ):
-    """rotate() must short-circuit to RevokedRefreshToken when jti is in denylist.
+    """Denylist hit must NOT short-circuit the DB branch (FR-6 fix).
 
-    The DB (find_by_hash_for_update) must NOT be called.
+    The denylist is now an observability hint only. rotate() must call
+    find_by_hash_for_update regardless of denylist state so the family-kill
+    branch in the DB path can fire on reuse.
     """
     from app.config import settings
-    from app.core.exceptions import RevokedRefreshToken
+    from app.core.exceptions import InvalidRefreshToken
     from jose import jwt as jose_jwt
 
     pair = await svc.issue_pair(fake_user, device_info={})
@@ -188,10 +190,12 @@ async def test_rotate_skips_db_when_jti_in_denylist(
 
     mock_repo.find_by_hash_for_update.reset_mock()
 
-    with pytest.raises(RevokedRefreshToken):
+    # DB mock returns None → InvalidRefreshToken (token not found in DB)
+    with pytest.raises(InvalidRefreshToken):
         await svc.rotate(pair.refresh_token, device_info={})
 
-    mock_repo.find_by_hash_for_update.assert_not_awaited()
+    # DB IS consulted — denylist is only a hint, not a verdict
+    mock_repo.find_by_hash_for_update.assert_awaited_once()
 
 
 async def test_rotate_proceeds_when_jti_not_in_denylist(svc, mock_repo, fake_user):

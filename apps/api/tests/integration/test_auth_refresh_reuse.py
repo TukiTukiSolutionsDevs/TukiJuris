@@ -81,15 +81,6 @@ class TestRefreshTokenReuseDetection:
             f"Expected 401 for rotated-away token, got {res.status_code}"
         )
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason=(
-            "FIX-REUSE: refresh_token_service does not implement family kill on reuse. "
-            "Presenting a revoked gen-0 token triggers refresh.rotated (re-rotation) "
-            "instead of revoking the entire family. gen-1 remains valid after reuse. "
-            "Surfaced by this test — fix required in RefreshTokenService.rotate()."
-        ),
-    )
     async def test_reuse_detection_kills_entire_family(self, http_client: AsyncClient):
         """Reusing a revoked token triggers family kill; gen-1 is also rejected afterwards.
 

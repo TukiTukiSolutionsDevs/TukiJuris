@@ -197,12 +197,16 @@ class RefreshTokenService:
         token_hash = hash_token(refresh_jwt)
         now = datetime.now(UTC)
 
-        # FR-6: fast-path denylist check — fail-open if Redis is down
+        # FR-6: denylist as OBSERVABILITY hint only (NOT a verdict).
+        # Reuse detection must go through the DB branch so family-kill fires.
+        # Short-circuiting here would let gen-1 survive after gen-0 reuse.
         try:
             if await self._denylist.contains(jti):
-                raise RevokedRefreshToken()
-        except RevokedRefreshToken:
-            raise
+                refresh_metrics.record_denylist_hit()
+                logger.info(
+                    "refresh.denylist_hit",
+                    extra={"jti": jti, "user_id": payload.get("sub")},
+                )
         except Exception as exc:
             logger.warning("denylist.contains error (fail-open): %s", exc)
 

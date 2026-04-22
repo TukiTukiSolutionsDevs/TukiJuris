@@ -457,15 +457,16 @@ async def test_revoke_denylist_add_uses_ttl_seconds_kwarg(mock_repo, mock_sessio
 # ---------------------------------------------------------------------------
 
 
-async def test_rotate_jti_in_denylist_raises_revoked_without_db_lookup(
+async def test_rotate_denylist_hit_logs_and_continues_to_db(
     mock_repo, mock_session, fake_user
 ):
-    """rotate() must check denylist BEFORE DB lookup.
+    """Denylist hit must be logged/metered but must NOT short-circuit the DB branch.
 
-    If jti is already in the denylist, raise RevokedRefreshToken (or
-    ReuseDetected) without calling find_by_hash_for_update.
+    FR-6 fix: denylist is now an observability hint only. When jti is in the
+    denylist, rotate() must still call find_by_hash_for_update so the DB branch
+    can execute family-kill on reuse. The denylist verdict alone is insufficient.
     """
-    from app.core.exceptions import RevokedRefreshToken
+    from app.core.exceptions import InvalidRefreshToken
     from app.core.token_denylist import TokenDenylist
     from app.services.refresh_token_service import RefreshTokenService
 
@@ -494,7 +495,9 @@ async def test_rotate_jti_in_denylist_raises_revoked_without_db_lookup(
 
     mock_repo.find_by_hash_for_update.reset_mock()
 
-    with pytest.raises(RevokedRefreshToken):
+    # DB mock returns None → InvalidRefreshToken (token not found in DB)
+    with pytest.raises(InvalidRefreshToken):
         await svc_real.rotate(pair.refresh_token, device_info={})
 
-    mock_repo.find_by_hash_for_update.assert_not_awaited()
+    # DB IS consulted — denylist is only a hint, not a verdict
+    mock_repo.find_by_hash_for_update.assert_awaited_once()
