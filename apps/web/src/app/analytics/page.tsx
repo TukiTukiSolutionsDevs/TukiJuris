@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { AppLayout } from "@/components/AppLayout";
 import { InternalPageHeader } from "@/components/shell/InternalPageHeader";
@@ -392,7 +393,17 @@ export default function AnalyticsPage() {
   const [exporting, setExporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const { authFetch } = useAuth();
+  const { authFetch, user } = useAuth();
+  const router = useRouter();
+
+  // Defense-in-depth: client-side admin check (middleware is the primary gate).
+  // Redirects non-admin users to / once auth state is resolved.
+  // While user === null (auth still loading), we show the neutral loading state.
+  useEffect(() => {
+    if (user !== null && !user.isAdmin) {
+      router.replace('/');
+    }
+  }, [user, router]);
 
   // Fetch user's organization on mount
   useEffect(() => {
@@ -407,7 +418,7 @@ export default function AnalyticsPage() {
         // silently fail — no org found
       })
       .finally(() => setOrgLoading(false));
-  }, []);
+  }, [authFetch]);
 
   const fetchData = useCallback(
     async (isRefresh = false) => {
@@ -469,7 +480,7 @@ export default function AnalyticsPage() {
         setRefreshing(false);
       }
     },
-    [days, orgId]
+    [authFetch, days, orgId]
   );
 
   useEffect(() => {
@@ -497,7 +508,7 @@ export default function AnalyticsPage() {
     } finally {
       setExporting(false);
     }
-  }, [days, orgId]);
+  }, [authFetch, days, orgId]);
 
   const dateRangeOptions = [
     { label: "7d", value: 7 },

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { NextRequest } from "next/server";
 import { middleware } from "../middleware";
-import { SESSION_MARKER_COOKIE } from "../lib/constants";
+import { ADMIN_MARKER_COOKIE, ADMIN_MARKER_VALUE, SESSION_MARKER_COOKIE } from "../lib/constants";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -9,12 +9,15 @@ import { SESSION_MARKER_COOKIE } from "../lib/constants";
 
 function req(
   path: string,
-  opts: { cookie?: boolean; search?: string } = {},
+  opts: { cookie?: boolean; adminCookie?: boolean; search?: string } = {},
 ): NextRequest {
   const url = `http://localhost${path}${opts.search ?? ""}`;
   const r = new NextRequest(url);
   if (opts.cookie) {
     r.cookies.set(SESSION_MARKER_COOKIE, "1");
+  }
+  if (opts.adminCookie) {
+    r.cookies.set(ADMIN_MARKER_COOKIE, ADMIN_MARKER_VALUE);
   }
   return r;
 }
@@ -174,13 +177,19 @@ describe("middleware — protected routes", () => {
     expect(res.status).not.toBeGreaterThanOrEqual(300);
   });
 
-  it("allows /admin when session cookie is present (role check is client-side)", () => {
-    const res = middleware(req("/admin", { cookie: true }));
+  it("allows /admin when both tk_session and tk_admin cookies are present", () => {
+    const res = middleware(req("/admin", { cookie: true, adminCookie: true }));
     expect(res.status).not.toBeGreaterThanOrEqual(300);
   });
 
-  it("allows /admin/users when session cookie is present", () => {
-    const res = middleware(req("/admin/users", { cookie: true }));
+  it("redirects /admin to / when tk_session is present but tk_admin is absent (non-admin)", () => {
+    const res = middleware(req("/admin", { cookie: true }));
+    expect(res.status).toBeGreaterThanOrEqual(300);
+    expect(location(res)).toBe("http://localhost/");
+  });
+
+  it("allows /admin/users when both tk_session and tk_admin cookies are present", () => {
+    const res = middleware(req("/admin/users", { cookie: true, adminCookie: true }));
     expect(res.status).not.toBeGreaterThanOrEqual(300);
   });
 

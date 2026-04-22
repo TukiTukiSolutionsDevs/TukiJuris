@@ -137,6 +137,8 @@ _REFRESH_COOKIE_NAME = "refresh_token"
 _REFRESH_COOKIE_PATH = "/api/auth"
 _TK_SESSION_COOKIE_NAME = "tk_session"
 _TK_SESSION_COOKIE_PATH = "/"
+_TK_ADMIN_COOKIE_NAME = "tk_admin"
+_TK_ADMIN_COOKIE_PATH = "/"
 _COOKIE_MAX_AGE = 30 * 24 * 3600  # 30 days — matches REFRESH_TOKEN_TTL_DAYS
 
 
@@ -145,12 +147,21 @@ _COOKIE_MAX_AGE = 30 * 24 * 3600  # 30 days — matches REFRESH_TOKEN_TTL_DAYS
 # ---------------------------------------------------------------------------
 
 
-def _set_session_cookies(response: Response, refresh_token: str) -> None:
+def _set_session_cookies(
+    response: Response,
+    refresh_token: str,
+    *,
+    is_admin: bool = False,
+) -> None:
     """Set both refresh_token (Path=/api/auth) and tk_session (Path=/) cookies.
 
     refresh_token: httpOnly, scoped to /api/auth — JS cannot read it.
     tk_session:    httpOnly, scoped to / — lets Next.js middleware detect
                    login state without exposing token material.
+    tk_admin:      httpOnly, SameSite=Strict, scoped to / — set to "1" when
+                   is_admin is True; actively deleted (Max-Age=0) otherwise.
+                   Next.js middleware reads this to gate /admin/** and
+                   /analytics/** at the edge without exposing JWT secrets.
 
     When ``settings.cookie_domain`` is set (e.g. ".tukijuris.net.pe"), the
     ``Domain`` attribute is included so the cookies are shared across
@@ -179,10 +190,30 @@ def _set_session_cookies(response: Response, refresh_token: str) -> None:
         path=_TK_SESSION_COOKIE_PATH,
         **_domain_kw,
     )
+    if is_admin:
+        response.set_cookie(
+            key=_TK_ADMIN_COOKIE_NAME,
+            value="1",
+            max_age=_COOKIE_MAX_AGE,
+            httponly=True,
+            secure=_secure,
+            samesite="strict",
+            path=_TK_ADMIN_COOKIE_PATH,
+            **_domain_kw,
+        )
+    else:
+        response.delete_cookie(
+            key=_TK_ADMIN_COOKIE_NAME,
+            path=_TK_ADMIN_COOKIE_PATH,
+            httponly=True,
+            secure=_secure,
+            samesite="strict",
+            **_domain_kw,
+        )
 
 
 def _clear_session_cookies(response: Response) -> None:
-    """Expire both session cookies (Max-Age=0) on the given response.
+    """Expire all three session cookies (Max-Age=0) on the given response.
 
     Safe to call on any Response or JSONResponse instance.
     Domain kwarg is included only when ``settings.cookie_domain`` is set —
@@ -204,6 +235,14 @@ def _clear_session_cookies(response: Response) -> None:
         httponly=True,
         secure=_secure,
         samesite="lax",
+        **_domain_kw,
+    )
+    response.delete_cookie(
+        key=_TK_ADMIN_COOKIE_NAME,
+        path=_TK_ADMIN_COOKIE_PATH,
+        httponly=True,
+        secure=_secure,
+        samesite="strict",
         **_domain_kw,
     )
 
@@ -307,7 +346,7 @@ async def register(
     await db.flush()  # assign user.id before passing to service
 
     pair = await service.issue_pair(user, _extract_device_info(request))
-    _set_session_cookies(response, pair.refresh_token)
+    _set_session_cookies(response, pair.refresh_token, is_admin=bool(user.is_admin))
 
     # Fire-and-forget: welcome email
     try:
@@ -381,7 +420,7 @@ async def login(
         )
 
     pair = await service.issue_pair(user, _extract_device_info(request))
-    _set_session_cookies(response, pair.refresh_token)
+    _set_session_cookies(response, pair.refresh_token, is_admin=bool(user.is_admin))
 
     return AccessTokenResponse(
         access_token=pair.access_token,
@@ -426,7 +465,16 @@ async def refresh(
         # Clear cookies on any auth failure — prevents stale cookie loops
         return _auth_error_response(exc, clear_cookies=True)
 
-    _set_session_cookies(response, pair.refresh_token)
+    try:
+        _claims = jose_jwt.decode(
+            pair.access_token,
+            settings.jwt_secret,
+            algorithms=[settings.jwt_algorithm],
+        )
+        _refresh_is_admin = bool(_claims.get("is_admin", False))
+    except JWTError:
+        _refresh_is_admin = False
+    _set_session_cookies(response, pair.refresh_token, is_admin=_refresh_is_admin)
     return AccessTokenResponse(access_token=pair.access_token, expires_in=pair.expires_in)
 
 

@@ -46,11 +46,20 @@ export const PUBLIC_PATHS = [
 export const AUTH_BOUNCE_PATHS = ['/auth/login', '/auth/register'] as const;
 
 // ---------------------------------------------------------------------------
-// Admin-only path prefixes (client-side guard enforces; middleware only
-// checks session presence — see middleware.ts for the trade-off comment).
+// Admin-only path prefixes — checked by BOTH middleware (tk_admin cookie) and
+// client-side guards. Add any new admin-gated paths here.
 // ---------------------------------------------------------------------------
 
-export const ADMIN_PATH_PREFIXES = ['/admin'] as const;
+export const ADMIN_PATH_PREFIXES = ['/admin', '/analytics'] as const;
+
+// ---------------------------------------------------------------------------
+// Admin marker cookie — written by the backend on every login/refresh when
+// user.is_admin is True; actively deleted for non-admins. Edge middleware
+// reads this to gate ADMIN_PATH_PREFIXES without decoding a JWT.
+// ---------------------------------------------------------------------------
+
+export const ADMIN_MARKER_COOKIE = 'tk_admin';
+export const ADMIN_MARKER_VALUE = '1';
 
 // ---------------------------------------------------------------------------
 // Session marker cookie

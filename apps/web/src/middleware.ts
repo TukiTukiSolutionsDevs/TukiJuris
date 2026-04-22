@@ -2,31 +2,34 @@ import { NextResponse, type NextRequest } from 'next/server';
 import {
   PUBLIC_PATHS,
   AUTH_BOUNCE_PATHS,
+  ADMIN_PATH_PREFIXES,
+  ADMIN_MARKER_COOKIE,
+  ADMIN_MARKER_VALUE,
   ROUTE_LOGIN,
   ROUTE_AFTER_LOGIN_USER,
   SESSION_MARKER_COOKIE,
 } from '@/lib/constants';
 
 // ---------------------------------------------------------------------------
-// Architecture note — why we read `tk_session` and NOT `refresh_token`
+// Architecture note — cookie-based session and role gating
 //
 // `fix-auth-tokens` scopes the httpOnly refresh cookie to Path=/api/auth so it
 // is never sent to app routes like /, /admin, or /chat. Edge middleware runs on
 // ALL matched paths and therefore CANNOT see `refresh_token`.
 //
-// Resolution: the backend writes a non-sensitive session marker cookie
-// `tk_session=1` (Path=/, SameSite=Lax) in the same response as every
-// refresh_token mutation (login, register, refresh rotation, OAuth callbacks,
-// logout). This middleware reads that marker as a boolean presence hint.
+// Two marker cookies (both httpOnly, Path=/, written by the backend):
+//  - `tk_session=1`  (SameSite=Lax)    — "is this user logged in?"
+//  - `tk_admin=1`    (SameSite=Strict)  — "is this user an admin?"
+//    tk_admin is SET on login/register/refresh for admin users and actively
+//    DELETED for non-admins, so it cannot be stale-elevated.
 //
 // Security properties:
-//  - `tk_session` carries ZERO secrets — it is not httpOnly deliberately.
-//  - An attacker who sets `tk_session` manually bypasses this coarse gate but
-//    their first protected API call (no valid Bearer token) returns 401 and
-//    authFetch redirects them to login.
-//  - Role (is_admin) enforcement is intentionally CLIENT-SIDE in
-//    /admin/layout.tsx — the access token is in-memory and unreachable here.
-//  - Three-layer model: middleware = "logged in?", /admin/layout.tsx = "admin?",
+//  - Neither cookie carries JWT material — an attacker who forges them still
+//    gets a 401/403 on the first real API call (backend RBAC is authoritative).
+//  - SameSite=Strict on tk_admin prevents it being sent on cross-site navigations
+//    (tighter than tk_session's Lax).
+//  - Four-layer model: middleware = "logged in? admin?", /admin/layout.tsx =
+//    client-side defence-in-depth, analytics page = useEffect guard,
 //    backend RBAC = authoritative truth on every mutation.
 // ---------------------------------------------------------------------------
 
@@ -47,6 +50,12 @@ function isPublic(pathname: string): boolean {
 
 function isAuthBounce(pathname: string): boolean {
   return (AUTH_BOUNCE_PATHS as readonly string[]).some(
+    (p) => pathname === p || pathname.startsWith(`${p}/`),
+  );
+}
+
+function isAdminPath(pathname: string): boolean {
+  return (ADMIN_PATH_PREFIXES as readonly string[]).some(
     (p) => pathname === p || pathname.startsWith(`${p}/`),
   );
 }
@@ -88,8 +97,21 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // 4. Protected route with a session → allow through.
-  //    /admin role-gating is handled client-side (see architecture note above).
+  // 4. Admin-only path — verify tk_admin marker cookie.
+  //    tk_admin=1 is set by the backend on login/refresh for admin users and
+  //    actively deleted for non-admins, so it cannot be stale-elevated.
+  if (isAdminPath(pathname)) {
+    const isAdmin =
+      request.cookies.get(ADMIN_MARKER_COOKIE)?.value === ADMIN_MARKER_VALUE;
+    if (!isAdmin) {
+      const url = request.nextUrl.clone();
+      url.pathname = ROUTE_AFTER_LOGIN_USER;
+      url.search = '';
+      return NextResponse.redirect(url);
+    }
+  }
+
+  // 5. Protected route with a valid session (and admin check passed if needed).
   return NextResponse.next();
 }
 
