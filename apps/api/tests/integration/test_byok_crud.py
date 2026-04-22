@@ -190,13 +190,6 @@ async def test_llm_key_hint_masks_plaintext(client, monkeypatch):
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "FIX-03b: no unique-per-(user, provider) guard — "
-        "second POST returns 201 instead of 400/409"
-    ),
-)
 async def test_llm_key_duplicate_provider_rejected(client, monkeypatch):
     """Same user adding the same provider twice should return 400 or 409."""
     _byok_open(monkeypatch)

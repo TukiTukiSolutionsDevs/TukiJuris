@@ -13,6 +13,7 @@ from datetime import UTC, datetime, timedelta
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import RateLimitBucket, RateLimitGuard, get_current_user, get_db
@@ -317,7 +318,14 @@ async def add_llm_key(
         label=body.label,
     )
     db.add(key)
-    await db.flush()
+    try:
+        await db.flush()
+    except IntegrityError as exc:
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Ya existe una llave API para este proveedor. Elimina la anterior antes de agregar una nueva.",
+        ) from exc
     return {
         "id": str(key.id),
         "provider": key.provider,
