@@ -33,6 +33,7 @@ import React, {
 import {
   authFetch as clientAuthFetch,
   getAccessToken,
+  getAuthChannel,
   login as clientLogin,
   logout as clientLogout,
   onRefreshFailure,
@@ -174,7 +175,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       redirectToPublic("expired");
     });
 
-    return cleanup;
+    // 4. Cross-tab logout sync — clear state when another tab logs out
+    const bc = getAuthChannel();
+    const handleBcMessage = (e: MessageEvent) => {
+      if (e.data?.type === "LOGOUT") {
+        setToken(null);
+        setMeData(null);
+        redirectToPublic("expired");
+      }
+    };
+    bc?.addEventListener("message", handleBcMessage);
+
+    return () => {
+      cleanup();
+      bc?.removeEventListener("message", handleBcMessage);
+    };
   }, [fetchMe]);
 
   const login = useCallback(
@@ -210,6 +225,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     setToken(null);
     setMeData(null);
+    getAuthChannel()?.postMessage({ type: "LOGOUT" });
   }, []);
 
   const completeOnboarding = useCallback(async () => {

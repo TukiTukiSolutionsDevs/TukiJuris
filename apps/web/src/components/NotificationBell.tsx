@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { authFetch } from "@/lib/auth/authClient";
 import {
   AlertTriangle,
   Bell,
@@ -87,32 +88,24 @@ export default function NotificationBell({ token }: NotificationBellProps) {
   // Fetch helpers
   // ------------------------------------------------------------------
 
-  const authHeaders = useCallback((): HeadersInit => {
-    if (!token) return {};
-    return { Authorization: `Bearer ${token}` };
-  }, [token]);
-
   const fetchUnreadCount = useCallback(async () => {
     if (!token) return;
     try {
-      const res = await fetch(`${API_URL}/api/notifications/unread-count`, {
-        headers: authHeaders(),
-      });
+      const res = await authFetch(`${API_URL}/api/notifications/unread-count`);
       if (!res.ok) return;
       const data: { count: number } = await res.json();
       setUnreadCount(data.count);
     } catch {
-      // non-blocking — badge update failure is silent
+      setUnreadCount(0);
     }
-  }, [token, authHeaders]);
+  }, [token]);
 
   const fetchNotifications = useCallback(async () => {
     if (!token) return;
     setLoading(true);
     try {
-      const res = await fetch(
-        `${API_URL}/api/notifications/?per_page=${DROPDOWN_MAX}`,
-        { headers: authHeaders() }
+      const res = await authFetch(
+        `${API_URL}/api/notifications/?per_page=${DROPDOWN_MAX}`
       );
       if (!res.ok) return;
       const data: NotificationListResponse = await res.json();
@@ -123,7 +116,7 @@ export default function NotificationBell({ token }: NotificationBellProps) {
     } finally {
       setLoading(false);
     }
-  }, [token, authHeaders]);
+  }, [token]);
 
   // ------------------------------------------------------------------
   // Polling (every 30 s — no WebSocket needed for MVP)
@@ -168,9 +161,8 @@ export default function NotificationBell({ token }: NotificationBellProps) {
     );
     setUnreadCount((c) => Math.max(0, c - 1));
     try {
-      await fetch(`${API_URL}/api/notifications/${id}/read`, {
+      await authFetch(`${API_URL}/api/notifications/${id}/read`, {
         method: "PUT",
-        headers: authHeaders(),
       });
     } catch {
       // silently ignore — optimistic update already applied
@@ -182,9 +174,8 @@ export default function NotificationBell({ token }: NotificationBellProps) {
     setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
     setUnreadCount(0);
     try {
-      await fetch(`${API_URL}/api/notifications/read-all`, {
+      await authFetch(`${API_URL}/api/notifications/read-all`, {
         method: "PUT",
-        headers: authHeaders(),
       });
     } catch {
       // silently ignore

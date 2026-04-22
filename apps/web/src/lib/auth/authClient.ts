@@ -25,6 +25,19 @@ type RefreshFailureListener = () => void;
 const _refreshFailureListeners = new Set<RefreshFailureListener>();
 
 // ---------------------------------------------------------------------------
+// Cross-tab logout sync
+// ---------------------------------------------------------------------------
+
+let _bc: BroadcastChannel | null = null;
+
+/** Lazy, SSR-safe BroadcastChannel accessor. Returns null in SSR environments. */
+export function getAuthChannel(): BroadcastChannel | null {
+  if (typeof BroadcastChannel === "undefined") return null;
+  if (!_bc) _bc = new BroadcastChannel("tukijuris:auth");
+  return _bc;
+}
+
+// ---------------------------------------------------------------------------
 // Accessors
 // ---------------------------------------------------------------------------
 
@@ -96,6 +109,7 @@ export async function logout(): Promise<void> {
     // Network errors on logout are acceptable — local clear is what matters
   }
   setAccessToken(null);
+  getAuthChannel()?.postMessage({ type: "LOGOUT" });
 }
 
 /**
@@ -164,7 +178,7 @@ export async function authFetch(
     return fetch(input, { ...init, credentials: "include", headers });
   };
 
-  let res = await doFetch(_accessToken);
+  const res = await doFetch(_accessToken);
   if (res.status !== 401) return res;
 
   // 401 → attempt refresh, then retry once

@@ -2,9 +2,10 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import React from "react";
 import { AuthProvider, useAuth } from "../AuthContext";
-import { setAccessToken } from "../authClient";
+import { authFetch as clientAuthFetch, logout, setAccessToken } from "../authClient";
+import { redirectToPublic } from "@/lib/auth/navigation";
 import { server } from "@/test/msw/server";
-import { authHandlers, ACCESS_TOKEN, ADMIN_ACCESS_TOKEN } from "@/test/msw/handlers";
+import { authHandlers, ACCESS_TOKEN } from "@/test/msw/handlers";
 import { http, HttpResponse } from "msw";
 
 // Prevent actual navigation in jsdom
@@ -300,5 +301,79 @@ describe("useAuth().logoutAll()", () => {
     await act(async () => { await result.current.logoutAll(); });
 
     expect(result.current.onboardingCompleted).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// FRT-3: onRefreshFailure clears state + redirects
+// ---------------------------------------------------------------------------
+describe("FRT-3: onRefreshFailure clears AuthContext + redirects", () => {
+  it("clears user and calls redirectToPublic when a mid-session refresh fails", async () => {
+    const mockRedirect = redirectToPublic as unknown as ReturnType<typeof vi.fn>;
+    mockRedirect.mockClear();
+
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.user).not.toBeNull();
+
+    // Simulate 401 on an authenticated request → authFetch calls refresh() → refresh fails
+    server.use(
+      authHandlers.refreshFailure(),
+      http.get("/api/auth/me", () => new HttpResponse(null, { status: 401 })),
+    );
+
+    await act(async () => {
+      await clientAuthFetch("/api/auth/me");
+    });
+
+    await waitFor(() => expect(result.current.user).toBeNull());
+    expect(mockRedirect).toHaveBeenCalledWith("expired");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// FRT-4: BroadcastChannel LOGOUT clears AuthContext state
+// ---------------------------------------------------------------------------
+describe("FRT-4: BroadcastChannel LOGOUT clears AuthContext state", () => {
+  it("clears user when a LOGOUT message is received from another tab", async () => {
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.user).not.toBeNull();
+
+    // Simulate another tab posting LOGOUT on the shared channel
+    const sender = new BroadcastChannel("tukijuris:auth");
+    act(() => {
+      sender.postMessage({ type: "LOGOUT" });
+    });
+
+    await waitFor(() => expect(result.current.user).toBeNull());
+    sender.close();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// FRT-5: authClient.logout() posts LOGOUT to BroadcastChannel
+// ---------------------------------------------------------------------------
+describe("FRT-5: authClient.logout posts LOGOUT message", () => {
+  it("calls postMessage({ type: 'LOGOUT' }) when logout() is invoked", async () => {
+    const spy = vi.spyOn(BroadcastChannel.prototype, "postMessage");
+    await logout();
+    expect(spy).toHaveBeenCalledWith({ type: "LOGOUT" });
+    spy.mockRestore();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// FRT-6: context logoutAll() posts LOGOUT to BroadcastChannel
+// ---------------------------------------------------------------------------
+describe("FRT-6: context logoutAll posts LOGOUT message", () => {
+  it("calls postMessage({ type: 'LOGOUT' }) when logoutAll() is invoked", async () => {
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    const spy = vi.spyOn(BroadcastChannel.prototype, "postMessage");
+    await act(async () => { await result.current.logoutAll(); });
+    expect(spy).toHaveBeenCalledWith({ type: "LOGOUT" });
+    spy.mockRestore();
   });
 });

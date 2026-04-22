@@ -26,7 +26,7 @@ Updated: 2026-04-16. The API issues a **short-lived access token (15 min)** and 
 |--------|------|------|-------------|
 | `POST` | `/api/auth/login` | No | Returns `{ access_token, refresh_token, token_type, expires_in }` |
 | `POST` | `/api/auth/register` | No | Same response shape as login |
-| `POST` | `/api/auth/refresh` | No (refresh token in body) | Rotate → new pair. Rate-limited 10/min per IP. |
+| `POST` | `/api/auth/refresh` | No (refresh_token read from **Cookie header** — FastAPI `Cookie(default=None)` parameter, NOT request body; see `apps/web/AGENTS.md` for the cookie contract) | Rotate → new pair. Rate-limited 10/min per IP. |
 | `POST` | `/api/auth/logout` | Bearer access token | Revoke one session (body: `{ refresh_token }`) |
 | `POST` | `/api/auth/logout-all` | Bearer access token | Revoke all sessions → `{ revoked: N }` |
 | `GET`  | `/api/auth/sessions` | Bearer access token | List active sessions for current user |
