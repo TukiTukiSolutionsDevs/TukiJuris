@@ -3,16 +3,24 @@
 import logging
 import uuid
 from datetime import UTC, datetime
+from typing import TYPE_CHECKING
 
 from fastapi import APIRouter, Cookie, Depends, HTTPException, Request, Response, status
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, EmailStr
+from jose import JWTError
+from jose import jwt as jose_jwt
+from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from jose import JWTError, jwt as jose_jwt
-
-from app.api.deps import RateLimitBucket, RateLimitGuard, get_audit_service, get_current_user, get_denylist, get_refresh_service
+from app.api.deps import (
+    RateLimitBucket,
+    RateLimitGuard,
+    get_audit_service,
+    get_current_user,
+    get_denylist,
+    get_refresh_service,
+)
 from app.config import settings
 from app.core.database import get_db
 from app.core.exceptions import AuthError
@@ -33,6 +41,10 @@ from app.rbac.schemas import PermissionSetResponse
 from app.services.email_service import email_service
 from app.services.notification_service import notification_service
 from app.services.refresh_token_service import RefreshTokenService
+
+if TYPE_CHECKING:
+    from app.core.token_denylist import TokenDenylist
+    from app.rbac.audit import AuditService
 
 logger = logging.getLogger(__name__)
 
@@ -110,6 +122,11 @@ class UserResponse(BaseModel):
 class UpdateProfileBody(BaseModel):
     full_name: str | None = None
     default_org_id: uuid.UUID | None = None
+
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str = Field(..., min_length=1, max_length=128)
+    new_password: str = Field(..., min_length=8, max_length=128)
 
 
 # ---------------------------------------------------------------------------
@@ -204,12 +221,14 @@ def _extract_device_info(request: Request) -> dict:
     }
 
 
-_PRIVILEGED_ROLES: frozenset[str] = frozenset({
-    SystemRole.SUPER_ADMIN.value,
-    SystemRole.ADMIN.value,
-    SystemRole.SUPPORT.value,
-    SystemRole.FINANCE.value,
-})
+_PRIVILEGED_ROLES: frozenset[str] = frozenset(
+    {
+        SystemRole.SUPER_ADMIN.value,
+        SystemRole.ADMIN.value,
+        SystemRole.SUPPORT.value,
+        SystemRole.FINANCE.value,
+    }
+)
 
 
 async def _has_privileged_role(db: AsyncSession, user_id: uuid.UUID) -> bool:
@@ -441,7 +460,6 @@ async def logout(
     NOTE: we construct the Response directly here — FastAPI does NOT merge
     Set-Cookie headers when the route returns a Response subclass directly.
     """
-    from app.rbac.audit import AuditService  # noqa: F401
 
     user_id: uuid.UUID | None = None
 
@@ -517,8 +535,6 @@ async def logout_all(
     revoked and expires_at is still present, but this pattern is cleaner and avoids
     a second query.
     """
-    from app.core.token_denylist import TokenDenylist  # noqa: F401
-    from app.rbac.audit import AuditService  # noqa: F401
 
     # Step 1: Pre-query active JTIs + expiry timestamps
     result = await db.execute(
@@ -682,7 +698,6 @@ async def complete_onboarding(
     audit: "AuditService" = Depends(get_audit_service),
 ) -> Response:
     """Flip onboarding_completed to True. Idempotent — skips update and audit if already done."""
-    from app.rbac.audit import AuditService  # noqa: F401 — used for type hint only
 
     if not current_user.onboarding_completed:
         current_user.onboarding_completed = True
@@ -701,4 +716,120 @@ async def complete_onboarding(
                 "audit.log_action failed for auth.onboarding_completed user=%s",
                 current_user.id,
             )
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post(
+    "/change-password",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Change password",
+    description=(
+        "Change the current user's local password. "
+        "Verifies the current password, validates the new password policy, "
+        "revokes all active refresh-token sessions, and emits an audit event. "
+        "OAuth accounts (no local password) are rejected with 400."
+    ),
+    responses={
+        204: {"description": "Password changed successfully; all sessions revoked"},
+        400: {"description": "OAuth user or new password identical to current"},
+        401: {"description": "Access token missing/invalid or wrong current password"},
+        422: {"description": "New password fails policy"},
+        429: {"description": "Rate limit exceeded"},
+    },
+)
+async def change_password(
+    body: ChangePasswordRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+    _rl: None = Depends(RateLimitGuard(RateLimitBucket.WRITE)),
+    service: RefreshTokenService = Depends(get_refresh_service),
+    denylist: "TokenDenylist" = Depends(get_denylist),
+    audit: "AuditService" = Depends(get_audit_service),
+) -> Response:
+    """Change the authenticated user's password (CP-1..CP-11).
+
+    Side-effect order (CP-11):
+      1. OAuth guard
+      2. verify current password
+      3. validate new password policy
+      4. no-op guard (new == current)
+      5. hash + UPDATE in DB
+      6. revoke all refresh-token sessions
+      7. emit audit.change_password
+      8. return 204
+    """
+
+    # CP-3: Block OAuth users — they have empty/None local hashed_password
+    if not current_user.hashed_password:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "code": "oauth_password_unsupported",
+                "auth_provider": current_user.auth_provider,
+            },
+        )
+
+    # CP-4: Verify current password
+    if not verify_password(body.current_password, current_user.hashed_password):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="invalid_credentials",
+        )
+
+    # CP-5: Validate new password policy
+    valid, message = validate_password(body.new_password)
+    if not valid:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=message,
+        )
+
+    # CP-6: Reject no-op (new == current)
+    if body.new_password == body.current_password:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="new_password_same_as_current",
+        )
+
+    # CP-7: Hash + persist (committed atomically below with revoke + audit)
+    current_user.hashed_password = hash_password(body.new_password)
+
+    # CP-8 (DB part): Pre-query active JTIs before bulk revoke so we have TTLs for Redis denylist.
+    result = await db.execute(
+        select(RefreshToken.jti, RefreshToken.expires_at).where(
+            RefreshToken.user_id == current_user.id,
+            RefreshToken.revoked_at.is_(None),
+        )
+    )
+    active_rows = result.all()
+    await service.revoke_all(current_user.id)
+
+    # CP-9 (DB part): Emit audit event — NO password material
+    # Audit is best-effort: do not abort password change on audit failure (conscious trade-off).
+    try:
+        await audit.log_action(
+            user_id=current_user.id,
+            action="auth.change_password",
+            resource_type="user",
+            resource_id=str(current_user.id),
+        )
+    except Exception:
+        logger.warning("audit.log_action failed for auth.change_password user=%s", current_user.id)
+
+    # Single commit — atomic: password update + session revoke + audit (NFR-2)
+    await db.commit()
+
+    # CP-8 (Redis part): Post-commit denylist writes (per AGENTS.md: DB first, Redis post-commit)
+    now = datetime.now(UTC)
+    for jti, expires_at in active_rows:
+        if expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=UTC)
+        ttl = max(0, int((expires_at - now).total_seconds()))
+        if ttl > 0:
+            try:
+                await denylist.add(jti, ttl_seconds=ttl)
+            except Exception as exc:
+                logger.warning("change_password: denylist.add failed for jti=%s: %s", jti, exc)
+
+    # CP-10: Return 204 No Content
     return Response(status_code=status.HTTP_204_NO_CONTENT)
