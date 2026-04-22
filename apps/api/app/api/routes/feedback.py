@@ -2,14 +2,14 @@
 
 import uuid
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
-from sqlalchemy import update
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import RateLimitBucket, RateLimitGuard, get_current_user, get_optional_user
 from app.core.database import get_db
-from app.models.conversation import Message
+from app.models.conversation import Conversation, Message
 from app.models.user import User
 
 router = APIRouter(prefix="/feedback", tags=["feedback"])
@@ -40,11 +40,23 @@ async def submit_feedback(
             status="error", message_id=body.message_id, feedback="invalid"
         )
 
-    await db.execute(
-        update(Message)
-        .where(Message.id == body.message_id)
-        .values(feedback=body.feedback)
+    result = await db.execute(
+        select(Message)
+        .join(Conversation, Message.conversation_id == Conversation.id)
+        .where(
+            Message.id == body.message_id,
+            Conversation.user_id == current_user.id,
+        )
     )
+    msg = result.scalar_one_or_none()
+    if msg is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Message not found",
+        )
+
+    msg.feedback = body.feedback
+    await db.flush()
 
     return FeedbackResponse(
         status="ok", message_id=body.message_id, feedback=body.feedback

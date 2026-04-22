@@ -11,9 +11,37 @@ types return status "error" in the body (HTTP 200) — this is by design.
 """
 
 import uuid
+from unittest.mock import AsyncMock, patch
 
 import pytest
 from httpx import AsyncClient
+
+from tests.factories.conversation import make_conversation
+
+# ---------------------------------------------------------------------------
+# Shared seeding helpers
+# ---------------------------------------------------------------------------
+
+_MOCK_RESPONSE = {
+    "response": "Respuesta simulada.",
+    "agent_used": "general",
+    "legal_area": "general",
+    "citations": [],
+    "model_used": "mock-model",
+    "tokens_used": 5,
+}
+_ORCH = "app.agents.orchestrator.legal_orchestrator.process_query"
+
+
+async def _seed_message_id(auth_client: AsyncClient) -> str:
+    """Seed one conversation via the chat endpoint and return a real message ID."""
+    with patch(_ORCH, new=AsyncMock(return_value=_MOCK_RESPONSE)):
+        conv_id, _ = await make_conversation(auth_client)
+    res = await auth_client.get(f"/api/conversations/{conv_id}")
+    assert res.status_code == 200
+    messages = res.json()["messages"]
+    assert messages, "No messages in seeded conversation"
+    return messages[0]["id"]
 
 
 # ---------------------------------------------------------------------------
@@ -22,11 +50,12 @@ from httpx import AsyncClient
 
 
 async def test_submit_feedback_thumbs_up_returns_200(auth_client: AsyncClient):
-    """Submitting thumbs_up for any message_id returns 200 with status ok."""
+    """Submitting thumbs_up on an owned message returns 200 with status ok."""
+    message_id = await _seed_message_id(auth_client)
     res = await auth_client.post(
         "/api/feedback/",
         json={
-            "message_id": str(uuid.uuid4()),
+            "message_id": message_id,
             "feedback": "thumbs_up",
         },
     )
@@ -37,11 +66,12 @@ async def test_submit_feedback_thumbs_up_returns_200(auth_client: AsyncClient):
 
 
 async def test_submit_feedback_thumbs_down_returns_200(auth_client: AsyncClient):
-    """Submitting thumbs_down returns 200 with status ok."""
+    """Submitting thumbs_down on an owned message returns 200 with status ok."""
+    message_id = await _seed_message_id(auth_client)
     res = await auth_client.post(
         "/api/feedback/",
         json={
-            "message_id": str(uuid.uuid4()),
+            "message_id": message_id,
             "feedback": "thumbs_down",
         },
     )
@@ -72,10 +102,11 @@ async def test_submit_feedback_invalid_type_returns_error_in_body(auth_client: A
 
 async def test_submit_feedback_with_comment(auth_client: AsyncClient):
     """Feedback with an optional comment is accepted."""
+    message_id = await _seed_message_id(auth_client)
     res = await auth_client.post(
         "/api/feedback/",
         json={
-            "message_id": str(uuid.uuid4()),
+            "message_id": message_id,
             "feedback": "thumbs_down",
             "comment": "La respuesta fue incorrecta sobre el plazo de prescripcion",
         },
@@ -113,7 +144,7 @@ async def test_submit_feedback_missing_feedback_field_returns_422(auth_client: A
 
 async def test_submit_feedback_response_echoes_message_id(auth_client: AsyncClient):
     """The response body echoes back the submitted message_id."""
-    msg_id = str(uuid.uuid4())
+    msg_id = await _seed_message_id(auth_client)
     res = await auth_client.post(
         "/api/feedback/",
         json={"message_id": msg_id, "feedback": "thumbs_up"},
@@ -165,16 +196,6 @@ async def test_feedback_stats_satisfaction_rate_type(client: AsyncClient):
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "feedback route does not enforce message ownership — "
-        "any authenticated user can submit feedback on any message_id. "
-        "Route does UPDATE Message WHERE id=? with no user_id join. "
-        "Cross-tenant write allowed. Deferred to wave-2 fix (T-D-11 territory). "
-        "See engram: tukijuris/conversations-feedback-ownership-bug."
-    ),
-)
 async def test_feedback_submit_cross_tenant_isolation(tenant_pair):
     """User B cannot submit feedback on a message owned by User A.
 
