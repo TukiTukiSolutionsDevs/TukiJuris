@@ -25,6 +25,7 @@ import {
   ChevronUp,
 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { FeatureGate } from "@/components/FeatureGate";
 import { AppLayout } from "@/components/AppLayout";
@@ -37,6 +38,7 @@ interface UserProfile {
   email: string;
   name?: string;
   is_admin?: boolean;
+  auth_provider?: string;
 }
 
 interface Organization {
@@ -316,6 +318,57 @@ const LLM_PROVIDERS: LLMProvider[] = [
   },
 ];
 
+// ---------------------------------------------------------------------------
+// Change-password error mapper (pure, module-level — FCB-1..FCB-6)
+// ---------------------------------------------------------------------------
+type ChangePwdDetail =
+  | string
+  | { code?: string; auth_provider?: string }
+  | null
+  | undefined;
+
+/**
+ * Maps POST /api/auth/change-password error responses to user-friendly Spanish messages.
+ * FCB-1: 401 invalid_credentials → wrong current password (no logout)
+ * FCB-2: 400 oauth_password_unsupported → OAuth user, interpolate provider
+ * FCB-3: 400 new_password_same_as_current → same password
+ * FCB-4: 422 → verbatim validator message
+ * FCB-5: 429 → rate-limit copy
+ * FCB-6: 401 session-expiry handled in caller before reaching this function
+ */
+function mapChangePasswordError(status: number, detail: ChangePwdDetail): string {
+  if (status === 401) {
+    // FCB-1: invalid credentials (session-expiry 401 never reaches here)
+    return "La contraseña actual es incorrecta.";
+  }
+  if (status === 400) {
+    if (
+      typeof detail === "object" &&
+      detail !== null &&
+      detail.code === "oauth_password_unsupported"
+    ) {
+      // FCB-2
+      const provider = detail.auth_provider ?? "social";
+      return `Tu cuenta usa inicio de sesión social (${provider}). No se puede cambiar contraseña aquí.`;
+    }
+    if (detail === "new_password_same_as_current") {
+      // FCB-3
+      return "La nueva contraseña debe ser distinta a la actual.";
+    }
+  }
+  if (status === 422) {
+    // FCB-4: verbatim validator message
+    return typeof detail === "string" && detail
+      ? detail
+      : "La nueva contraseña no cumple los requisitos.";
+  }
+  if (status === 429) {
+    // FCB-5
+    return "Demasiados intentos. Esperá un momento e intentá de nuevo.";
+  }
+  return "No se pudo cambiar la contraseña. Intentá de nuevo.";
+}
+
 export default function ConfiguracionPage() {
   const [activeTab, setActiveTab] = useState<ActiveTab>("perfil");
   const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -388,6 +441,7 @@ export default function ConfiguracionPage() {
   }, [selectedModelMeta, selectedProvider]);
 
   const { authFetch, logout, logoutAll } = useAuth();
+  const router = useRouter();
 
   const showSuccess = (msg: string) => {
     setSuccessMsg(msg);
@@ -429,7 +483,7 @@ export default function ConfiguracionPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [authFetch]);
 
   useEffect(() => {
     loadData();
@@ -461,11 +515,11 @@ export default function ConfiguracionPage() {
   const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
     if (newPassword !== confirmPassword) {
-      setError("Las contrasenas no coinciden");
+      setError("Las contraseñas no coinciden");
       return;
     }
     if (newPassword.length < 8) {
-      setError("La contrasena debe tener al menos 8 caracteres");
+      setError("La contraseña debe tener al menos 8 caracteres");
       return;
     }
     setSavingPassword(true);
@@ -476,15 +530,38 @@ export default function ConfiguracionPage() {
         body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }),
       });
       if (!res.ok) {
-        const d = await res.json().catch(() => ({}));
-        throw new Error(d.detail || "No se pudo cambiar la contrasena");
+        const data = await res.json().catch(() => ({}));
+        // FCB-6: 401 that is NOT invalid_credentials → session expiry → force logout + redirect
+        if (res.status === 401 && data?.detail !== "invalid_credentials") {
+          setError("Tu sesión expiró. Iniciá sesión de nuevo.");
+          setTimeout(async () => {
+            try {
+              await logout();
+            } finally {
+              router.push("/login");
+            }
+          }, 1500);
+          return;
+        }
+        setError(mapChangePasswordError(res.status, data?.detail ?? data));
+        return;
       }
-      showSuccess("Contrasena actualizada correctamente");
+      // FCB-7: success toast
+      showSuccess("Contraseña actualizada. Por seguridad, iniciá sesión de nuevo.");
+      // FCB-9: clear form fields immediately (cosmetic — user is leaving)
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
+      // FCB-8: after 1500 ms logout and always redirect, even if logout throws
+      setTimeout(async () => {
+        try {
+          await logout();
+        } finally {
+          router.push("/login");
+        }
+      }, 1500);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Error al cambiar contrasena");
+      setError(err instanceof Error ? err.message : "No se pudo cambiar la contraseña. Intentá de nuevo.");
     } finally {
       setSavingPassword(false);
     }
@@ -535,7 +612,7 @@ export default function ConfiguracionPage() {
     } finally {
       setLoadingMemories(false);
     }
-  }, []);
+  }, [authFetch]);
 
   const handleToggleMemory = async (memoryId: string, isActive: boolean) => {
     try {
@@ -579,7 +656,7 @@ export default function ConfiguracionPage() {
     } finally {
       setLoadingLlmKeys(false);
     }
-  }, []);
+  }, [authFetch]);
 
   useEffect(() => {
     if (activeTab === "memoria") {
@@ -866,93 +943,114 @@ export default function ConfiguracionPage() {
                       </form>
                     </DisclosureCard>
 
-                    <DisclosureCard
-                      icon={<Lock className="w-4 h-4" />}
-                      title="Cambiar contraseña"
-                      description="Abrilo solo cuando realmente necesites actualizar tu clave."
-                      open={isPasswordPanelOpen}
-                      onToggle={() => setIsPasswordPanelOpen((prev) => !prev)}
-                    >
-                        <form onSubmit={handleChangePassword} className="space-y-4">
-                          <div className="grid gap-4 lg:grid-cols-2">
-                            <div>
-                              <label className={labelClassName}>
-                                Contrasena actual
-                              </label>
-                              <div className="relative">
-                                <input
-                                  type={showCurrentPw ? "text" : "password"}
-                                  value={currentPassword}
-                                  onChange={(e) => setCurrentPassword(e.target.value)}
-                                  placeholder="••••••••"
-                                  className={`${inputClassName} pr-10`}
-                                  required
-                                />
-                                <button
-                                  type="button"
-                                  onClick={() => setShowCurrentPw(!showCurrentPw)}
-                                  className="absolute right-3 top-1/2 -translate-y-1/2 text-on-surface/40 hover:text-on-surface transition-colors"
-                                >
-                                  {showCurrentPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                                </button>
-                              </div>
-                            </div>
-                            <div>
-                              <label className={labelClassName}>
-                                Nueva contrasena
-                              </label>
-                              <div className="relative">
-                                <input
-                                  type={showNewPw ? "text" : "password"}
-                                  value={newPassword}
-                                  onChange={(e) => setNewPassword(e.target.value)}
-                                  placeholder="Minimo 8 caracteres"
-                                  className={`${inputClassName} pr-10`}
-                                  required
-                                  minLength={8}
-                                />
-                                <button
-                                  type="button"
-                                  onClick={() => setShowNewPw(!showNewPw)}
-                                  className="absolute right-3 top-1/2 -translate-y-1/2 text-on-surface/40 hover:text-on-surface transition-colors"
-                                >
-                                  {showNewPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                                </button>
-                              </div>
-                            </div>
+                    {/* FCB-10/FCB-11: hide form for OAuth users, show info card instead */}
+                    {profile?.auth_provider && profile.auth_provider !== "email" ? (
+                      <SectionCard>
+                        <div className="flex items-start gap-3">
+                          <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                            <Lock className="w-4 h-4" />
                           </div>
                           <div>
-                            <label className={labelClassName}>
-                              Confirmar nueva contrasena
-                            </label>
-                            <input
-                              type="password"
-                              value={confirmPassword}
-                              onChange={(e) => setConfirmPassword(e.target.value)}
-                              placeholder="Repite la nueva contrasena"
-                              className={inputClassName}
-                              required
-                            />
+                            <h2 className="font-['Newsreader'] text-[1.35rem] font-bold leading-none tracking-[-0.02em] text-on-surface">
+                              Contraseña gestionada externamente
+                            </h2>
+                            <p className="mt-1.5 text-sm leading-6 text-on-surface/55">
+                              Tu cuenta usa inicio de sesión con{" "}
+                              <span className="font-medium text-on-surface">{profile.auth_provider}</span>
+                              . La contraseña es gestionada en {profile.auth_provider}.
+                            </p>
                           </div>
-                          <div className="flex justify-end gap-2">
-                            <button
-                              type="button"
-                              onClick={() => setIsPasswordPanelOpen(false)}
-                              className="rounded-xl border border-[rgba(79,70,51,0.15)] px-4 py-2.5 text-sm text-on-surface/55 transition-colors hover:text-on-surface"
-                            >
-                              Cancelar
-                            </button>
-                            <button
-                              type="submit"
-                              disabled={savingPassword || !currentPassword || !newPassword || !confirmPassword}
-                              className="bg-gradient-to-br from-primary to-primary-container disabled:opacity-40 text-on-primary rounded-lg px-5 py-2.5 text-sm font-bold flex items-center gap-2 transition-opacity"
-                            >
-                              {savingPassword ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Lock className="w-3.5 h-3.5" />}
-                              Actualizar contrasena
-                            </button>
-                          </div>
-                        </form>
-                    </DisclosureCard>
+                        </div>
+                      </SectionCard>
+                    ) : (
+                      <DisclosureCard
+                        icon={<Lock className="w-4 h-4" />}
+                        title="Cambiar contraseña"
+                        description="Abrilo solo cuando realmente necesites actualizar tu clave."
+                        open={isPasswordPanelOpen}
+                        onToggle={() => setIsPasswordPanelOpen((prev) => !prev)}
+                      >
+                          <form onSubmit={handleChangePassword} className="space-y-4">
+                            <div className="grid gap-4 lg:grid-cols-2">
+                              <div>
+                                <label className={labelClassName}>
+                                  Contrasena actual
+                                </label>
+                                <div className="relative">
+                                  <input
+                                    type={showCurrentPw ? "text" : "password"}
+                                    value={currentPassword}
+                                    onChange={(e) => setCurrentPassword(e.target.value)}
+                                    placeholder="••••••••"
+                                    className={`${inputClassName} pr-10`}
+                                    required
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => setShowCurrentPw(!showCurrentPw)}
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-on-surface/40 hover:text-on-surface transition-colors"
+                                  >
+                                    {showCurrentPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                  </button>
+                                </div>
+                              </div>
+                              <div>
+                                <label className={labelClassName}>
+                                  Nueva contrasena
+                                </label>
+                                <div className="relative">
+                                  <input
+                                    type={showNewPw ? "text" : "password"}
+                                    value={newPassword}
+                                    onChange={(e) => setNewPassword(e.target.value)}
+                                    placeholder="Minimo 8 caracteres"
+                                    className={`${inputClassName} pr-10`}
+                                    required
+                                    minLength={8}
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => setShowNewPw(!showNewPw)}
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-on-surface/40 hover:text-on-surface transition-colors"
+                                  >
+                                    {showNewPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                            <div>
+                              <label className={labelClassName}>
+                                Confirmar nueva contrasena
+                              </label>
+                              <input
+                                type="password"
+                                value={confirmPassword}
+                                onChange={(e) => setConfirmPassword(e.target.value)}
+                                placeholder="Repite la nueva contrasena"
+                                className={inputClassName}
+                                required
+                              />
+                            </div>
+                            <div className="flex justify-end gap-2">
+                              <button
+                                type="button"
+                                onClick={() => setIsPasswordPanelOpen(false)}
+                                className="rounded-xl border border-[rgba(79,70,51,0.15)] px-4 py-2.5 text-sm text-on-surface/55 transition-colors hover:text-on-surface"
+                              >
+                                Cancelar
+                              </button>
+                              <button
+                                type="submit"
+                                disabled={savingPassword || !currentPassword || !newPassword || !confirmPassword}
+                                className="bg-gradient-to-br from-primary to-primary-container disabled:opacity-40 text-on-primary rounded-lg px-5 py-2.5 text-sm font-bold flex items-center gap-2 transition-opacity"
+                              >
+                                {savingPassword ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Lock className="w-3.5 h-3.5" />}
+                                Actualizar contrasena
+                              </button>
+                            </div>
+                          </form>
+                      </DisclosureCard>
+                    )}
 
                     {/* Logout all devices */}
                     <div className="flex items-center justify-between rounded-xl border border-[rgba(79,70,51,0.15)] bg-surface-container px-4 py-3.5">

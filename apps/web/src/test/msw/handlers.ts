@@ -56,6 +56,9 @@ export const handlers = [
 
   // POST /api/auth/logout-all
   http.post("/api/auth/logout-all", () => new HttpResponse(null, { status: 204 })),
+
+  // POST /api/auth/change-password — FCB-14: default 204 success
+  http.post("/api/auth/change-password", () => new HttpResponse(null, { status: 204 })),
 ];
 
 // ---------------------------------------------------------------------------
@@ -80,6 +83,15 @@ export const authHandlers = {
   adminRefresh: () =>
     http.post("/api/auth/refresh", () =>
       HttpResponse.json({ access_token: ADMIN_ACCESS_TOKEN, token_type: "bearer", expires_in: 900 })
+    ),
+
+  // FCB-15: per-test error override for POST /api/auth/change-password
+  changePasswordError: (
+    detail: string | { code?: string; auth_provider?: string } | null,
+    status = 400,
+  ) =>
+    http.post("/api/auth/change-password", () =>
+      HttpResponse.json({ detail }, { status })
     ),
 };
 
