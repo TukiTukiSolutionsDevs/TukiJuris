@@ -61,7 +61,6 @@ async def test_email_password_reset_request_flow(client: AsyncClient, monkeypatc
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.xfail(strict=True, reason="No reset-token denylist — same JWT accepted on reuse")
 async def test_email_password_reset_confirm_flow(client: AsyncClient, monkeypatch) -> None:
     """Spec: notifications.unit.010
 

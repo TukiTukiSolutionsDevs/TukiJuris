@@ -1,7 +1,7 @@
 """Password reset routes — request and confirm via time-limited JWT."""
 
 import logging
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from app.api.deps import RateLimitBucket, RateLimitGuard
@@ -57,10 +57,8 @@ def _create_reset_token(user_id: str, email: str) -> str:
 
 def _decode_reset_token(token: str) -> dict | None:
     """Decode and validate a password-reset JWT. Returns payload or None."""
-    payload = decode_access_token(token)
+    payload = decode_access_token(token, audience=_RESET_TOKEN_AUDIENCE)
     if not payload:
-        return None
-    if payload.get("aud") != _RESET_TOKEN_AUDIENCE:
         return None
     return payload
 
@@ -142,6 +140,17 @@ async def confirm_password_reset(
             detail="Usuario no encontrado o inactivo",
         )
 
+    iat = payload.get("iat")
+    if (
+        user.password_updated_at is not None
+        and iat is not None
+        and iat < user.password_updated_at.timestamp()
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Token invalido o ya utilizado",
+        )
+
     is_valid, error = validate_password(body.new_password)
     if not is_valid:
         raise HTTPException(
@@ -150,6 +159,7 @@ async def confirm_password_reset(
         )
 
     user.hashed_password = hash_password(body.new_password)
+    user.password_updated_at = datetime.now(UTC)
     await db.flush()
 
     logger.info("Password reset completed for user %s", user_id)

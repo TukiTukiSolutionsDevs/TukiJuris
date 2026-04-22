@@ -67,10 +67,21 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None) -> s
     return jwt.encode(to_encode, settings.jwt_secret, algorithm=settings.jwt_algorithm)
 
 
-def decode_access_token(token: str) -> dict | None:
-    """Decode and verify a JWT token. Returns payload or None."""
+def decode_access_token(token: str, audience: str | None = None) -> dict | None:
+    """Decode and verify a JWT token. Returns payload or None.
+
+    Args:
+        token:    Signed JWT string.
+        audience: Expected ``aud`` claim value. Required when the token was
+                  issued with an ``aud`` claim (e.g. password-reset tokens) —
+                  python-jose 3.x raises ``JWTError`` if ``aud`` is present
+                  in the payload but no ``audience`` is supplied here.
+    """
     try:
-        return jwt.decode(token, settings.jwt_secret, algorithms=[settings.jwt_algorithm])
+        kwargs: dict = {}
+        if audience is not None:
+            kwargs["audience"] = audience
+        return jwt.decode(token, settings.jwt_secret, algorithms=[settings.jwt_algorithm], **kwargs)
     except JWTError:
         return None
 
