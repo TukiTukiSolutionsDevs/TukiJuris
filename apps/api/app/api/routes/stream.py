@@ -28,7 +28,7 @@ from app.agents.orchestrator import (
     retrieve_context,
     synthesize_response,
 )
-from app.api.deps import RateLimitBucket, RateLimitGuard, get_optional_user
+from app.api.deps import RateLimitBucket, RateLimitGuard, get_current_user
 from app.config import settings
 from app.core.database import get_db
 from app.models.user import User
@@ -531,7 +531,7 @@ def _sse(data: dict) -> str:
 @router.post("/stream")
 async def chat_stream(
     body: StreamRequest,
-    current_user: User | None = Depends(get_optional_user),
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
     _rl: None = Depends(RateLimitGuard(RateLimitBucket.WRITE)),
 ):

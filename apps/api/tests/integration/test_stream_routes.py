@@ -311,16 +311,6 @@ async def test_stream_sse_done_event(auth_client: AsyncClient) -> None:
 
 
 @pytest.mark.asyncio
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "chat-stream.unit.008: stream endpoint uses get_optional_user (deps.py line 84), "
-        "which returns None for anonymous requests instead of raising 401. "
-        "Anonymous access is intentional by design — the spec's 401 expectation is incorrect "
-        "for the current implementation. A design decision is required to switch to "
-        "get_current_user if auth enforcement on /chat/stream is desired."
-    ),
-)
 async def test_stream_401_without_auth(client: AsyncClient) -> None:
     """
     chat-stream.unit.008 — Spec says unauthenticated request returns 401.
