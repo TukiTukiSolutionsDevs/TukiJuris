@@ -23,6 +23,7 @@ import {
   ExternalLink,
   ChevronDown,
   ChevronUp,
+  FileText,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -36,6 +37,7 @@ import { MODEL_CATALOG, type ModelDef } from "@/lib/models";
 import { PROVIDER_LABELS, labelForProvider } from "@/lib/llm/providerLabels";
 import { DevApiKeysSection } from "@/components/configuracion/DevApiKeysSection";
 import { SessionsList } from "@/components/configuracion/SessionsList";
+import { formatFileSize, formatUploadDate } from "./uploads-formatters";
 
 interface UserProfile {
   id: string;
@@ -82,7 +84,7 @@ const tierBadgeLabels: Record<string, string> = {
   pro: "Avanzado",
 };
 
-type ActiveTab = "perfil" | "organizacion" | "preferencias" | "apikeys" | "memoria";
+type ActiveTab = "perfil" | "organizacion" | "preferencias" | "apikeys" | "memoria" | "archivos";
 
 const TABS: { id: ActiveTab; label: string; icon: React.ElementType }[] = [
   { id: "perfil", label: "Perfil", icon: User },
@@ -90,6 +92,7 @@ const TABS: { id: ActiveTab; label: string; icon: React.ElementType }[] = [
   { id: "preferencias", label: "Preferencias", icon: Sliders },
   { id: "memoria", label: "Memoria", icon: Brain },
   { id: "apikeys", label: "API Keys", icon: Key },
+  { id: "archivos", label: "Archivos", icon: FileText },
 ];
 
 const TAB_DETAILS: Record<ActiveTab, { title: string; description: string }> = {
@@ -112,6 +115,10 @@ const TAB_DETAILS: Record<ActiveTab, { title: string; description: string }> = {
   apikeys: {
     title: "Conexiones de IA",
     description: "Vinculá tus proveedores, probá claves y mantené el control del consumo desde un solo lugar.",
+  },
+  archivos: {
+    title: "Archivos subidos",
+    description: "Gestioná los documentos que subiste como contexto para tus consultas.",
   },
 };
 
@@ -222,6 +229,16 @@ interface FreeModel {
   description?: string;
   tier: string;
   available?: boolean;
+}
+
+interface UploadedDoc {
+  id: string;
+  filename: string;
+  file_type: string;
+  file_size: number;
+  page_count: number | null;
+  conversation_id: string | null;
+  created_at: string;
 }
 
 const CATEGORY_COLORS: Record<string, string> = {
@@ -436,6 +453,14 @@ export default function ConfiguracionPage() {
   const [showApiKey, setShowApiKey] = useState(false);
   const [testingProvider, setTestingProvider] = useState<string | null>(null);
   const [testResults, setTestResults] = useState<Record<string, { ok: boolean; latency_ms?: number; error?: string }>>({});
+
+  // Archivos tab state
+  const [uploads, setUploads] = useState<UploadedDoc[]>([]);
+  const [loadingUploads, setLoadingUploads] = useState(false);
+  const [uploadsError, setUploadsError] = useState("");
+  const [uploadsLoaded, setUploadsLoaded] = useState(false);
+  const [deletingUploadId, setDeletingUploadId] = useState<string | null>(null);
+  const [isUploadsListOpen, setIsUploadsListOpen] = useState(true);
 
   const inputClassName = "control-surface w-full rounded-xl px-3 py-3 text-sm text-on-surface placeholder-on-surface/30 focus:outline-none focus:border-primary transition-colors";
   const readonlyClassName = "w-full rounded-xl border border-transparent bg-surface px-3 py-3 text-sm text-on-surface/40 cursor-not-allowed";
@@ -724,6 +749,25 @@ export default function ConfiguracionPage() {
     }
   }, [authFetch]);
 
+  const loadUploads = useCallback(async () => {
+    setLoadingUploads(true);
+    setUploadsError("");
+    try {
+      const res = await authFetch(`/api/upload/`, {});
+      if (res.ok) {
+        const data: UploadedDoc[] = await res.json();
+        setUploads(data);
+        setUploadsLoaded(true);
+      } else {
+        setUploadsError("No se pudieron cargar los archivos.");
+      }
+    } catch {
+      setUploadsError("No se pudieron cargar los archivos.");
+    } finally {
+      setLoadingUploads(false);
+    }
+  }, [authFetch]);
+
   useEffect(() => {
     if (activeTab === "memoria") {
       loadMemories();
@@ -748,7 +792,10 @@ export default function ConfiguracionPage() {
         }
       }).catch(() => {});
     }
-  }, [activeTab, loadMemories, loadLlmKeys, loadMemSettings, authFetch]);
+    if (activeTab === "archivos" && !uploadsLoaded) {
+      void loadUploads();
+    }
+  }, [activeTab, loadMemories, loadLlmKeys, loadMemSettings, authFetch, loadUploads, uploadsLoaded]);
 
   const handleAddKey = async (providerId: string) => {
     if (!newApiKey.trim()) return;
@@ -842,6 +889,27 @@ export default function ConfiguracionPage() {
 
   const handleLogoutAll = () => {
     void logoutAll();
+  };
+
+  const handleDeleteUpload = async (docId: string, filename: string) => {
+    if (!window.confirm(`¿Eliminar "${filename}"? Esta acción no se puede deshacer.`)) return;
+    const snapshot = [...uploads];
+    setUploads((prev) => prev.filter((d) => d.id !== docId));
+    setDeletingUploadId(docId);
+    try {
+      const res = await authFetch(`/api/upload/${docId}`, { method: "DELETE" });
+      if (res.ok) {
+        toast.success("Archivo eliminado");
+      } else {
+        setUploads(snapshot);
+        toast.error("No se pudo eliminar el archivo");
+      }
+    } catch {
+      setUploads(snapshot);
+      toast.error("No se pudo eliminar el archivo");
+    } finally {
+      setDeletingUploadId(null);
+    }
   };
 
   return (
@@ -1894,7 +1962,98 @@ export default function ConfiguracionPage() {
                     </SectionCard>
                   </div>
                   </FeatureGate>
-                  <DevApiKeysSection />
+                   <DevApiKeysSection />
+                   </div>
+                 )}
+
+                {/* --- ARCHIVOS TAB --- */}
+                {activeTab === "archivos" && (
+                  <div className="space-y-4">
+                    <DisclosureCard
+                      icon={<FileText className="w-4 h-4" />}
+                      title="Archivos subidos"
+                      description="Documentos que subiste para usarlos como contexto en tus consultas."
+                      open={isUploadsListOpen}
+                      onToggle={() => setIsUploadsListOpen((prev) => !prev)}
+                    >
+                      {loadingUploads ? (
+                        <div className="space-y-2" data-testid="uploads-skeleton">
+                          {[1, 2, 3].map((i) => (
+                            <div key={i} className="h-10 animate-pulse rounded-lg bg-surface-container" />
+                          ))}
+                        </div>
+                      ) : uploadsError ? (
+                        <div className="flex flex-col items-center justify-center py-8 gap-3 text-center">
+                          <AlertTriangle className="w-6 h-6 text-[#ffb4ab]" />
+                          <p className="text-sm text-on-surface/50" data-testid="uploads-error">{uploadsError}</p>
+                          <button
+                            type="button"
+                            onClick={() => { setUploadsLoaded(false); void loadUploads(); }}
+                            className="text-xs text-primary hover:underline"
+                            data-testid="uploads-retry"
+                          >
+                            Reintentar
+                          </button>
+                        </div>
+                      ) : uploads.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center py-10 text-center border border-dashed border-[rgba(79,70,51,0.15)] rounded-lg" data-testid="uploads-empty">
+                          <FileText className="w-10 h-10 text-on-surface/10 mb-3" />
+                          <p className="text-sm font-medium text-on-surface/40 mb-1">Todavía no subiste ningún archivo.</p>
+                          <p className="text-xs text-on-surface/25 max-w-xs">Subí documentos desde una consulta para que TukiJuris los use como contexto.</p>
+                        </div>
+                      ) : (
+                        <div className="overflow-x-auto" data-testid="uploads-table">
+                          <table className="w-full text-sm">
+                            <thead>
+                              <tr className="text-left text-[10px] uppercase tracking-[0.18em] text-on-surface/38 border-b border-[rgba(79,70,51,0.15)]">
+                                <th className="pb-2 pr-4">Archivo</th>
+                                <th className="pb-2 pr-4">Tipo</th>
+                                <th className="pb-2 pr-4">Tamaño</th>
+                                <th className="pb-2 pr-4">Fecha</th>
+                                <th className="pb-2">Acción</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-[rgba(79,70,51,0.08)]">
+                              {uploads.map((doc) => (
+                                <tr key={doc.id} data-testid={`upload-row-${doc.id}`}>
+                                  <td className="py-2.5 pr-4 max-w-[14rem] truncate text-on-surface" title={doc.filename}>
+                                    {doc.filename}
+                                  </td>
+                                  <td className="py-2.5 pr-4">
+                                    <span className="rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide bg-surface-container text-on-surface/60">
+                                      {doc.file_type.toUpperCase()}
+                                    </span>
+                                  </td>
+                                  <td className="py-2.5 pr-4 text-on-surface/60">
+                                    {formatFileSize(doc.file_size)}
+                                  </td>
+                                  <td className="py-2.5 pr-4 text-on-surface/60">
+                                    {formatUploadDate(doc.created_at)}
+                                  </td>
+                                  <td className="py-2.5">
+                                    <button
+                                      type="button"
+                                      onClick={() => void handleDeleteUpload(doc.id, doc.filename)}
+                                      disabled={deletingUploadId === doc.id}
+                                      aria-busy={deletingUploadId === doc.id}
+                                      data-testid={`delete-upload-${doc.id}`}
+                                      className="flex items-center gap-1 text-xs text-[#ffb4ab]/60 hover:text-[#ffb4ab] hover:bg-[#93000a]/20 px-2 py-1 rounded-lg transition-colors disabled:opacity-50"
+                                    >
+                                      {deletingUploadId === doc.id ? (
+                                        <Loader2 className="w-3 h-3 animate-spin" />
+                                      ) : (
+                                        <Trash2 className="w-3 h-3" />
+                                      )}
+                                      Eliminar
+                                    </button>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </DisclosureCard>
                   </div>
                 )}
               </div>

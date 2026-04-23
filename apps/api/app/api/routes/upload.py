@@ -4,6 +4,7 @@ import logging
 import uuid
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -15,6 +16,58 @@ from app.services import upload_service
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/upload", tags=["upload"])
+
+
+# ---------------------------------------------------------------------------
+# Schemas
+# ---------------------------------------------------------------------------
+
+
+class UploadedDocumentListItem(BaseModel):
+    """Safe public representation of an uploaded document.
+
+    Explicitly excludes storage_path and extracted_text (private/sensitive).
+    """
+
+    id: str
+    filename: str
+    file_type: str
+    file_size: int
+    page_count: int | None
+    conversation_id: str | None
+    created_at: str
+
+
+# ---------------------------------------------------------------------------
+# Routes
+# ---------------------------------------------------------------------------
+
+
+@router.get("/", response_model=list[UploadedDocumentListItem])
+async def list_uploaded_documents(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+    _rl: None = Depends(RateLimitGuard(RateLimitBucket.READ)),
+) -> list[UploadedDocumentListItem]:
+    """List all uploaded documents for the authenticated user (newest first)."""
+    result = await db.execute(
+        select(UploadedDocument)
+        .where(UploadedDocument.user_id == current_user.id)
+        .order_by(UploadedDocument.created_at.desc())
+    )
+    docs = result.scalars().all()
+    return [
+        UploadedDocumentListItem(
+            id=str(doc.id),
+            filename=doc.original_filename,
+            file_type=doc.file_type,
+            file_size=doc.file_size,
+            page_count=doc.page_count,
+            conversation_id=str(doc.conversation_id) if doc.conversation_id else None,
+            created_at=doc.created_at.isoformat(),
+        )
+        for doc in docs
+    ]
 
 
 @router.post("/")
