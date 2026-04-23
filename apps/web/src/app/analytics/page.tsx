@@ -6,6 +6,7 @@ import { useAuth } from "@/lib/auth/AuthContext";
 import { AppLayout } from "@/components/AppLayout";
 import { InternalPageHeader } from "@/components/shell/InternalPageHeader";
 import { ShellUtilityActions } from "@/components/shell/ShellUtilityActions";
+import { OrgSwitcher } from "@/components/OrgSwitcher";
 import {
   BarChart3,
   TrendingUp,
@@ -380,6 +381,7 @@ type TabId = "overview" | "costos" | "frecuentes";
 export default function AnalyticsPage() {
   const [days, setDays] = useState(30);
   const [activeTab, setActiveTab] = useState<TabId>("overview");
+  const [orgs, setOrgs] = useState<{ id: string; name: string }[]>([]);
   const [orgId, setOrgId] = useState<string | null>(null);
   const [orgLoading, setOrgLoading] = useState(true);
   const [overview, setOverview] = useState<OverviewData | null>(null);
@@ -405,13 +407,17 @@ export default function AnalyticsPage() {
     }
   }, [user, router]);
 
-  // Fetch user's organization on mount
+  // Fetch user's organizations on mount; hydrate selected org from localStorage.
   useEffect(() => {
     authFetch("/api/organizations/")
       .then((r) => (r.ok ? r.json() : []))
-      .then((orgs: { id: string }[]) => {
-        if (orgs.length > 0) {
-          setOrgId(orgs[0].id);
+      .then((data: { id: string; name: string }[] | { organizations: { id: string; name: string }[] }) => {
+        const list = Array.isArray(data) ? data : (data as { organizations: { id: string; name: string }[] }).organizations ?? [];
+        setOrgs(list);
+        if (list.length > 0) {
+          const stored = localStorage.getItem("tk_selected_org_id");
+          const isValid = stored !== null && list.some((o) => o.id === stored);
+          setOrgId(isValid ? stored : list[0].id);
         }
       })
       .catch(() => {
@@ -419,6 +425,12 @@ export default function AnalyticsPage() {
       })
       .finally(() => setOrgLoading(false));
   }, [authFetch]);
+
+  const handleOrgChange = useCallback((id: string) => {
+    localStorage.setItem("tk_selected_org_id", id);
+    setOrgId(id);
+    // fetchData re-runs automatically because orgId is in its dependency chain
+  }, []);
 
   const fetchData = useCallback(
     async (isRefresh = false) => {
@@ -604,6 +616,18 @@ export default function AnalyticsPage() {
           {/* Main content — only shown when orgId is resolved */}
           {!orgLoading && orgId && (
             <>
+              {/* Org switcher — hidden for single-org users */}
+              {orgs.length > 1 && (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-on-surface/40">Organización:</span>
+                  <OrgSwitcher
+                    orgs={orgs}
+                    selectedOrgId={orgId}
+                    onChange={handleOrgChange}
+                  />
+                </div>
+              )}
+
               {/* Tab navigation */}
               <div className="flex items-center gap-1 border-b border-[rgba(79,70,51,0.15)] -mb-2">
                 {(

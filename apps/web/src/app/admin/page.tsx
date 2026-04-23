@@ -37,6 +37,7 @@ import { InvoicesTable } from "./_components/InvoicesTable";
 import { UsersPagination } from "./_components/UsersPagination";
 import { UserRolesPanel } from "./_components/UserRolesPanel";
 import { AuditLogTab } from "./_components/AuditLogTab";
+import { AdminInvoicesTab } from "./_components/AdminInvoicesTab";
 
 interface SystemStats {
   total_users: number;
@@ -330,6 +331,37 @@ export default function AdminPage() {
                 {t === "resumen" ? "Resumen" : "Auditoría"}
               </button>
             ))}
+
+            {/* Facturas tab — SECURITY CRITICAL: gated by billing:update */}
+            <div className="relative group">
+              <button
+                role="tab"
+                aria-selected={tab === "facturas"}
+                disabled={!hasPermission("billing:update")}
+                onClick={() => {
+                  if (!hasPermission("billing:update")) return;
+                  const params = new URLSearchParams(searchParams.toString());
+                  params.set("tab", "facturas");
+                  router.replace(`${pathname}?${params.toString()}`);
+                }}
+                data-testid="facturas-tab-btn"
+                className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
+                  tab === "facturas"
+                    ? "border-primary text-primary"
+                    : "border-transparent text-on-surface/50 hover:text-on-surface"
+                } disabled:opacity-40 disabled:cursor-not-allowed`}
+              >
+                Facturas
+              </button>
+              {!hasPermission("billing:update") && (
+                <div
+                  className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block bg-surface-container-low border border-on-surface/20 text-on-surface/70 text-[10px] px-2 py-1 rounded-lg whitespace-nowrap shadow-lg pointer-events-none z-30"
+                  data-testid="facturas-tab-tooltip"
+                >
+                  Requiere permiso billing:update
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
@@ -337,6 +369,13 @@ export default function AdminPage() {
         {tab === "auditoria" && (
           <div className="w-full px-4 py-6 sm:py-8 lg:px-6 xl:px-8">
             <AuditLogTab />
+          </div>
+        )}
+
+        {/* ── Facturas tab — SECURITY CRITICAL ───────────────────────── */}
+        {tab === "facturas" && hasPermission("billing:update") && (
+          <div className="w-full px-4 py-6 sm:py-8 lg:px-6 xl:px-8">
+            <AdminInvoicesTab />
           </div>
         )}
 

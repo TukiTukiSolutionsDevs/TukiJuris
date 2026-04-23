@@ -47,7 +47,8 @@ vi.mock("../_components/BYOKTable",       () => ({ BYOKTable:       () => <div d
 vi.mock("../_components/InvoicesTable",   () => ({ InvoicesTable:   () => <div data-testid="invoices-table" /> }));
 vi.mock("../_components/UsersPagination", () => ({ UsersPagination: () => <div data-testid="users-pagination" /> }));
 vi.mock("../_components/UserRolesPanel",  () => ({ UserRolesPanel:  () => <div data-testid="user-roles-panel" /> }));
-vi.mock("../_components/AuditLogTab",     () => ({ AuditLogTab:     () => <div data-testid="audit-log-tab" /> }));
+vi.mock("../_components/AuditLogTab",        () => ({ AuditLogTab:        () => <div data-testid="audit-log-tab" /> }));
+vi.mock("../_components/AdminInvoicesTab",   () => ({ AdminInvoicesTab:   () => <div data-testid="admin-invoices-tab" /> }));
 
 vi.mock("@/components/AdminLayout", () => ({
   AdminLayout: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
@@ -211,5 +212,94 @@ describe("AdminPage tab navigation", () => {
         screen.getByRole("tablist", { name: "Secciones del panel de administración" })
       ).toBeInTheDocument()
     );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Facturas tab — security gating (Sprint 8b)
+// ---------------------------------------------------------------------------
+
+describe("AdminPage — Facturas tab (billing:update gate)", () => {
+  it("renders Facturas tab button", async () => {
+    render(<AdminPage />);
+    await waitFor(() =>
+      expect(screen.getByTestId("facturas-tab-btn")).toBeInTheDocument()
+    );
+    expect(screen.getByTestId("facturas-tab-btn").textContent).toBe("Facturas");
+  });
+
+  it("Facturas tab button is DISABLED when hasPermission('billing:update') returns false", async () => {
+    mockHasPermission.mockReturnValue(false);
+    render(<AdminPage />);
+    await waitFor(() => screen.getByTestId("facturas-tab-btn"));
+    expect(screen.getByTestId("facturas-tab-btn")).toBeDisabled();
+  });
+
+  it("tooltip is present in DOM when permission is missing", async () => {
+    mockHasPermission.mockReturnValue(false);
+    render(<AdminPage />);
+    await waitFor(() => screen.getByTestId("facturas-tab-tooltip"));
+    expect(screen.getByTestId("facturas-tab-tooltip").textContent).toContain(
+      "Requiere permiso billing:update"
+    );
+  });
+
+  it("Facturas tab button is ENABLED when hasPermission('billing:update') returns true", async () => {
+    mockHasPermission.mockImplementation((perm: string) => perm === "billing:update");
+    render(<AdminPage />);
+    await waitFor(() => screen.getByTestId("facturas-tab-btn"));
+    expect(screen.getByTestId("facturas-tab-btn")).not.toBeDisabled();
+  });
+
+  it("tooltip is NOT rendered when permission is granted", async () => {
+    mockHasPermission.mockImplementation((perm: string) => perm === "billing:update");
+    render(<AdminPage />);
+    await waitFor(() => screen.getByTestId("facturas-tab-btn"));
+    expect(screen.queryByTestId("facturas-tab-tooltip")).toBeNull();
+  });
+
+  it("navigates to ?tab=facturas when Facturas tab is clicked with permission", async () => {
+    mockHasPermission.mockImplementation((perm: string) => perm === "billing:update");
+    const user = userEvent.setup();
+    render(<AdminPage />);
+
+    await waitFor(() => screen.getByTestId("facturas-tab-btn"));
+    await user.click(screen.getByTestId("facturas-tab-btn"));
+
+    expect(mockReplace).toHaveBeenCalledWith(
+      expect.stringContaining("tab=facturas")
+    );
+  });
+
+  it("does NOT navigate when Facturas tab is clicked WITHOUT permission", async () => {
+    mockHasPermission.mockReturnValue(false);
+    const user = userEvent.setup();
+    render(<AdminPage />);
+
+    await waitFor(() => screen.getByTestId("facturas-tab-btn"));
+    await user.click(screen.getByTestId("facturas-tab-btn"));
+
+    expect(mockReplace).not.toHaveBeenCalledWith(
+      expect.stringContaining("tab=facturas")
+    );
+  });
+
+  it("renders AdminInvoicesTab when ?tab=facturas AND permission granted", async () => {
+    mockHasPermission.mockImplementation((perm: string) => perm === "billing:update");
+    mockGet.mockImplementation((key: string) => key === "tab" ? "facturas" : null);
+    render(<AdminPage />);
+
+    await waitFor(() =>
+      expect(screen.getByTestId("admin-invoices-tab")).toBeInTheDocument()
+    );
+  });
+
+  it("does NOT render AdminInvoicesTab when ?tab=facturas but NO permission", async () => {
+    mockHasPermission.mockReturnValue(false);
+    mockGet.mockImplementation((key: string) => key === "tab" ? "facturas" : null);
+    render(<AdminPage />);
+
+    await waitFor(() => screen.getByTestId("facturas-tab-btn"));
+    expect(screen.queryByTestId("admin-invoices-tab")).toBeNull();
   });
 });

@@ -12,6 +12,9 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { AppLayout } from "@/components/AppLayout";
+import { OrgSwitcher } from "@/components/OrgSwitcher";
+import { TrialRetryBanner } from "./_components/TrialRetryBanner";
+import { InvoiceHistorySection } from "./_components/InvoiceHistorySection";
 
 
 // UsageStats kept for backward compat with API (not displayed)
@@ -124,6 +127,8 @@ export default function BillingPage() {
   const [usage, setUsage] = useState<UsageStats | null>(null);
   const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [billingConfig, setBillingConfig] = useState<BillingConfig | null>(null);
+  const [orgs, setOrgs] = useState<{ id: string; name: string }[]>([]);
+  const [trial, setTrial] = useState<{ id: string; status: string } | null>(null);
   const [orgId, setOrgId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -131,51 +136,63 @@ export default function BillingPage() {
 
   const { authFetch } = useAuth();
 
+  // Fetch org list on mount — hydrates orgId from localStorage or orgs[0]
+  useEffect(() => {
+    authFetch("/api/organizations/")
+      .then((r) => (r.ok ? r.json() : []))
+      .then((data: { id: string; name: string }[] | { organizations: { id: string; name: string }[] }) => {
+        const list = Array.isArray(data) ? data : (data as { organizations: { id: string; name: string }[] }).organizations ?? [];
+        setOrgs(list);
+        if (list.length > 0) {
+          const stored = localStorage.getItem("tk_selected_org_id");
+          const isValid = stored !== null && list.some((o) => o.id === stored);
+          setOrgId(isValid ? stored : list[0].id);
+        }
+      })
+      .catch(() => setError("No se pudo cargar la organización"));
+  }, [authFetch]);
+
+  // Fetch billing data whenever orgId resolves or changes
   const loadBillingData = useCallback(async () => {
+    if (!orgId) return;
     setLoading(true);
     setError("");
     try {
-      const [configRes, orgRes] = await Promise.allSettled([
-        authFetch(`/api/billing/config`),
-        authFetch(`/api/organizations/`),
+      const [configRes, usageRes, subRes, trialRes] = await Promise.allSettled([
+        authFetch("/api/billing/config"),
+        authFetch(`/api/billing/${orgId}/usage`),
+        authFetch(`/api/billing/${orgId}/subscription`),
+        authFetch(`/api/billing/${orgId}/trial`),
       ]);
 
       if (configRes.status === "fulfilled" && configRes.value.ok) {
         setBillingConfig(await configRes.value.json());
       }
-
-      if (orgRes.status === "rejected" || !("value" in orgRes) || !orgRes.value.ok) {
-        throw new Error("No se pudo cargar la organización");
+      if (usageRes.status === "fulfilled" && usageRes.value.ok) {
+        setUsage(await usageRes.value.json());
       }
-      const orgData = await orgRes.value.json();
-      const orgs = Array.isArray(orgData) ? orgData : orgData.organizations || [];
-
-      if (orgs.length > 0) {
-        const oid = orgs[0].id;
-        setOrgId(oid);
-
-        const [usageRes, subRes] = await Promise.allSettled([
-          authFetch(`/api/billing/${oid}/usage`),
-          authFetch(`/api/billing/${oid}/subscription`),
-        ]);
-
-        if (usageRes.status === "fulfilled" && usageRes.value.ok) {
-          setUsage(await usageRes.value.json());
-        }
-        if (subRes.status === "fulfilled" && subRes.value.ok) {
-          setSubscription(await subRes.value.json());
-        }
+      if (subRes.status === "fulfilled" && subRes.value.ok) {
+        setSubscription(await subRes.value.json());
+      }
+      if (trialRes.status === "fulfilled" && trialRes.value.ok) {
+        setTrial(await trialRes.value.json());
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error de red");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [authFetch, orgId]);
 
   useEffect(() => {
     loadBillingData();
   }, [loadBillingData]);
+
+  const handleOrgChange = useCallback((id: string) => {
+    localStorage.setItem("tk_selected_org_id", id);
+    setOrgId(id);
+    setTrial(null);
+  }, []);
 
   const handleCheckout = async (planId: string) => {
     if (!orgId) return;
@@ -253,6 +270,13 @@ export default function BillingPage() {
           <h1 className="font-['Newsreader'] text-4xl font-bold text-on-surface leading-none">
             Facturación y Planes
           </h1>
+          {orgs.length > 1 && (
+            <OrgSwitcher
+              orgs={orgs}
+              selectedOrgId={orgId ?? orgs[0].id}
+              onChange={handleOrgChange}
+            />
+          )}
           {!loading && (
             <span
               className={`ml-auto text-[10px] px-2 py-1 rounded-lg font-medium ${
@@ -366,6 +390,14 @@ export default function BillingPage() {
                   </p>
                 </div>
               </div>
+
+              {/* Trial retry banner — only when charge_failed */}
+              {trial?.status === "charge_failed" && (
+                <TrialRetryBanner
+                  trialId={trial.id}
+                  onSuccess={loadBillingData}
+                />
+              )}
 
               {/* Plan Comparison */}
               <h2 className="font-['Newsreader'] text-3xl font-bold text-on-surface mb-6">
@@ -481,6 +513,9 @@ export default function BillingPage() {
                   ))}
                 </div>
               </div>
+
+              {/* Invoice history */}
+              {orgId && <InvoiceHistorySection orgId={orgId} />}
 
               {/* Danger zone — contact support */}
               {orgId && currentPlan !== "free" && (
