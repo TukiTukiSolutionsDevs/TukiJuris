@@ -26,6 +26,8 @@ import { AppLayout } from "@/components/AppLayout";
 import { useAuth, useHasFeature } from "@/lib/auth/AuthContext";
 import { UpsellModal } from "@/components/UpsellModal";
 import { t } from "@/lib/i18n";
+import { toast } from "sonner";
+import { downloadBlob } from "@/lib/export/downloadBlob";
 import { MODEL_CATALOG, availableModelsForProviders, modelSupportsThinking } from "@/lib/models";
 
 
@@ -80,6 +82,7 @@ function ChatPage() {
   const hasFileUpload = useHasFeature("file_upload");
   const hasPdfExport = useHasFeature("pdf_export");
   const [upsellFeature, setUpsellFeature] = useState<string | null>(null);
+  const [isExportingConversation, setIsExportingConversation] = useState(false);
 
   // Beta BYOK-only: fetch available models strictly from the user's own keys.
   useEffect(() => {
@@ -353,6 +356,37 @@ function ChatPage() {
       // Silent fail — the button is a convenience feature
     }
   };
+
+  const handleExportConversation = useCallback(async () => {
+    if (!hasPdfExport) {
+      setUpsellFeature("pdf_export");
+      return;
+    }
+    if (!currentConversationId) return;
+
+    setIsExportingConversation(true);
+    try {
+      const res = await authFetch(`/api/export/conversation/pdf`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ conversation_id: currentConversationId }),
+      });
+
+      if (!res.ok) throw new Error("export failed");
+
+      const blob = await res.blob();
+      const contentDisposition = res.headers.get("Content-Disposition");
+      downloadBlob(blob, `conversacion-${currentConversationId}.pdf`, contentDisposition);
+      toast.success("Conversación exportada");
+    } catch {
+      if (process.env.NODE_ENV !== "production") {
+        console.error("Export conversation error");
+      }
+      toast.error("No se pudo exportar. Intentá nuevamente.");
+    } finally {
+      setIsExportingConversation(false);
+    }
+  }, [hasPdfExport, currentConversationId, authFetch]);
 
   const handleToggleBookmark = async (msg: Message) => {
     // Optimistic update
@@ -710,6 +744,9 @@ function ChatPage() {
           orchPhase={orchState.phase}
           orchStatusText={orchState.statusText}
           onShowOrchPanel={() => setShowOrchPanel(true)}
+          hasMessages={messages.length > 0}
+          isExportingConversation={isExportingConversation}
+          onExportConversation={handleExportConversation}
         />
 
         {/* No models at all — something is wrong */}

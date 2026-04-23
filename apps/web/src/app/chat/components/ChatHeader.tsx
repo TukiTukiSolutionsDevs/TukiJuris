@@ -1,6 +1,6 @@
 "use client";
 
-import { Bot, Brain, CheckCircle2 } from "lucide-react";
+import { Bot, Brain, CheckCircle2, Download, Loader2 } from "lucide-react";
 import { ShellUtilityActions } from "@/components/shell/ShellUtilityActions";
 import { LEGAL_AREAS } from "../constants";
 
@@ -13,6 +13,12 @@ interface ChatHeaderProps {
   /** Latest status text shown inside the mini-button */
   orchStatusText: string;
   onShowOrchPanel: () => void;
+  /** Whether the current conversation has at least one message */
+  hasMessages: boolean;
+  /** True while the export request is in-flight */
+  isExportingConversation: boolean;
+  /** Called when the user clicks "Exportar conversación" */
+  onExportConversation: () => void;
 }
 
 export function ChatHeader({
@@ -22,6 +28,9 @@ export function ChatHeader({
   orchPhase,
   orchStatusText,
   onShowOrchPanel,
+  hasMessages,
+  isExportingConversation,
+  onExportConversation,
 }: ChatHeaderProps) {
   const selectedAreaMeta = selectedArea
     ? LEGAL_AREAS.find((a) => a.id === selectedArea)
@@ -41,8 +50,32 @@ export function ChatHeader({
           </span>
         </div>
 
-        {/* Right: orchestrator mini-button (mobile only) + conv ID + utility actions */}
+        {/* Right: export button + orchestrator mini-button (mobile) + conv ID + utility actions */}
         <div className="flex items-center gap-2 shrink-0">
+          {/* Export conversation button — only shown when there are messages */}
+          {hasMessages && (
+            <button
+              type="button"
+              onClick={onExportConversation}
+              disabled={isExportingConversation || !currentConversationId}
+              aria-busy={isExportingConversation}
+              aria-label={
+                isExportingConversation
+                  ? "Exportando conversación..."
+                  : "Exportar conversación"
+              }
+              className="flex items-center gap-1.5 text-xs font-medium text-on-surface/60 hover:text-on-surface border border-outline-variant/30 hover:border-primary/30 rounded-lg px-3 py-1.5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Exportar conversación a PDF"
+            >
+              {isExportingConversation ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <Download className="w-3.5 h-3.5" />
+              )}
+              {isExportingConversation ? "Exportando..." : "Exportar conversación"}
+            </button>
+          )}
+
           {orchPhase !== "idle" && (
             <button
               type="button"

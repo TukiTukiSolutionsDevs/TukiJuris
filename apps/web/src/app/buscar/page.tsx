@@ -4,7 +4,10 @@ import { useState, useEffect, useRef, useCallback, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import { useAuth } from "@/lib/auth/AuthContext";
+import { useAuth, useHasFeature } from "@/lib/auth/AuthContext";
+import { UpsellModal } from "@/components/UpsellModal";
+import { toast } from "sonner";
+import { downloadBlob } from "@/lib/export/downloadBlob";
 import { AppLayout } from "@/components/AppLayout";
 import { InternalPageHeader } from "@/components/shell/InternalPageHeader";
 import { ShellUtilityActions } from "@/components/shell/ShellUtilityActions";
@@ -30,6 +33,8 @@ import {
   Lock,
   BadgeCheck,
   RotateCcw,
+  Download,
+  Loader2,
 } from "lucide-react";
 
 
@@ -227,6 +232,10 @@ function BuscarPage() {
   const [saveModalOpen, setSaveModalOpen] = useState(false);
   const [saveName, setSaveName] = useState("");
   const [saving, setSaving] = useState(false);
+
+  const hasPdfExport = useHasFeature("pdf_export");
+  const [isExportingSearch, setIsExportingSearch] = useState(false);
+  const [buscarUpsellFeature, setBuscarUpsellFeature] = useState<string | null>(null);
 
   const searchInputRef = useRef<HTMLInputElement>(null);
   const lastExecutedSearchKey = useRef<string | null>(null);
@@ -535,6 +544,40 @@ function BuscarPage() {
   };
 
   // ---------------------------------------------------------------------------
+  // Export search results
+  // ---------------------------------------------------------------------------
+
+  const handleExportSearch = useCallback(async () => {
+    if (!hasPdfExport) {
+      setBuscarUpsellFeature("pdf_export");
+      return;
+    }
+    if (!query.trim()) return;
+
+    setIsExportingSearch(true);
+    try {
+      const res = await authFetch(
+        `/api/export/search-results/pdf?q=${encodeURIComponent(query)}`,
+      );
+
+      if (!res.ok) throw new Error("export failed");
+
+      const blob = await res.blob();
+      const contentDisposition = res.headers.get("Content-Disposition");
+      const slugifiedQuery = query.trim().toLowerCase().replace(/\s+/g, "-").slice(0, 60);
+      downloadBlob(blob, `busqueda-${slugifiedQuery}.pdf`, contentDisposition);
+      toast.success("Resultados exportados");
+    } catch {
+      if (process.env.NODE_ENV !== "production") {
+        console.error("Export search error");
+      }
+      toast.error("No se pudo exportar. Intentá nuevamente.");
+    } finally {
+      setIsExportingSearch(false);
+    }
+  }, [hasPdfExport, query, authFetch]);
+
+  // ---------------------------------------------------------------------------
   // Render
   // ---------------------------------------------------------------------------
 
@@ -765,7 +808,7 @@ function BuscarPage() {
 
             {/* CENTER: Results */}
             <main className="flex-1 min-w-0">
-              {/* Toolbar: count + sort */}
+              {/* Toolbar: count + sort + export */}
               {(searched || loading) && (
                 <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
                   <p className="text-sm text-on-surface/40">
@@ -779,17 +822,42 @@ function BuscarPage() {
                       </>
                     )}
                   </p>
-                  <div className="relative">
-                    <select
-                      value={sort}
-                      onChange={(e) => handleSortChange(e.target.value)}
-                      className="bg-surface-container-low border border-outline-variant/30 rounded-lg pl-3 pr-8 py-1.5 text-sm text-on-surface focus:outline-none focus:border-primary appearance-none transition-colors"
-                    >
-                      {SORT_OPTIONS.map((s) => (
-                        <option key={s.id} value={s.id}>{s.name}</option>
-                      ))}
-                    </select>
-                    <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-on-surface/30 pointer-events-none" />
+                  <div className="flex items-center gap-2">
+                    {/* Export results button — only shown when there are results */}
+                    {searched && results.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={handleExportSearch}
+                        disabled={isExportingSearch}
+                        aria-busy={isExportingSearch}
+                        aria-label={
+                          isExportingSearch
+                            ? "Exportando resultados..."
+                            : "Exportar resultados"
+                        }
+                        className="flex items-center gap-1.5 text-xs font-medium text-on-surface/60 hover:text-on-surface border border-outline-variant/30 hover:border-primary/30 rounded-lg px-3 py-1.5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        title="Exportar resultados a PDF"
+                      >
+                        {isExportingSearch ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        ) : (
+                          <Download className="w-3.5 h-3.5" />
+                        )}
+                        {isExportingSearch ? "Exportando..." : "Exportar resultados"}
+                      </button>
+                    )}
+                    <div className="relative">
+                      <select
+                        value={sort}
+                        onChange={(e) => handleSortChange(e.target.value)}
+                        className="bg-surface-container-low border border-outline-variant/30 rounded-lg pl-3 pr-8 py-1.5 text-sm text-on-surface focus:outline-none focus:border-primary appearance-none transition-colors"
+                      >
+                        {SORT_OPTIONS.map((s) => (
+                          <option key={s.id} value={s.id}>{s.name}</option>
+                        ))}
+                      </select>
+                      <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-on-surface/30 pointer-events-none" />
+                    </div>
                   </div>
                 </div>
               )}
@@ -1108,6 +1176,14 @@ function BuscarPage() {
             </aside>
           </div>
         </div>
+
+        {/* Feature upsell modal — shown when user tries a gated export action */}
+        {buscarUpsellFeature && (
+          <UpsellModal
+            feature={buscarUpsellFeature}
+            onClose={() => setBuscarUpsellFeature(null)}
+          />
+        )}
 
         {/* Save search modal */}
         {saveModalOpen && (
