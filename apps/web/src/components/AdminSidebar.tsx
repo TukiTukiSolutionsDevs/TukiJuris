@@ -52,7 +52,7 @@ const NAV_DASHBOARD: NavItem[] = [
 const NAV_SISTEMA: NavItem[] = [
   { label: "Estado", href: "/status", icon: Activity },
   { label: "Analytics", href: "/analytics", icon: BarChart3 },
-  { label: "Notificaciones", href: "/configuracion", icon: Bell },
+  { label: "Notificaciones", href: "/notificaciones", icon: Bell },
 ];
 
 // ---------------------------------------------------------------------------

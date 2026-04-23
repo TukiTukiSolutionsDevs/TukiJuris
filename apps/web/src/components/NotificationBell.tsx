@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { authFetch } from "@/lib/auth/authClient";
 import {
@@ -290,10 +291,17 @@ export default function NotificationBell({ token }: NotificationBellProps) {
           </div>
 
           {/* Footer */}
-          <div className="px-4 py-2.5 border-t border-[#1A1A22] text-center">
+          <div className="px-4 py-2.5 border-t border-[#1A1A22] flex items-center justify-between">
             <p className="text-[10px] text-gray-600">
               {notifications.length > 0 ? `${notifications.length} notificaciones` : "Sin notificaciones pendientes"}
             </p>
+            <Link
+              href="/notificaciones"
+              className="text-[11px] text-amber-400 hover:text-amber-300 transition-colors"
+              onClick={() => setOpen(false)}
+            >
+              Ver todas
+            </Link>
           </div>
         </div>
       )}

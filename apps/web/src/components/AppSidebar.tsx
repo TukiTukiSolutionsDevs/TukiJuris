@@ -381,7 +381,7 @@ export function AppSidebar({
 
               {/* Notification bell */}
               <a
-                href="/configuracion"
+                href="/notificaciones"
                 title="Notificaciones"
                 className="relative p-2 rounded-lg text-on-surface/60 hover:text-primary hover:bg-surface-container-high transition"
               >
@@ -414,7 +414,7 @@ export function AppSidebar({
 
             {/* Notification bell */}
             <a
-              href="/configuracion"
+              href="/notificaciones"
               title="Notificaciones"
               className="relative p-2 rounded-lg text-on-surface/60 hover:text-primary hover:bg-surface-container-high transition"
             >

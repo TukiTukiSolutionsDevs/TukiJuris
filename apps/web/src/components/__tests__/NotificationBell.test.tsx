@@ -8,6 +8,7 @@
  */
 
 import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // ---------------------------------------------------------------------------
@@ -82,5 +83,42 @@ describe("NotificationBell — FRT-2: catch resets count to 0", () => {
     expect(
       screen.getByRole("button", { name: /notificaciones/i })
     ).toBeInTheDocument();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// NFT-13: NotificationBell dropdown shows "Ver todas" link
+// ---------------------------------------------------------------------------
+
+describe("NotificationBell — NFT-13: Ver todas link", () => {
+  it("shows 'Ver todas' link pointing to /notificaciones in dropdown footer", async () => {
+    // First call: fetchUnreadCount on mount
+    mockAuthFetch.mockResolvedValueOnce(
+      new Response(JSON.stringify({ count: 0 }), { status: 200 })
+    );
+    // Second call: fetchNotifications when dropdown opens
+    mockAuthFetch.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({ notifications: [], unread_count: 0, total: 0 }),
+        { status: 200 }
+      )
+    );
+
+    const user = userEvent.setup();
+    render(<NotificationBell token="test-token" />);
+
+    // Wait for mount effect (unread-count fetch)
+    await waitFor(() =>
+      expect(mockAuthFetch).toHaveBeenCalledWith(
+        expect.stringContaining("/api/notifications/unread-count")
+      )
+    );
+
+    // Open dropdown
+    await user.click(screen.getByRole("button", { name: /notificaciones/i }));
+
+    // "Ver todas" link must be present with correct href
+    const link = await screen.findByRole("link", { name: /ver todas/i });
+    expect(link).toHaveAttribute("href", "/notificaciones");
   });
 });
