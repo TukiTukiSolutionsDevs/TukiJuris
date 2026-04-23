@@ -32,6 +32,8 @@ import { AppLayout } from "@/components/AppLayout";
 import { InternalPageHeader } from "@/components/shell/InternalPageHeader";
 import { ShellUtilityActions } from "@/components/shell/ShellUtilityActions";
 import { MODEL_CATALOG } from "@/lib/models";
+import { DevApiKeysSection } from "@/components/configuracion/DevApiKeysSection";
+import { SessionsList } from "@/components/configuracion/SessionsList";
 
 interface UserProfile {
   id: string;
@@ -1052,6 +1054,8 @@ export default function ConfiguracionPage() {
                       </DisclosureCard>
                     )}
 
+                    <SessionsList />
+
                     {/* Logout all devices */}
                     <div className="flex items-center justify-between rounded-xl border border-[rgba(79,70,51,0.15)] bg-surface-container px-4 py-3.5">
                       <div>
@@ -1460,6 +1464,7 @@ export default function ConfiguracionPage() {
 
                 {/* --- API KEYS TAB --- */}
                 {activeTab === "apikeys" && (
+                  <div className="space-y-4">
                   <FeatureGate
                     feature="byok_enabled"
                     fallback={
@@ -1762,6 +1767,8 @@ export default function ConfiguracionPage() {
                     </SectionCard>
                   </div>
                   </FeatureGate>
+                  <DevApiKeysSection />
+                  </div>
                 )}
               </div>
             </div>
