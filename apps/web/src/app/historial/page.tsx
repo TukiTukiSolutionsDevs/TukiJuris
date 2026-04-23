@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
   History,
   Search,
@@ -30,6 +30,8 @@ import { useAuth } from "@/lib/auth/AuthContext";
 import { AppLayout } from "@/components/AppLayout";
 import { InternalPageHeader } from "@/components/shell/InternalPageHeader";
 import { ShellUtilityActions } from "@/components/shell/ShellUtilityActions";
+
+import { toast } from "sonner";
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://tukijuris.net.pe";
 
@@ -129,6 +131,16 @@ export default function HistorialPage() {
   const [showNewFolderForm, setShowNewFolderForm] = useState(false);
   const [newFolderName, setNewFolderName] = useState("");
   const [folderActionLoading, setFolderActionLoading] = useState<string | null>(null);
+
+  // Folder rename state
+  const [editingFolderId, setEditingFolderId] = useState<string | null>(null);
+  const [editingFolderName, setEditingFolderName] = useState("");
+  const [editingFolderOriginalName, setEditingFolderOriginalName] = useState("");
+  const [folderRenameSaving, setFolderRenameSaving] = useState(false);
+  const folderRenameInProgress = useRef(false);
+  // Guard: set by a pencil-button mousedown when another folder is already in edit
+  // mode. The input's blur handler checks this flag and cancels instead of committing.
+  const pendingRenameSwitch = useRef(false);
 
   // Tag dropdown per conversation
   const [tagDropdownConv, setTagDropdownConv] = useState<string | null>(null);
@@ -418,6 +430,65 @@ export default function HistorialPage() {
     fetchFolders();
   };
 
+  const handleRenameFolder = async () => {
+    if (!editingFolderId || folderRenameInProgress.current) return;
+    const folderId = editingFolderId;
+    const trimmed = editingFolderName.trim();
+    const originalName = editingFolderOriginalName;
+
+    if (!trimmed || trimmed === originalName) {
+      setEditingFolderId(null);
+      setEditingFolderName("");
+      return;
+    }
+
+    folderRenameInProgress.current = true;
+    setFolderRenameSaving(true);
+    setFolders((prev) =>
+      prev.map((f) => (f.id === folderId ? { ...f, name: trimmed } : f))
+    );
+
+    try {
+      const res = await authFetch(`/api/folders/${folderId}`, {
+        method: "PUT",
+        body: JSON.stringify({ name: trimmed }),
+      });
+
+      if (res.ok) {
+        toast.success("Carpeta renombrada");
+      } else if (res.status === 409) {
+        setFolders((prev) =>
+          prev.map((f) => (f.id === folderId ? { ...f, name: originalName } : f))
+        );
+        toast.error("Ya existe una carpeta con ese nombre");
+        if (process.env.NODE_ENV === "development") {
+          console.error(`[folders] PUT /api/folders/${folderId} → 409 Conflict`);
+        }
+      } else {
+        setFolders((prev) =>
+          prev.map((f) => (f.id === folderId ? { ...f, name: originalName } : f))
+        );
+        toast.error("No se pudo renombrar la carpeta");
+        if (process.env.NODE_ENV === "development") {
+          console.error(`[folders] PUT /api/folders/${folderId} → ${res.status}`);
+        }
+      }
+    } catch (err) {
+      setFolders((prev) =>
+        prev.map((f) => (f.id === folderId ? { ...f, name: originalName } : f))
+      );
+      toast.error("No se pudo renombrar la carpeta");
+      if (process.env.NODE_ENV === "development") {
+        console.error(`[folders] PUT /api/folders/${folderId} → network error`, err);
+      }
+    } finally {
+      folderRenameInProgress.current = false;
+      setFolderRenameSaving(false);
+      setEditingFolderId(null);
+      setEditingFolderName("");
+    }
+  };
+
   // ---------- Render ----------
 
   const tabItems: { key: ConversationStatus; label: string }[] = [
@@ -471,33 +542,91 @@ export default function HistorialPage() {
 
                   {folders.map((folder) => (
                     <div key={folder.id} className="group flex items-center gap-1 px-1">
-                      <button
-                        onClick={() =>
-                          setActiveFolderFilter(
-                            activeFolderFilter === folder.id ? null : folder.id
-                          )
-                        }
-                        className={`flex-1 flex items-center gap-2 px-2 py-1.5 rounded-lg text-sm transition-colors ${
-                          activeFolderFilter === folder.id
-                            ? "text-primary bg-primary/10"
-                            : "text-on-surface/60 hover:text-on-surface hover:bg-surface-container"
-                        }`}
-                      >
-                        <Folder className="w-3.5 h-3.5 shrink-0" />
-                        <span className="truncate flex-1 text-left">{folder.name}</span>
-                        <span className="text-xs text-on-surface/30">{folder.conversation_count}</span>
-                      </button>
-                      <button
-                        onClick={() => handleDeleteFolder(folder.id)}
-                        disabled={folderActionLoading === folder.id}
-                        className="opacity-0 group-hover:opacity-100 p-1 rounded text-on-surface/30 hover:text-[#ffb4ab] transition-all"
-                      >
-                        {folderActionLoading === folder.id ? (
-                          <Loader2 className="w-3 h-3 animate-spin" />
-                        ) : (
-                          <X className="w-3 h-3" />
-                        )}
-                      </button>
+                      {editingFolderId === folder.id ? (
+                        <div className="flex-1 px-2 py-1">
+                          <input
+                            autoFocus
+                            aria-label="Renombrar carpeta"
+                            type="text"
+                            value={editingFolderName}
+                            disabled={folderRenameSaving}
+                            onChange={(e) => setEditingFolderName(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") handleRenameFolder();
+                              if (e.key === "Escape") {
+                                setEditingFolderId(null);
+                                setEditingFolderName("");
+                              }
+                            }}
+                            onBlur={() => {
+                              // If a different folder's pencil was clicked, the
+                              // mousedown handler set this flag before blur fired.
+                              // Cancel instead of committing (FE-FOLDER-RENAME-UI-8).
+                              if (pendingRenameSwitch.current) {
+                                pendingRenameSwitch.current = false;
+                                setEditingFolderId(null);
+                                setEditingFolderName("");
+                                return;
+                              }
+                              if (!folderRenameSaving) handleRenameFolder();
+                            }}
+                            className="w-full bg-[#35343a] border border-transparent rounded px-2 py-0.5 text-xs text-on-surface focus:outline-none focus:border-primary transition-colors disabled:opacity-50"
+                          />
+                        </div>
+                      ) : (
+                        <>
+                          <button
+                            onClick={() =>
+                              setActiveFolderFilter(
+                                activeFolderFilter === folder.id ? null : folder.id
+                              )
+                            }
+                            className={`flex-1 flex items-center gap-2 px-2 py-1.5 rounded-lg text-sm transition-colors ${
+                              activeFolderFilter === folder.id
+                                ? "text-primary bg-primary/10"
+                                : "text-on-surface/60 hover:text-on-surface hover:bg-surface-container"
+                            }`}
+                          >
+                            <Folder className="w-3.5 h-3.5 shrink-0" />
+                            <span className="truncate flex-1 text-left">{folder.name}</span>
+                            <span className="text-xs text-on-surface/30">{folder.conversation_count}</span>
+                          </button>
+                          <button
+                            aria-label="Renombrar"
+                            onMouseDown={() => {
+                              // Fires before the active input's blur event.
+                              // Flag the blur handler to cancel (not commit) the
+                              // current edit when the user switches folders.
+                              if (
+                                editingFolderId !== null &&
+                                editingFolderId !== folder.id
+                              ) {
+                                pendingRenameSwitch.current = true;
+                              }
+                            }}
+                            onClick={() => {
+                              setEditingFolderId(folder.id);
+                              setEditingFolderName(folder.name);
+                              setEditingFolderOriginalName(folder.name);
+                            }}
+                            disabled={folderRenameSaving}
+                            className="opacity-0 group-hover:opacity-100 p-1 rounded text-on-surface/30 hover:text-on-surface transition-all"
+                          >
+                            <Edit2 className="w-3 h-3" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteFolder(folder.id)}
+                            disabled={folderActionLoading === folder.id}
+                            className="opacity-0 group-hover:opacity-100 p-1 rounded text-on-surface/30 hover:text-[#ffb4ab] transition-all"
+                          >
+                            {folderActionLoading === folder.id ? (
+                              <Loader2 className="w-3 h-3 animate-spin" />
+                            ) : (
+                              <X className="w-3 h-3" />
+                            )}
+                          </button>
+                        </>
+                      )}
                     </div>
                   ))}
 
