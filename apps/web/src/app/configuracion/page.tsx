@@ -31,7 +31,9 @@ import { FeatureGate } from "@/components/FeatureGate";
 import { AppLayout } from "@/components/AppLayout";
 import { InternalPageHeader } from "@/components/shell/InternalPageHeader";
 import { ShellUtilityActions } from "@/components/shell/ShellUtilityActions";
-import { MODEL_CATALOG } from "@/lib/models";
+import { toast } from "sonner";
+import { MODEL_CATALOG, type ModelDef } from "@/lib/models";
+import { PROVIDER_LABELS, labelForProvider } from "@/lib/llm/providerLabels";
 import { DevApiKeysSection } from "@/components/configuracion/DevApiKeysSection";
 import { SessionsList } from "@/components/configuracion/SessionsList";
 
@@ -67,15 +69,6 @@ const LEGAL_AREAS = [
 ];
 
 const PROVIDER_ORDER = ["google", "groq", "deepseek", "openai", "anthropic", "xai"] as const;
-
-const PROVIDER_LABELS: Record<string, { name: string; color: string; tone: string }> = {
-  google: { name: "Google (Gemini)", color: "text-blue-400", tone: "from-blue-500/12 to-blue-500/5 border-blue-500/20" },
-  groq: { name: "Groq", color: "text-orange-400", tone: "from-orange-500/12 to-orange-500/5 border-orange-500/20" },
-  deepseek: { name: "DeepSeek", color: "text-cyan-400", tone: "from-cyan-500/12 to-cyan-500/5 border-cyan-500/20" },
-  openai: { name: "OpenAI", color: "text-green-400", tone: "from-green-500/12 to-green-500/5 border-green-500/20" },
-  anthropic: { name: "Anthropic", color: "text-amber-400", tone: "from-amber-500/12 to-amber-500/5 border-amber-500/20" },
-  xai: { name: "xAI (Grok)", color: "text-purple-400", tone: "from-purple-500/12 to-purple-500/5 border-purple-500/20" },
-};
 
 const tierBadgeStyles: Record<string, string> = {
   free: "bg-[#1a3a2a] text-[#6ee7b7]",
@@ -215,6 +208,20 @@ interface MemoriesData {
   groups: MemoryGroup[];
   total: number;
   active_count: number;
+}
+
+interface MemorySettings {
+  memory_enabled: boolean;
+  auto_extract: boolean;
+}
+
+interface FreeModel {
+  id: string;
+  provider: string;
+  name: string;
+  description?: string;
+  tier: string;
+  available?: boolean;
 }
 
 const CATEGORY_COLORS: Record<string, string> = {
@@ -400,7 +407,9 @@ export default function ConfiguracionPage() {
   const [memoriesData, setMemoriesData] = useState<MemoriesData | null>(null);
   const [loadingMemories, setLoadingMemories] = useState(false);
   const [clearingMemories, setClearingMemories] = useState(false);
-  const [memoryEnabled, setMemoryEnabled] = useState(true);
+  const [memSettings, setMemSettings] = useState<MemorySettings | null>(null);
+  const [loadingMemSettings, setLoadingMemSettings] = useState(false);
+  const [savingMemSettings, setSavingMemSettings] = useState(false);
   const [isProfileInfoOpen, setIsProfileInfoOpen] = useState(true);
   const [isOrgInfoOpen, setIsOrgInfoOpen] = useState(true);
   const [isOrgDangerOpen, setIsOrgDangerOpen] = useState(false);
@@ -414,7 +423,9 @@ export default function ConfiguracionPage() {
   const [defaultArea, setDefaultArea] = useState("");
   const [selectedProvider, setSelectedProvider] = useState<string>(MODEL_CATALOG[0]?.provider || "google");
 
-  // LLM Keys state
+  // LLM Keys state + dynamic backend providers + free models (B2)
+  const [freeModels, setFreeModels] = useState<FreeModel[]>([]);
+  const [backendProviders, setBackendProviders] = useState<Array<{ id: string; name: string }>>([]);
   const [llmKeys, setLlmKeys] = useState<LLMKey[]>([]);
   const [loadingLlmKeys, setLoadingLlmKeys] = useState(false);
   const [addingProvider, setAddingProvider] = useState<string | null>(null);
@@ -434,7 +445,18 @@ export default function ConfiguracionPage() {
   const configuredProviders = new Set(llmKeys.map((key) => key.provider));
   const selectedModelMeta = MODEL_CATALOG.find((model) => model.id === defaultModel) || MODEL_CATALOG[0];
   const visibleProvider = PROVIDER_LABELS[selectedProvider] ? selectedProvider : selectedModelMeta?.provider || "google";
-  const visibleModels = MODEL_CATALOG.filter((model) => model.provider === visibleProvider);
+  // B2: derive rendered provider list from backend; fall back to hardcoded PROVIDER_ORDER
+  const renderedProviderIds: string[] = backendProviders.length > 0
+    ? backendProviders.map((p) => p.id)
+    : [...PROVIDER_ORDER];
+  // Combine catalog + backend free models (deduplicated by id)
+  const allModels: ModelDef[] = [
+    ...MODEL_CATALOG,
+    ...freeModels
+      .filter((m) => !MODEL_CATALOG.some((c) => c.id === m.id))
+      .map((m): ModelDef => ({ id: m.id, name: m.name, provider: m.provider, tier: (m.tier as ModelDef["tier"]) ?? "free", description: m.description })),
+  ];
+  const visibleModels = allModels.filter((model) => model.provider === visibleProvider);
 
   useEffect(() => {
     if (selectedModelMeta?.provider && selectedModelMeta.provider !== selectedProvider) {
@@ -616,6 +638,48 @@ export default function ConfiguracionPage() {
     }
   }, [authFetch]);
 
+  const loadMemSettings = useCallback(async () => {
+    setLoadingMemSettings(true);
+    try {
+      const res = await authFetch(`/api/memory/settings`, {});
+      if (res.ok) {
+        const data: MemorySettings = await res.json();
+        setMemSettings(data);
+      }
+      // Non-ok: leave memSettings null — toggles render with safe defaults
+    } catch {
+      // fail silently — settings are non-critical
+    } finally {
+      setLoadingMemSettings(false);
+    }
+  }, [authFetch]);
+
+  const handleToggleMemSetting = async (key: keyof MemorySettings, value: boolean) => {
+    if (!memSettings) return;
+    const snapshot = { ...memSettings };
+    setMemSettings({ ...snapshot, [key]: value }); // optimistic
+    setSavingMemSettings(true);
+    try {
+      const res = await authFetch(`/api/memory/settings`, {
+        method: "PUT",
+        body: JSON.stringify({ ...snapshot, [key]: value }),
+      });
+      if (res.ok) {
+        const updated: MemorySettings = await res.json();
+        setMemSettings(updated);
+        toast.success("Configuración actualizada");
+      } else {
+        setMemSettings(snapshot); // revert
+        toast.error("No se pudo actualizar la configuración");
+      }
+    } catch {
+      setMemSettings(snapshot); // revert
+      toast.error("No se pudo actualizar la configuración");
+    } finally {
+      setSavingMemSettings(false);
+    }
+  };
+
   const handleToggleMemory = async (memoryId: string, isActive: boolean) => {
     try {
       const res = await authFetch(`/api/memory/${memoryId}/toggle`, {
@@ -663,11 +727,28 @@ export default function ConfiguracionPage() {
   useEffect(() => {
     if (activeTab === "memoria") {
       loadMemories();
+      loadMemSettings();
     }
     if (activeTab === "apikeys" || activeTab === "preferencias") {
       loadLlmKeys();
+      // B2: fetch dynamic provider list + free models in parallel (best-effort, graceful fallback)
+      Promise.all([
+        authFetch(`/api/keys/llm-providers`, {}).then((r) => r.ok ? r.json() : []).catch(() => []),
+        authFetch(`/api/keys/free-models`, {}).then((r) => r.ok ? r.json() : null).catch(() => null),
+      ]).then(([providersData, freeModelsData]) => {
+        if (Array.isArray(providersData)) {
+          setBackendProviders(providersData as Array<{ id: string; name: string }>);
+        } else if (process.env.NODE_ENV !== "production") {
+          console.warn("[configuracion] /api/keys/llm-providers failed — using hardcoded PROVIDER_ORDER");
+        }
+        if (freeModelsData != null && Array.isArray((freeModelsData as { models?: unknown }).models)) {
+          setFreeModels((freeModelsData as { models: FreeModel[] }).models);
+        } else if (process.env.NODE_ENV !== "production") {
+          console.warn("[configuracion] /api/keys/free-models failed — free models unavailable");
+        }
+      }).catch(() => {});
     }
-  }, [activeTab, loadMemories, loadLlmKeys]);
+  }, [activeTab, loadMemories, loadLlmKeys, loadMemSettings, authFetch]);
 
   const handleAddKey = async (providerId: string) => {
     if (!newApiKey.trim()) return;
@@ -1195,10 +1276,13 @@ export default function ConfiguracionPage() {
                       />
 
                       <div className="mb-4 flex flex-wrap gap-2">
-                        {PROVIDER_ORDER.map((providerId) => {
-                          const info = PROVIDER_LABELS[providerId];
-                          const hasModels = MODEL_CATALOG.some((model) => model.provider === providerId);
-                          if (!info || !hasModels) return null;
+                        {renderedProviderIds.map((providerId) => {
+                          const backendEntry = backendProviders.find((p) => p.id === providerId);
+                          const label = labelForProvider(providerId, backendEntry?.name);
+                          const hasModels = backendProviders.length > 0 ||
+                            MODEL_CATALOG.some((model) => model.provider === providerId) ||
+                            freeModels.some((m) => m.provider === providerId);
+                          if (!hasModels) return null;
                           const isActive = visibleProvider === providerId;
                           const hasKey = configuredProviders.has(providerId);
 
@@ -1209,13 +1293,13 @@ export default function ConfiguracionPage() {
                               onClick={() => setSelectedProvider(providerId)}
                               className={`rounded-xl border px-3 py-2 text-left transition-all ${
                                 isActive
-                                  ? `bg-gradient-to-br ${info.tone} ${info.color}`
+                                  ? `bg-gradient-to-br ${label.tone ?? ""} ${label.color ?? "text-primary"}`
                                   : "border-[rgba(79,70,51,0.15)] bg-surface text-on-surface/55 hover:text-on-surface"
                               }`}
                             >
                               <div className="flex items-center gap-2">
                                 <span className={`h-2 w-2 rounded-full ${hasKey ? "bg-[#6ee7b7]" : "bg-on-surface/20"}`} />
-                                <span className="text-[11px] font-semibold uppercase tracking-[0.18em]">{info.name}</span>
+                                <span className="text-[11px] font-semibold uppercase tracking-[0.18em]">{label.displayName}</span>
                               </div>
                               <p className="mt-1 text-[10px] text-on-surface/40">{hasKey ? "Configurado" : "Sin API key"}</p>
                             </button>
@@ -1223,11 +1307,11 @@ export default function ConfiguracionPage() {
                         })}
                       </div>
 
-                      <div className="grid gap-3 lg:grid-cols-2">
-                        {visibleModels.map((model) => {
-                          const isSelected = defaultModel === model.id;
-                          const providerInfo = PROVIDER_LABELS[visibleProvider];
-                          const hasKey = configuredProviders.has(visibleProvider);
+                        <div className="grid gap-3 lg:grid-cols-2">
+                          {visibleModels.map((model) => {
+                            const isSelected = defaultModel === model.id;
+                            const providerInfo = labelForProvider(visibleProvider);
+                            const hasKey = configuredProviders.has(visibleProvider);
 
                           return (
                             <label
@@ -1249,7 +1333,7 @@ export default function ConfiguracionPage() {
                               />
                               <div className="flex items-start justify-between gap-3">
                                 <div>
-                                  <p className={`text-[10px] font-semibold uppercase tracking-[0.18em] ${providerInfo?.color || "text-primary"}`}>{providerInfo?.name}</p>
+                                  <p className={`text-[10px] font-semibold uppercase tracking-[0.18em] ${providerInfo.color ?? "text-primary"}`}>{providerInfo.displayName}</p>
                                   <h3 className="mt-2 text-xl font-semibold tracking-[-0.03em] text-on-surface">{model.name}</h3>
                                 </div>
                                 <div className={`flex h-5 w-5 items-center justify-center rounded-full border-2 ${isSelected ? "border-primary" : "border-on-surface/20"}`}>
@@ -1280,7 +1364,7 @@ export default function ConfiguracionPage() {
                         <div className="rounded-2xl border border-[rgba(79,70,51,0.15)] bg-surface px-4 py-4">
                           <p className="text-[10px] uppercase tracking-[0.18em] text-on-surface/40">Modelo elegido</p>
                           <p className="mt-2 text-lg font-semibold text-on-surface">{selectedModelMeta?.name || "Sin selección"}</p>
-                          <p className="mt-1 text-sm text-on-surface/50">{PROVIDER_LABELS[selectedModelMeta?.provider || visibleProvider]?.name || "Proveedor"}</p>
+                           <p className="mt-1 text-sm text-on-surface/50">{labelForProvider(selectedModelMeta?.provider ?? visibleProvider).displayName}</p>
                         </div>
 
                         <div>
@@ -1332,28 +1416,71 @@ export default function ConfiguracionPage() {
                 {activeTab === "memoria" && (
                   <div className="space-y-4">
                     <SectionCard className="py-4 sm:py-5">
-                      <div className="flex items-start justify-between gap-4">
-                        <div>
-                          <h2 className="font-['Newsreader'] text-lg font-bold text-on-surface flex items-center gap-2 mb-1">
-                            <Brain className="w-4 h-4 text-primary" />
-                            Memoria de Contexto
-                          </h2>
-                          <p className="text-xs text-on-surface/40 max-w-md">
-                            TukiJuris recordara informacion relevante sobre vos entre conversaciones
-                            para dar respuestas mas personalizadas.
-                          </p>
+                      {loadingMemSettings ? (
+                        <div className="flex items-center gap-2 py-2">
+                          <Loader2 className="w-4 h-4 text-primary animate-spin" />
+                          <span className="text-sm text-on-surface/40">Cargando configuración...</span>
                         </div>
-                        <button
-                          onClick={() => setMemoryEnabled(!memoryEnabled)}
-                          className={`shrink-0 w-10 h-6 rounded-full transition-colors relative ${
-                            memoryEnabled ? "bg-primary-container" : "bg-[#35343a]"
-                          }`}
-                        >
-                          <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white transition-transform shadow ${
-                            memoryEnabled ? "translate-x-4" : "translate-x-0.5"
-                          }`} />
-                        </button>
-                      </div>
+                      ) : (
+                        <div className="space-y-4">
+                          {/* Toggle: memory_enabled */}
+                          <div className="flex items-start justify-between gap-4">
+                            <div>
+                              <h2 className="font-['Newsreader'] text-lg font-bold text-on-surface flex items-center gap-2 mb-1">
+                                <Brain className="w-4 h-4 text-primary" />
+                                Memoria de Contexto
+                              </h2>
+                              <p className="text-xs text-on-surface/40 max-w-md">
+                                TukiJuris recordará información relevante sobre vos entre conversaciones
+                                para dar respuestas más personalizadas.
+                              </p>
+                            </div>
+                            <button
+                              onClick={() => void handleToggleMemSetting("memory_enabled", !(memSettings?.memory_enabled ?? true))}
+                              disabled={savingMemSettings}
+                              aria-label={(memSettings?.memory_enabled ?? true) ? "Desactivar memoria" : "Activar memoria"}
+                              data-testid="toggle-memory-enabled"
+                              className={`shrink-0 w-10 h-6 rounded-full transition-colors relative disabled:opacity-50 ${
+                                (memSettings?.memory_enabled ?? true) ? "bg-primary-container" : "bg-[#35343a]"
+                              }`}
+                            >
+                              <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white transition-transform shadow ${
+                                (memSettings?.memory_enabled ?? true) ? "translate-x-4" : "translate-x-0.5"
+                              }`} />
+                            </button>
+                          </div>
+
+                          {/* Toggle: auto_extract */}
+                          <div className="flex items-start justify-between gap-4">
+                            <div>
+                              <p className="text-sm font-medium text-on-surface mb-0.5">Extracción automática</p>
+                              <p className="text-xs text-on-surface/40 max-w-md">
+                                Extrae información relevante de tus consultas para personalizar futuras respuestas.
+                              </p>
+                            </div>
+                            <button
+                              onClick={() => void handleToggleMemSetting("auto_extract", !(memSettings?.auto_extract ?? true))}
+                              disabled={savingMemSettings || !(memSettings?.memory_enabled ?? true)}
+                              aria-label={(memSettings?.auto_extract ?? true) ? "Desactivar extracción" : "Activar extracción"}
+                              data-testid="toggle-auto-extraction"
+                              className={`shrink-0 w-10 h-6 rounded-full transition-colors relative disabled:opacity-50 ${
+                                (memSettings?.auto_extract ?? true) && (memSettings?.memory_enabled ?? true) ? "bg-primary-container" : "bg-[#35343a]"
+                              }`}
+                            >
+                              <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white transition-transform shadow ${
+                                (memSettings?.auto_extract ?? true) && (memSettings?.memory_enabled ?? true) ? "translate-x-4" : "translate-x-0.5"
+                              }`} />
+                            </button>
+                          </div>
+
+                          {/* Disabled notice */}
+                          {!(memSettings?.memory_enabled ?? true) && (
+                            <p className="text-xs text-on-surface/40 rounded-lg border border-[rgba(79,70,51,0.15)] bg-surface px-3 py-2.5" data-testid="memory-disabled-notice">
+                              La memoria está desactivada. Las nuevas conversaciones no serán recordadas.
+                            </p>
+                          )}
+                        </div>
+                      )}
 
                       {memoriesData && (
                         <div className="mt-4 flex items-center gap-4 text-xs text-on-surface/40">

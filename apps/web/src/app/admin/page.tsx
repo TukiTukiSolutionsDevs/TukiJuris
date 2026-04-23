@@ -182,15 +182,26 @@ export default function AdminPage() {
     setError("");
 
     try {
-      // Load all data in parallel
-      const [healthRes, usersRes, statsRes, queriesRes, kbHealthRes, readyRes] = await Promise.allSettled([
+      // Load all data in parallel; KB health uses two-step fallback (B4)
+      const [healthRes, usersRes, statsRes, queriesRes, readyRes] = await Promise.allSettled([
         authFetch("/api/health"),
         authFetch(`/api/admin/users?page=${usersPage}&per_page=${usersPerPage}`),
         authFetch("/api/admin/stats"),
         authFetch("/api/admin/activity"),
-        authFetch("/api/health/knowledge"),
         authFetch("/api/health/ready"),
       ]);
+
+      // Prefer /api/admin/knowledge; silently fall back to /api/health/knowledge on non-ok or 403
+      const kbHealthRes = await (async (): Promise<PromiseSettledResult<Response>> => {
+        try {
+          const primary = await authFetch("/api/admin/knowledge");
+          if (primary.ok) return { status: "fulfilled", value: primary };
+          const fallback = await authFetch("/api/health/knowledge");
+          return { status: "fulfilled", value: fallback };
+        } catch (e) {
+          return { status: "rejected", reason: e };
+        }
+      })();
 
       if (healthRes.status === "fulfilled" && healthRes.value.ok) {
         const hd: HealthData = await healthRes.value.json();
@@ -230,7 +241,16 @@ export default function AdminPage() {
       }
 
       if (kbHealthRes.status === "fulfilled" && kbHealthRes.value.ok) {
-        const kbd: KBHealthData = await kbHealthRes.value.json();
+        // Defensive mapping: normalize optional fields so renders never crash (B4)
+        const raw = await kbHealthRes.value.json() as Partial<KBHealthData>;
+        const kbd: KBHealthData = {
+          status: raw.status ?? "ok",
+          total_documents: raw.total_documents ?? 0,
+          total_chunks: raw.total_chunks ?? 0,
+          embedded_chunks: raw.embedded_chunks ?? 0,
+          embedding_coverage: raw.embedding_coverage ?? 0,
+          chunks_by_area: raw.chunks_by_area ?? {},
+        };
         setKbHealth(kbd);
         // Also populate kbStats from this more complete endpoint
         if (kbd.chunks_by_area) {

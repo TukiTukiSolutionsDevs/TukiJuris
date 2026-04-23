@@ -126,6 +126,11 @@ interface HistoryItem {
   created_at: string;
 }
 
+interface KBDocStats {
+  total_documents: number;
+  total_chunks: number;
+}
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -220,6 +225,10 @@ function BuscarPage() {
   const [allDocs, setAllDocs] = useState<Array<{id: string; title: string; document_type: string; document_number: string | null; legal_area: string; hierarchy: string | null; source: string}>>([]);
   const [docsLoading, setDocsLoading] = useState(true);
 
+  // KB stats strip — browse mode only; hidden on error
+  const [kbDocStats, setKbDocStats] = useState<KBDocStats | null>(null);
+  const [kbDocStatsLoading, setKbDocStatsLoading] = useState(false);
+
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const suggestTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -256,6 +265,18 @@ function BuscarPage() {
       .then((docs) => setAllDocs(docs))
       .catch(() => {})
       .finally(() => setDocsLoading(false));
+
+    // Load KB stats strip (M4: hide silently on error)
+    setKbDocStatsLoading(true);
+    authFetch(`/api/documents/stats`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data: KBDocStats | null) => {
+        if (data && typeof data.total_documents === "number") {
+          setKbDocStats(data);
+        }
+      })
+      .catch(() => {})
+      .finally(() => setKbDocStatsLoading(false));
   }, []);
 
   const fetchSavedSearches = async () => {
@@ -894,15 +915,24 @@ function BuscarPage() {
               {!searched && !loading && (
                 <div>
                   <div className="flex items-center justify-between mb-4">
-                    <p className="text-sm text-on-surface/60">
-                      <span className="text-on-surface font-medium">{
-                        (filters.areas.length > 0
-                          ? allDocs.filter((d) => filters.areas.includes(d.legal_area))
-                          : allDocs
-                        ).length
-                      }</span>{" "}
-                      documentos en la base de conocimiento
-                    </p>
+                    {/* KB stats strip — loading skeleton or pill; hidden entirely on error */}
+                    {kbDocStatsLoading ? (
+                      <div
+                        className="h-5 w-44 rounded-full bg-surface-container-low animate-pulse"
+                        data-testid="kb-stats-skeleton"
+                      />
+                    ) : kbDocStats ? (
+                      <span className="text-xs text-on-surface/40" data-testid="kb-stats-strip">
+                        <span className="text-on-surface font-medium">
+                          {kbDocStats.total_documents.toLocaleString()}
+                        </span>
+                        {" documentos · "}
+                        <span className="text-on-surface font-medium">
+                          {kbDocStats.total_chunks.toLocaleString()}
+                        </span>
+                        {" fragmentos"}
+                      </span>
+                    ) : null}
                   </div>
                   {docsLoading ? (
                     <div className="space-y-3">
