@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import {
   ShieldCheck,
   Loader2,
@@ -34,6 +35,8 @@ import { BYOKBadge } from "./_components/BYOKBadge";
 import { BYOKTable } from "./_components/BYOKTable";
 import { InvoicesTable } from "./_components/InvoicesTable";
 import { UsersPagination } from "./_components/UsersPagination";
+import { UserRolesPanel } from "./_components/UserRolesPanel";
+import { AuditLogTab } from "./_components/AuditLogTab";
 
 interface SystemStats {
   total_users: number;
@@ -167,8 +170,13 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [refreshing, setRefreshing] = useState(false);
+  const [expandedUserId, setExpandedUserId] = useState<string | null>(null);
 
-  const { authFetch, hasPermission } = useAuth();
+  const { authFetch, hasPermission, user: currentUser } = useAuth();
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+  const tab = searchParams.get("tab") ?? "resumen";
 
   const loadData = useCallback(async () => {
     setError("");
@@ -242,7 +250,7 @@ export default function AdminPage() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [usersPage, usersPerPage]);
+  }, [usersPage, usersPerPage, authFetch]);
 
   useEffect(() => {
     loadData();
@@ -276,6 +284,44 @@ export default function AdminPage() {
           }
         />
 
+        {/* ── Tab navigation ─────────────────────────────────────────── */}
+        <div
+          className="w-full px-4 lg:px-6 xl:px-8 pt-4"
+          role="tablist"
+          aria-label="Secciones del panel de administración"
+        >
+          <div className="flex gap-1 border-b border-on-surface/10">
+            {(["resumen", "auditoria"] as const).map((t) => (
+              <button
+                key={t}
+                role="tab"
+                aria-selected={tab === t}
+                onClick={() => {
+                  const params = new URLSearchParams(searchParams.toString());
+                  params.set("tab", t);
+                  router.replace(`${pathname}?${params.toString()}`);
+                }}
+                className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
+                  tab === t
+                    ? "border-primary text-primary"
+                    : "border-transparent text-on-surface/50 hover:text-on-surface"
+                }`}
+              >
+                {t === "resumen" ? "Resumen" : "Auditoría"}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* ── Auditoría tab ───────────────────────────────────────────── */}
+        {tab === "auditoria" && (
+          <div className="w-full px-4 py-6 sm:py-8 lg:px-6 xl:px-8">
+            <AuditLogTab />
+          </div>
+        )}
+
+        {/* ── Resumen tab ─────────────────────────────────────────────── */}
+        {tab === "resumen" && (
         <div className="w-full px-4 py-6 sm:py-8 lg:px-6 xl:px-8">
           {/* Error */}
           {error && (
@@ -657,12 +703,17 @@ export default function AdminPage() {
                             Último acceso
                           </th>
                           <th className="text-center text-[10px] uppercase tracking-[0.1em] text-on-surface/40 px-4 sm:px-5 py-3 hidden lg:table-cell">
-                            BYOK
+                             BYOK
                           </th>
+                          {hasPermission("roles:write") && (
+                            <th className="text-center text-[10px] uppercase tracking-[0.1em] text-on-surface/40 px-4 sm:px-5 py-3">
+                              Roles
+                            </th>
+                          )}
                         </tr>
                       </thead>
                       <tbody>
-                        {users.map((user, idx) => (
+                        {users.map((user, idx) => [
                           <tr
                             key={user.id}
                             className={`transition-colors hover:bg-surface-container-low ${
@@ -712,8 +763,38 @@ export default function AdminPage() {
                             <td className="px-5 py-3 text-center hidden lg:table-cell">
                               <BYOKBadge count={user.byok_count ?? 0} />
                             </td>
-                          </tr>
-                        ))}
+                            {hasPermission("roles:write") && (
+                              <td className="px-5 py-3 text-center">
+                                <button
+                                  onClick={() =>
+                                    setExpandedUserId(
+                                      expandedUserId === user.id ? null : user.id
+                                    )
+                                  }
+                                  className={`text-xs rounded-lg px-2 py-0.5 transition-colors ${
+                                    expandedUserId === user.id
+                                      ? "bg-primary/20 text-primary"
+                                      : "bg-surface text-on-surface/50 hover:text-primary"
+                                  }`}
+                                  data-testid={`roles-btn-${user.id}`}
+                                >
+                                  Roles
+                                </button>
+                              </td>
+                            )}
+                          </tr>,
+                          hasPermission("roles:write") && expandedUserId === user.id ? (
+                            <tr key={`${user.id}-roles`}>
+                              <td colSpan={8} className="p-0">
+                                <UserRolesPanel
+                                  userId={user.id}
+                                  currentUserId={currentUser?.id ?? ""}
+                                  canWrite={hasPermission("roles:write")}
+                                />
+                              </td>
+                            </tr>
+                          ) : null,
+                        ])}
                       </tbody>
                     </table>
                   </div>
@@ -840,6 +921,7 @@ export default function AdminPage() {
             </div>
           )}
         </div>
+        )}
       </div>
     </AdminLayout>
   );

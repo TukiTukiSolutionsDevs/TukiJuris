@@ -200,6 +200,64 @@ export async function fetchAdminTrials(
   return res.json() as Promise<TrialsAdminPage>;
 }
 
+// ---------------------------------------------------------------------------
+// RBAC role management
+// ---------------------------------------------------------------------------
+
+export interface RoleItem {
+  id: string;
+  name: string;
+  display_name: string;
+  description: string | null;
+  is_system: boolean;
+}
+
+export async function fetchUserRoles(
+  authFetch: AuthFetch,
+  userId: string,
+): Promise<RoleItem[]> {
+  const res = await authFetch(`/api/admin/users/${userId}/roles`);
+  if (!res.ok) {
+    const err = new Error(`fetchUserRoles failed: ${res.status}`);
+    (err as Error & { status: number }).status = res.status;
+    throw err;
+  }
+  return res.json() as Promise<RoleItem[]>;
+}
+
+export async function assignUserRole(
+  authFetch: AuthFetch,
+  userId: string,
+  roleId: string,
+): Promise<void> {
+  const res = await authFetch(`/api/admin/users/${userId}/roles`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ role_id: roleId }),
+  });
+  if (!res.ok) {
+    const err = new Error(`assignUserRole failed: ${res.status}`);
+    (err as Error & { status: number }).status = res.status;
+    throw err;
+  }
+}
+
+export async function revokeUserRole(
+  authFetch: AuthFetch,
+  userId: string,
+  roleId: string,
+): Promise<void> {
+  const res = await authFetch(`/api/admin/users/${userId}/roles/${roleId}`, {
+    method: "DELETE",
+  });
+  // 204 is the success status for DELETE
+  if (!res.ok && res.status !== 204) {
+    const err = new Error(`revokeUserRole failed: ${res.status}`);
+    (err as Error & { status: number }).status = res.status;
+    throw err;
+  }
+}
+
 export interface AdminTrialPatchBody {
   action: "force_downgrade" | "extend";
   reason: string;

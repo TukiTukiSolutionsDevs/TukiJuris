@@ -5,7 +5,7 @@ from __future__ import annotations
 import uuid
 from datetime import UTC, datetime
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import RateLimitBucket, RateLimitGuard, get_db, get_refresh_service
@@ -63,6 +63,33 @@ async def get_role_permissions(
     """Return all permissions for the given role."""
     service = _make_service(db, redis)
     return await service.get_role_permissions(role_id)
+
+
+@router.get(
+    "/users/{user_id}/roles",
+    response_model=list[RoleResponse],
+    summary="Get user roles",
+    description="Return all roles assigned to a user. Requires roles:read permission.",
+    responses={
+        200: {"description": "User's current roles"},
+        403: {"description": "Insufficient permissions"},
+        404: {"description": "User not found"},
+    },
+)
+async def get_user_roles(
+    user_id: uuid.UUID,
+    current_user: User = Depends(require_permission("roles:read")),
+    db: AsyncSession = Depends(get_db),
+    redis=Depends(get_redis),
+    _rl: None = Depends(RateLimitGuard(RateLimitBucket.READ)),
+) -> list[RoleResponse]:
+    """Return all roles currently assigned to the given user."""
+    target = await db.get(User, user_id)
+    if target is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    service = _make_service(db, redis)
+    roles = await service.get_user_roles(user_id)
+    return [RoleResponse.model_validate(r) for r in roles]
 
 
 @router.post(
