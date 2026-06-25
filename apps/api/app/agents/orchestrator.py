@@ -772,30 +772,37 @@ async def enrich_with_secondary(state: OrchestratorState) -> dict[str, Any]:
     2. The PRIMARY agent's response (so they can COMPLEMENT, not repeat)
     3. RAG context for their specific area
     """
-    # Cap at 2 secondaries. On free-tier / codex-proxy, each agent.process
-    # blocks ~30-60s with max_tokens=4096; running 4 in series turned each
-    # analysis turn into 2-3 minutes. 2 is the sweet spot between quality
-    # and latency, especially since the synthesis step still gets a strong
-    # primary + 2 perspectives.
-    SECONDARY_LIMIT = 2
-    target_areas = state.get("secondary_areas", [])[:SECONDARY_LIMIT]
+    # Up to 4 secondaries — more areas = richer multi-perspective analysis,
+    # which is the whole point of the orchestrator. We run them in parallel
+    # (asyncio.gather) so the total elapsed time is max(per-agent) instead
+    # of sum() — capping wouldn't add quality but would skip perspectives.
+    target_areas = state.get("secondary_areas", [])[:4]
+    total = len(target_areas)
+    started_at = asyncio.get_event_loop().time()
     await _emit("step", {
         "node": "enrich",
         "status": "start",
         "phase": "analysis",
         "secondary_areas": target_areas,
+        "total": total,
     })
     primary = state.get("primary_response", {})
     primary_text = primary.get("response", "") if isinstance(primary, dict) else str(primary)
     primary_agent_name = state.get("primary_agent_name", "especialista previo")
 
+    # Atomic-ish completion counter — asyncio is single-threaded so plain
+    # closure mutation is safe between awaits.
+    completed = 0
+
     async def _run_one(area: str) -> dict | None:
         """Run a single secondary agent end-to-end. Returns None on failure
         so the gather can keep the rest of the responses."""
+        nonlocal completed
         agent = get_agent(area)
         if not agent:
             return None
 
+        agent_start = asyncio.get_event_loop().time()
         enrichment_query = (
             f"Otro especialista ({primary_agent_name}) ya analizó esta consulta. "
             f"Tu rol es COMPLEMENTAR su análisis desde tu perspectiva como {agent.name}. "
@@ -817,8 +824,10 @@ async def enrich_with_secondary(state: OrchestratorState) -> dict[str, Any]:
         except Exception as exc:
             logger.warning(f"RAG retrieval failed for secondary area={area}: {exc}")
 
+        skipped = False
+        result: dict | None = None
         try:
-            return await agent.process(
+            result = await agent.process(
                 query=enrichment_query,
                 context=secondary_context,
                 model=state.get("model"),
@@ -826,18 +835,25 @@ async def enrich_with_secondary(state: OrchestratorState) -> dict[str, Any]:
                 user_api_key=state.get("user_api_key"),
             )
         except Exception as exc:
+            skipped = True
             logger.warning(
                 "Secondary agent failed (area=%s) — skipping. Reason: %s",
                 area, exc,
             )
-            await _emit("step", {
-                "node": "enrich",
-                "status": "done",
-                "phase": "analysis",
-                "area": area,
-                "skipped": True,
-            })
-            return None
+
+        completed += 1
+        took_ms = int((asyncio.get_event_loop().time() - agent_start) * 1000)
+        elapsed_ms = int((asyncio.get_event_loop().time() - started_at) * 1000)
+        await _emit("enrich_progress", {
+            "completed": completed,
+            "total": total,
+            "area": area,
+            "agent_name": agent.name,
+            "took_ms": took_ms,
+            "elapsed_ms": elapsed_ms,
+            "skipped": skipped,
+        })
+        return result
 
     # Run all secondaries in parallel. asyncio.gather waits for the slowest
     # so total elapsed time = max(per-agent), not sum().

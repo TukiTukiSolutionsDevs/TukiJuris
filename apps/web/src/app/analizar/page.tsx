@@ -94,6 +94,15 @@ interface LiveStep {
   meta?: Record<string, unknown>;
 }
 
+interface EnrichProgress {
+  completed: number;
+  total: number;
+  /** Cumulative wall-clock since the enrich step started. */
+  elapsed_ms: number;
+  /** Per-agent times reported as each finishes — used to project ETA. */
+  per_agent_ms: number[];
+}
+
 const NODE_LABELS: Record<string, { label: string; detail?: string }> = {
   // Intake phase
   intake_classify: { label: "Clasificando el área del derecho" },
@@ -128,11 +137,13 @@ function ReasoningPanel({
   phase,
   model,
   reasoningEffort,
+  enrichProgress,
 }: {
   liveSteps: LiveStep[];
   phase: CasePhase | undefined;
   model: string | null;
   reasoningEffort: string;
+  enrichProgress: EnrichProgress | null;
 }) {
   // Collapse start/done pairs into a single row per node. The last row in
   // 'start' state (no matching 'done') is the active step.
@@ -204,6 +215,34 @@ function ReasoningPanel({
               : isActive
                 ? "text-on-surface-strong"
                 : "text-on-surface-faint";
+            // Live progress sub-line for the parallel-enrich step.
+            // ETA: assumes all secondaries take roughly the same time as
+            // the average of those already finished. Since they run in
+            // parallel, remaining time = avg - (elapsed % avg) approximated
+            // as max(avg - elapsed, 0). Capped on the optimistic side.
+            let enrichSub: string | null = null;
+            if (
+              r.step.node === "enrich" &&
+              isActive &&
+              enrichProgress &&
+              enrichProgress.total > 0
+            ) {
+              const { completed, total, elapsed_ms, per_agent_ms } = enrichProgress;
+              const elapsedSec = Math.round(elapsed_ms / 1000);
+              if (completed >= total) {
+                enrichSub = `${completed}/${total} listos · ${elapsedSec}s`;
+              } else if (per_agent_ms.length > 0) {
+                const avgMs =
+                  per_agent_ms.reduce((a, b) => a + b, 0) / per_agent_ms.length;
+                const etaSec = Math.max(
+                  1,
+                  Math.round((avgMs - elapsed_ms) / 1000),
+                );
+                enrichSub = `${completed}/${total} listos · ~${etaSec}s restantes`;
+              } else {
+                enrichSub = `${completed}/${total} listos · ${elapsedSec}s transcurridos`;
+              }
+            }
             return (
               <li
                 key={r.key}
@@ -227,6 +266,11 @@ function ReasoningPanel({
                   </div>
                   {detail && (
                     <div className="mt-0.5 text-[10px] text-on-surface-subtle">{detail}</div>
+                  )}
+                  {enrichSub && (
+                    <div className="mt-0.5 font-mono text-[10.5px] text-primary/90">
+                      {enrichSub}
+                    </div>
                   )}
                 </div>
               </li>
@@ -522,6 +566,7 @@ export default function AnalizarPage() {
   const [loading, setLoading] = useState(false);
   const [liveSteps, setLiveSteps] = useState<LiveStep[]>([]);
   const [livePhase, setLivePhase] = useState<CasePhase | undefined>(undefined);
+  const [enrichProgress, setEnrichProgress] = useState<EnrichProgress | null>(null);
   // Optional model override via ?model=<id> in URL — useful for testing
   // upper-tier models on a free-tier account (or vice-versa).
   const [modelOverride, setModelOverride] = useState<string | null>(null);
@@ -631,6 +676,7 @@ export default function AnalizarPage() {
     setLoading(true);
     setLiveSteps([]);
     setLivePhase(undefined);
+    setEnrichProgress(null);
 
     setTurns((prev) => [...prev, { role: "user", content: message }]);
     setInput("");
@@ -707,6 +753,20 @@ export default function AnalizarPage() {
           } else if (eventType === "phase_start") {
             const ph = data.phase as CasePhase | undefined;
             if (ph) setLivePhase(ph);
+          } else if (eventType === "enrich_progress") {
+            const completed = Number(data.completed ?? 0);
+            const total = Number(data.total ?? 0);
+            const elapsedMs = Number(data.elapsed_ms ?? 0);
+            const tookMs = Number(data.took_ms ?? 0);
+            setEnrichProgress((prev) => ({
+              completed,
+              total,
+              elapsed_ms: elapsedMs,
+              per_agent_ms:
+                tookMs > 0
+                  ? [...(prev?.per_agent_ms ?? []), tookMs]
+                  : prev?.per_agent_ms ?? [],
+            }));
           } else if (eventType === "done") {
             donePayload = data as typeof donePayload;
           } else if (eventType === "error") {
@@ -958,6 +1018,7 @@ export default function AnalizarPage() {
                         phase={livePhase ?? caseState?.case_phase}
                         model={activeModel}
                         reasoningEffort={reasoningEffort}
+                        enrichProgress={enrichProgress}
                       />
                     </div>
                   </div>
