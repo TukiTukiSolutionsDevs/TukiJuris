@@ -69,6 +69,9 @@ class ConversationDetail(BaseModel):
     is_archived: bool
     is_shared: bool
     messages: list[MessageOut]
+    # Snapshot of the case-analysis state machine. Used by /analizar to
+    # resume a paused case from /historial. Null for legacy conversations.
+    case_state: dict | None = None
 
     model_config = {"from_attributes": True}
 
@@ -187,6 +190,7 @@ async def get_conversation(
             )
             for m in sorted(conv.messages, key=lambda x: x.created_at)
         ],
+        case_state=conv.case_state,
     )
 
 

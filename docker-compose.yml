@@ -10,6 +10,8 @@ services:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+      # Local mount for pg_dump backups (see scripts/backup_db.sh).
+      - ./data/db-backups:/backups
       - ./infrastructure/sql/init.sql:/docker-entrypoint-initdb.d/01-init.sql
       - ./infrastructure/sql/migration_002_multi_tenant.sql:/docker-entrypoint-initdb.d/02-multi-tenant.sql
       - ./infrastructure/sql/migration_003_api_keys.sql:/docker-entrypoint-initdb.d/03-api-keys.sql
@@ -60,6 +62,10 @@ services:
       - ./apps/api:/app
       - ./services:/app/services
       - api_uploads:/app/uploads
+      # Local Hugging Face cache for sentence-transformers / multilingual-e5-large.
+      # Persists the ~2.2 GB model to ./data/models/huggingface in the host so it
+      # survives container rebuilds AND can be migrated to another VPS via rsync.
+      - ./data/models/huggingface:/root/.cache/huggingface
     depends_on:
       db:
         condition: service_healthy

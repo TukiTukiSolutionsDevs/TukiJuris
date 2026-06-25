@@ -11,7 +11,9 @@ export const ROUTE_AFTER_LOGIN_ADMIN = '/admin';
 // The chat UI lives at `/` (see apps/web/src/app/page.tsx). The ./chat
 // subdirectory holds components, not a route. Do NOT change this to '/chat' —
 // that path returns 404 and causes a post-login redirect loop.
-export const ROUTE_AFTER_LOGIN_USER = '/';
+// Landing for authenticated regular users — the unified case-analysis flow.
+// Was `/` (legacy chat) prior to 2026-06-25.
+export const ROUTE_AFTER_LOGIN_USER = '/analizar';
 
 // ---------------------------------------------------------------------------
 // Auth entry points
@@ -19,6 +21,7 @@ export const ROUTE_AFTER_LOGIN_USER = '/';
 
 export const ROUTE_LOGIN = '/auth/login';
 export const ROUTE_LANDING = '/landing';
+export const ROUTE_RATE_LIMITED = '/auth/rate-limited';
 
 // ---------------------------------------------------------------------------
 // Public paths (middleware allowlist — no session required)
@@ -31,12 +34,19 @@ export const PUBLIC_PATHS = [
   '/auth/register',
   '/auth/callback',
   '/auth/reset-password',
+  '/auth/rate-limited',
   '/compartido',
   '/status',
   '/guia',
   '/docs',
   '/caracteristicas',
   '/precios',
+  '/privacy',
+  '/terms',
+  '/contacto',
+  '/libro-reclamaciones',
+  // Public corpus browser — free feature, no IA, no auth required.
+  '/buscar',
 ] as const;
 
 // ---------------------------------------------------------------------------
@@ -50,7 +60,7 @@ export const AUTH_BOUNCE_PATHS = ['/auth/login', '/auth/register'] as const;
 // client-side guards. Add any new admin-gated paths here.
 // ---------------------------------------------------------------------------
 
-export const ADMIN_PATH_PREFIXES = ['/admin', '/analytics'] as const;
+export const ADMIN_PATH_PREFIXES = ['/admin'] as const;
 
 // ---------------------------------------------------------------------------
 // Admin marker cookie — written by the backend on every login/refresh when

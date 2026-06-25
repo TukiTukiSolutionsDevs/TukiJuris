@@ -6,6 +6,7 @@ import {
   ADMIN_MARKER_COOKIE,
   ADMIN_MARKER_VALUE,
   ROUTE_LOGIN,
+  ROUTE_LANDING,
   ROUTE_AFTER_LOGIN_USER,
   SESSION_MARKER_COOKIE,
 } from '@/lib/constants';
@@ -89,11 +90,21 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // 3. Protected route without a session → redirect to login with returnTo.
+  // 3. Protected route without a session.
+  //    - Root `/` is the chat app (post-login home). An anonymous visitor
+  //      arriving at the apex URL should see the marketing landing page,
+  //      not a login form — that is the industry-standard UX for SaaS.
+  //    - Any deeper protected path bounces to /auth/login with returnTo so
+  //      the user lands back where they intended after authenticating.
   if (!hasSession) {
     const url = request.nextUrl.clone();
-    url.pathname = ROUTE_LOGIN;
-    url.search = `?returnTo=${encodeURIComponent(pathname + search)}`;
+    if (pathname === '/') {
+      url.pathname = ROUTE_LANDING;
+      url.search = '';
+    } else {
+      url.pathname = ROUTE_LOGIN;
+      url.search = `?returnTo=${encodeURIComponent(pathname + search)}`;
+    }
     return NextResponse.redirect(url);
   }
 
@@ -111,7 +122,31 @@ export function middleware(request: NextRequest) {
     }
   }
 
-  // 5. Protected route with a valid session (and admin check passed if needed).
+  // 5. Reverse gate — admins must NOT operate inside the client panel.
+  //    Privileged accounts (admin, super_admin, support, finance) live in
+  //    /admin and have a dedicated UI shell (AdminLayout + AdminSidebar).
+  //    Letting them navigate to client routes (`/`, `/historial`, `/buscar`,
+  //    `/analytics`, etc.) leaks the client sidebar into the admin
+  //    experience and creates inconsistent navigation.
+  //
+  //    We only reverse-gate when:
+  //      - tk_admin marker is present (user is admin per backend), AND
+  //      - the path is NOT an admin path (already handled above), AND
+  //      - the path is NOT a public path (admins can still see /landing,
+  //        /auth/*, /docs, /precios — same as anyone else)
+  //
+  //    This is a UX gate, not a security boundary. Backend RBAC remains
+  //    the source of truth on every API call.
+  const isAdminUser =
+    request.cookies.get(ADMIN_MARKER_COOKIE)?.value === ADMIN_MARKER_VALUE;
+  if (isAdminUser && !isAdminPath(pathname)) {
+    const url = request.nextUrl.clone();
+    url.pathname = '/admin';
+    url.search = '';
+    return NextResponse.redirect(url);
+  }
+
+  // 6. Protected route with a valid session (non-admin, non-admin path).
   return NextResponse.next();
 }
 

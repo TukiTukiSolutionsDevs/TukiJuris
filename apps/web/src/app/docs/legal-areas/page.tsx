@@ -21,9 +21,9 @@ export default function LegalAreasPage() {
   return (
     <>
       <PageHero
-        title="11 áreas del"
+        title="29 áreas del"
         highlight="Derecho Peruano"
-        subtitle="TukiJuris cubre las principales ramas del ordenamiento jurídico peruano. Cada área tiene su propio agente AI especializado, entrenado con legislación, jurisprudencia y doctrina específica."
+        subtitle="TukiJuris cubre todas las ramas vigentes del ordenamiento jurídico peruano — del núcleo clásico (civil, penal, laboral) a los regímenes sectoriales (ambiental, minero, financiero) y la nueva Ley de Contrataciones (Ley 32069). Más de 1500 documentos oficiales de SUNAT, MINAM, OEFA, OSCE, INDECOPI, SBS, SMV, SUNARP y 11 reguladores más, indexados con embeddings multilingües."
         illustration="/docs/illustrations/legal-areas.png"
       />
 
@@ -93,7 +93,7 @@ API_KEY = "ak_your_key_here"
 
 # Buscar solo en derecho laboral
 response = httpx.post(
-    "https://api.tukijuris.net.pe/api/v1/search",
+    "https://api.tukijuris.com.pe/api/v1/search",
     headers={"X-API-Key": API_KEY},
     json={
         "query": "despido arbitrario indemnización",
@@ -102,9 +102,9 @@ response = httpx.post(
     },
 )
 
-# Sin el filtro, busca en las 11 áreas simultáneamente
+# Sin el filtro, busca en las 29 áreas simultáneamente
 response_all = httpx.post(
-    "https://api.tukijuris.net.pe/api/v1/search",
+    "https://api.tukijuris.com.pe/api/v1/search",
     headers={"X-API-Key": API_KEY},
     json={
         "query": "prescripción de acciones",

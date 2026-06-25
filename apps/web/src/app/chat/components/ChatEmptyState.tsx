@@ -1,83 +1,86 @@
 "use client";
+
 import Image from "next/image";
-import { ChevronDown, ChevronUp } from "lucide-react";
-import { useState } from "react";
+import { ArrowUp, Scale, Shield, FileText, Building2 } from "lucide-react";
 import { QUERY_TEMPLATES, LEGAL_AREAS } from "../constants";
+
+// ---------------------------------------------------------------------------
+// ChatEmptyState — first landing when no messages yet. Notion-editorial style.
+// Uses `.c-empty` namespace.
+// ---------------------------------------------------------------------------
 
 interface ChatEmptyStateProps {
   selectedArea: string | null;
   onSelectTemplate: (query: string) => void;
 }
 
+// Fallback prompt meta icons per area. Chosen for visual variety.
+const AREA_ICON: Record<string, React.ComponentType<{ size?: number; strokeWidth?: number }>> = {
+  laboral: Scale,
+  penal: Shield,
+  civil: FileText,
+  tributario: Building2,
+  constitucional: Scale,
+  administrativo: Building2,
+  corporativo: Building2,
+  registral: FileText,
+  competencia: Shield,
+  compliance: Shield,
+  comercio_exterior: Building2,
+  general: Scale,
+};
+
 export function ChatEmptyState({ selectedArea, onSelectTemplate }: ChatEmptyStateProps) {
-  const [showAll, setShowAll] = useState(false);
-  const activeTemplates =
-    selectedArea && QUERY_TEMPLATES[selectedArea]
-      ? QUERY_TEMPLATES[selectedArea]
-      : QUERY_TEMPLATES.general;
-  const visibleTemplates = showAll ? activeTemplates : activeTemplates.slice(0, 4);
-  const selectedAreaMeta = selectedArea ? LEGAL_AREAS.find((a) => a.id === selectedArea) : null;
+  const activeArea = selectedArea && QUERY_TEMPLATES[selectedArea] ? selectedArea : "general";
+  const templates = (QUERY_TEMPLATES[activeArea] ?? QUERY_TEMPLATES.general).slice(0, 4);
+  const areaMeta = selectedArea ? LEGAL_AREAS.find((a) => a.id === selectedArea) : null;
 
   return (
-    <div className="mx-auto flex h-full w-full max-w-2xl flex-col items-center justify-center px-4 py-6 text-center">
-      {/* Hero compact */}
-      <div className="mb-5 flex flex-col items-center gap-2">
+    <div className="c-empty">
+      <div className="c-empty__mark">
         <Image
-          src="/brand/logo-full.png"
-          className="w-9 opacity-80 md:w-11"
-          alt="TukiJuris"
-          width={44}
-          height={44}
+          src="/brand/logo-icon.png"
+          alt=""
+          width={60}
+          height={60}
+          priority
         />
-        <h2 className="font-headline text-2xl font-bold tracking-tight text-on-surface md:text-3xl">
-          ¿En qué te ayudo?
-        </h2>
-        <p className="max-w-sm text-sm leading-relaxed text-on-surface/55">
-          Consultá normativa y orientación legal sobre derecho peruano al instante.
-        </p>
       </div>
 
-      {/* Section label */}
-      {selectedArea && selectedAreaMeta ? (
-        <p className="section-eyebrow mb-3 text-on-surface/35">
-          {selectedAreaMeta.name} — consultas frecuentes
-        </p>
-      ) : (
-        <p className="mb-3 text-[11px] font-medium uppercase tracking-[0.18em] text-on-surface/38">
-          Sugerencias rápidas
-        </p>
-      )}
+      <div className="c-empty__eyebrow">TukiJuris · Derecho peruano</div>
 
-      {/* Template cards — compact 2-col */}
-      <div className="grid w-full grid-cols-2 gap-2 sm:gap-3">
-        {visibleTemplates.map((tpl) => (
-          <button
-            key={tpl.label}
-            onClick={() => onSelectTemplate(tpl.query)}
-            title={tpl.query}
-            className="panel-base rounded-2xl border-2 border-outline-variant/30 px-3 py-2.5 text-left transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md"
-          >
-            <span className="block text-sm font-medium text-on-surface">{tpl.label}</span>
-          </button>
-        ))}
+      <h1 className="c-empty__h">¿En qué te ayudo hoy?</h1>
+
+      <p className="c-empty__lede">
+        Consultá normativa, jurisprudencia y doctrina peruana. Respuestas con
+        cita al artículo o casación exacta.
+      </p>
+
+      <div className="c-prompts" role="list">
+        {templates.map((tpl) => {
+          const Icon = AREA_ICON[activeArea] ?? Scale;
+          const areaLabel = areaMeta?.name ?? "General";
+          return (
+            <button
+              key={tpl.label}
+              type="button"
+              role="listitem"
+              className="c-prompt"
+              onClick={() => onSelectTemplate(tpl.query)}
+              title={tpl.query}
+            >
+              <span className="c-prompt__icon" aria-hidden="true">
+                <Icon size={16} strokeWidth={1.6} />
+              </span>
+              <span className="c-prompt__body">
+                <span className="c-prompt__label">{tpl.label}</span>
+                <span className="c-prompt__area">{areaLabel}</span>
+              </span>
+              <ArrowUp size={14} className="c-prompt__go" aria-hidden="true" />
+            </button>
+          );
+        })}
       </div>
-
-      {activeTemplates.length > 4 && (
-        <button
-          onClick={() => setShowAll((v) => !v)}
-          className="mt-3 flex items-center gap-1.5 text-xs text-on-surface/40 transition-colors hover:text-on-surface/70"
-        >
-          {showAll ? (
-            <>
-              <ChevronUp className="h-3.5 w-3.5" /> Ver menos
-            </>
-          ) : (
-            <>
-              <ChevronDown className="h-3.5 w-3.5" /> Ver más ({activeTemplates.length - 4})
-            </>
-          )}
-        </button>
-      )}
     </div>
   );
 }

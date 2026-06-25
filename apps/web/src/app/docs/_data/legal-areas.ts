@@ -1,17 +1,10 @@
-import {
-  BookOpen,
-  Shield,
-  Briefcase,
-  Landmark,
-  Building2,
-  ScrollText,
-  FileCheck,
-  Globe,
-  Lock,
-  BadgeCheck,
-  Gavel,
-} from "lucide-react";
+// Canonical legal areas, projected into the shape that `docs/legal-areas/page.tsx`
+// expects (uses `desc` instead of `description`).
+//
+// Single source of truth: `apps/web/src/app/chat/constants.ts`. Add new areas there.
+
 import type { LucideIcon } from "lucide-react";
+import { LEGAL_AREAS as CANONICAL_AREAS } from "@/app/chat/constants";
 
 export interface LegalArea {
   id: string;
@@ -21,16 +14,10 @@ export interface LegalArea {
   desc: string;
 }
 
-export const LEGAL_AREAS: LegalArea[] = [
-  { id: "civil", name: "Derecho Civil", icon: BookOpen, color: "text-blue-400", desc: "Código Civil, CPC, Familia, Sucesiones, Contratos, Obligaciones" },
-  { id: "penal", name: "Derecho Penal", icon: Shield, color: "text-red-400", desc: "Código Penal, NCPP, Ejecución Penal" },
-  { id: "laboral", name: "Derecho Laboral", icon: Briefcase, color: "text-green-400", desc: "LPCL, Seguridad y Salud, Relaciones Colectivas, CTS, Vacaciones" },
-  { id: "tributario", name: "Derecho Tributario", icon: Landmark, color: "text-yellow-400", desc: "Código Tributario, IR, IGV, SUNAT, Procedimientos" },
-  { id: "administrativo", name: "Derecho Administrativo", icon: Building2, color: "text-orange-400", desc: "LPAG, Contrataciones del Estado, Procedimientos Sancionadores" },
-  { id: "corporativo", name: "Derecho Corporativo", icon: ScrollText, color: "text-cyan-400", desc: "LGS, Mercado de Valores, MYPE, Fusiones y Adquisiciones" },
-  { id: "constitucional", name: "Derecho Constitucional", icon: Gavel, color: "text-purple-400", desc: "Constitución 1993, Procesos Constitucionales, TC" },
-  { id: "registral", name: "Derecho Registral", icon: FileCheck, color: "text-pink-400", desc: "SUNARP, Registros Públicos, Inscripciones" },
-  { id: "competencia", name: "Competencia y PI", icon: BadgeCheck, color: "text-primary", desc: "INDECOPI, Marcas, Patentes, Consumidor, Libre Competencia" },
-  { id: "compliance", name: "Compliance", icon: Lock, color: "text-indigo-400", desc: "Datos Personales, Anticorrupción, Lavado de Activos, LAFT" },
-  { id: "comercio_exterior", name: "Comercio Exterior", icon: Globe, color: "text-teal-400", desc: "Aduanas, TLC, MINCETUR, Regímenes Aduaneros" },
-];
+export const LEGAL_AREAS: LegalArea[] = CANONICAL_AREAS.map((a) => ({
+  id: a.id,
+  name: a.label,
+  icon: a.icon as LucideIcon,
+  color: a.color,
+  desc: a.description,
+}));

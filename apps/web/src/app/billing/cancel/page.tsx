@@ -38,10 +38,10 @@ export default function BillingCancelPage() {
           <p className="text-[#4B5563] text-xs mt-6">
             ¿Necesitás ayuda?{" "}
             <a
-              href="mailto:soporte@tukijuris.net.pe"
+              href="mailto:soporte@tukijuris.com.pe"
               className="text-primary-container/70 hover:text-primary-container transition-colors"
             >
-              soporte@tukijuris.net.pe
+              soporte@tukijuris.com.pe
             </a>
           </p>
         </div>

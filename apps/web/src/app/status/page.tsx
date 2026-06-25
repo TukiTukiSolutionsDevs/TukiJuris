@@ -15,7 +15,7 @@ import {
   TrendingUp,
 } from "lucide-react";
 import Link from "next/link";
-import { AppLayout } from "@/components/AppLayout";
+import { PublicLayout } from "@/components/public/PublicLayout";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -396,7 +396,7 @@ export default function StatusPage() {
   };
 
   return (
-    <AppLayout>
+    <PublicLayout>
       <div className="flex min-h-full flex-col text-on-surface">
         {/* Top bar */}
         <div
@@ -549,6 +549,6 @@ export default function StatusPage() {
           </p>
         </main>
       </div>
-    </AppLayout>
+    </PublicLayout>
   );
 }

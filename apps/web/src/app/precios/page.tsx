@@ -45,30 +45,41 @@ function Reveal({ children, className, delay }: { children: ReactNode; className
 ═══════════════════════════════════════════════ */
 
 const FREE_FEATURES = [
-  "10 consultas por semana", "Chat legal con 11 áreas", "Búsqueda normativa",
-  "Gemini Flash, Groq, DeepSeek incluidos", "2 consultas premium/semana",
+  "4 consultas normales + 1 de razonamiento por día",
+  "Chat legal con 29 áreas (1500+ documentos)",
+  "Búsqueda normativa",
+  "Modelos incluidos (Gemini Flash, Groq, DeepSeek)",
+  "Historial 7 días",
 ];
 
 const BASE_FEATURES = [
-  "Todo lo de Gratuito", "30 consultas por día", "Todos los modelos incluidos",
-  "3 consultas premium/día", "BYOK: sin límite con tu key", "Exportar PDF",
-  "Analytics avanzado", "Carpetas, Etiquetas, Marcadores", "Historial ilimitado", "Soporte prioritario",
+  "Todo lo del plan Gratuito",
+  "Consultas ilimitadas (normales y de razonamiento)",
+  "Todos los modelos disponibles",
+  "Exportar PDF",
+  "Analytics avanzado",
+  "Carpetas, Etiquetas y Marcadores",
+  "Historial ilimitado",
+  "Soporte prioritario",
 ];
 
 const ENTERPRISE_FEATURES = [
-  "Todo lo de Profesional", "100 consultas por día", "15 premium/día + 3 ultra/día",
-  "Multi-organización (5 usuarios)", "Integraciones API", "SDKs y webhooks",
-  "Soporte dedicado", "SSO empresarial",
+  "Todo lo del plan Profesional",
+  "Hasta 5 usuarios incluidos",
+  "Multi-organización",
+  "API access + SDKs + Webhooks",
+  "Soporte dedicado",
+  "Onboarding personalizado",
 ];
 
 const FAQ_ITEMS = [
-  { q: "¿TukiJuris reemplaza a un abogado?", a: "No. TukiJuris es una herramienta de consulta que potencia al profesional legal. Proporciona orientación basada en normativa peruana con citas verificables, pero no constituye asesoría legal formal." },
-  { q: "¿Qué es BYOK (Bring Your Own Key)?", a: "Podés conectar tu propia API key de OpenAI, Google o Anthropic para usar modelos como GPT-4, Gemini Pro o Claude. Así controlás tus costos directamente con el proveedor de IA." },
-  { q: "¿Qué áreas del derecho cubre?", a: "Cubrimos 11 áreas: Civil, Penal, Constitucional, Laboral, Administrativo, Tributario, Comercial, Ambiental, Familia, Procesal e Internacional. Cada área tiene un agente especializado." },
+  { q: "¿TukiJuris reemplaza a un abogado?", a: "No. TukiJuris es una herramienta de consulta que potencia al profesional legal. Proporciona orientación basada en normativa peruana con citas verificables, pero no constituye asesoría legal formal ni reemplaza la consulta con un abogado colegiado." },
+  { q: "¿Qué es BYOK (Bring Your Own Key) y cómo lo obtengo?", a: "BYOK significa usar tu propia API key de OpenAI, Google o Anthropic en lugar de los modelos gratuitos incluidos. Es una funcionalidad exclusiva del plan Empresarial — pensada para estudios o empresas con políticas de proveedor propio. No está disponible como autoservicio en los planes Pro o Estudio. Para evaluación de BYOK escribe a ventas@tukijuris.com." },
+  { q: "¿Qué áreas del derecho cubre?", a: "Cubrimos 29 áreas del derecho peruano: Civil, Familia, Penal, Procesal, Laboral, Seguridad Social, Tributario, Administrativo, Corporativo, Comercial, Constitucional, Registral, Notarial, Libre Competencia, Consumidor, Propiedad Intelectual, Datos Personales, Compliance, Comercio Exterior, Financiero, Mercado de Valores, Seguros, Ambiental, Minero, Hidrocarburos y Energía, Telecomunicaciones, Transporte, Salud y Contrataciones del Estado. Más de 1500 documentos oficiales indexados de SUNAT, MINAM, OEFA, OSCE, INDECOPI, SBS, SMV, SUNARP y otros 11 reguladores." },
   { q: "¿Cómo se verifican las respuestas?", a: "Cada respuesta incluye citas directas a artículos de ley, códigos y jurisprudencia peruana. Las fuentes provienen de nuestra base de conocimiento indexada con documentos oficiales." },
-  { q: "¿Puedo usar TukiJuris gratis?", a: "Sí. El plan gratuito incluye 10 consultas por semana con modelos incluidos (Gemini Flash, Groq, DeepSeek). No requiere tarjeta de crédito." },
-  { q: "¿Puedo cambiar de plan en cualquier momento?", a: "Sí. Podés actualizar o cambiar tu plan cuando quieras. Los cambios se aplican inmediatamente y se prorratea el cobro." },
-  { q: "¿Qué métodos de pago aceptan?", a: "Aceptamos tarjetas de crédito/débito (Visa, Mastercard, American Express) a través de Stripe. También transferencia bancaria para planes Enterprise." },
+  { q: "¿Puedo usar TukiJuris gratis?", a: "Sí. El plan gratuito incluye 4 consultas normales y 1 consulta de razonamiento por día con modelos incluidos. No requiere tarjeta de crédito." },
+  { q: "¿Puedo cambiar de plan en cualquier momento?", a: "Sí. Puedes actualizar o cambiar tu plan cuando quieras. Los cambios se aplican inmediatamente." },
+  { q: "¿Qué métodos de pago aceptan?", a: "Aceptamos tarjetas de crédito y débito (Visa, Mastercard, American Express) a través de Culqi, la pasarela líder en Perú. Para el plan Estudio se puede pactar transferencia bancaria." },
 ];
 
 /* ═══════════════════════════════════════════════
@@ -110,9 +121,17 @@ export default function PreciosPage() {
               Planes simples, <span className="text-primary">sin sorpresas</span>
             </h1>
             <p className="text-on-surface-variant text-base sm:text-lg max-w-2xl mx-auto">
-              Todos los planes funcionan con:{" "}
-              <span className="text-primary font-medium">tu propia clave de IA (BYOK)</span>.
-              Comenzá gratis y escalá cuando lo necesites.
+              Empieza gratis y escala cuando lo necesites. Todos los planes incluyen
+              modelos de IA — sin necesidad de configurar nada. Si tu estudio o empresa
+              requiere integración con su propia clave de proveedor (BYOK),{" "}
+              <a href="mailto:ventas@tukijuris.com" className="text-primary font-medium underline-offset-2 hover:underline">
+                contacta a ventas
+              </a>{" "}
+              para el plan Empresarial.
+            </p>
+            <p className="mt-4 text-xs text-on-surface/50 max-w-xl mx-auto">
+              Las respuestas de TukiJuris son orientativas — no constituyen asesoría legal
+              vinculante ni reemplazan la consulta con un abogado colegiado.
             </p>
           </Reveal>
         </div>
@@ -125,7 +144,7 @@ export default function PreciosPage() {
           <Reveal delay={0}>
             <div className="bg-surface-container-low hover:bg-surface-container rounded-xl p-6 sm:p-8 flex flex-col gap-5 border border-ghost-border card-lift gradient-border">
               <div>
-                <span className="text-on-surface/60 bg-on-surface/10 rounded-lg text-xs px-2 py-0.5 font-medium uppercase tracking-widest">BETA</span>
+                <span className="text-on-surface/60 bg-on-surface/10 rounded-lg text-xs px-2 py-0.5 font-medium uppercase tracking-widest">Gratis</span>
                 <h3 className="font-headline text-xl sm:text-2xl font-bold text-on-surface mt-3 mb-1">Gratuito</h3>
                 <div className="flex items-baseline gap-1">
                   <span className="font-headline text-3xl sm:text-4xl font-bold text-on-surface">S/ 0</span>
@@ -140,7 +159,7 @@ export default function PreciosPage() {
                 ))}
               </ul>
               <Link href="/auth/register" className="inline-flex items-center justify-center rounded-xl h-11 px-6 transition-all text-sm font-medium w-full text-on-surface hover:text-primary border border-ghost-border hover:border-primary/30 bg-surface-container-high/20 hover:bg-surface-container-high/40 hover:scale-[1.01]">
-                Comenzar Beta
+                Comenzar gratis
               </Link>
             </div>
           </Reveal>
@@ -189,7 +208,7 @@ export default function PreciosPage() {
                   </li>
                 ))}
               </ul>
-              <a href="mailto:ventas@tukijuris.net.pe?subject=Plan%20Estudio%20TukiJuris" className="inline-flex items-center justify-center rounded-xl h-11 px-6 transition-all text-sm font-medium w-full text-on-surface hover:text-primary border border-ghost-border hover:border-primary/30 bg-surface-container-high/20 hover:bg-surface-container-high/40 hover:scale-[1.01]">
+              <a href="mailto:ventas@tukijuris.com.pe?subject=Plan%20Estudio%20TukiJuris" className="inline-flex items-center justify-center rounded-xl h-11 px-6 transition-all text-sm font-medium w-full text-on-surface hover:text-primary border border-ghost-border hover:border-primary/30 bg-surface-container-high/20 hover:bg-surface-container-high/40 hover:scale-[1.01]">
                 Contactar ventas
               </a>
             </div>
@@ -230,16 +249,16 @@ export default function PreciosPage() {
                 </div>
                 <div className="flex flex-col items-center lg:items-start text-center lg:text-left">
                   <h2 className="font-headline text-2xl sm:text-3xl font-bold text-on-surface mb-4">
-                    Comenzá <span className="text-primary">gratis</span> hoy
+                    Empieza <span className="text-primary">gratis</span> hoy
                   </h2>
                   <p className="text-on-surface-variant text-base mb-8 max-w-xl">
-                    Sin tarjeta de crédito. 10 consultas por semana con modelos de IA incluidos.
+                    Sin tarjeta de crédito. 4 consultas normales + 1 de razonamiento por día con modelos de IA incluidos.
                   </p>
                   <Link
                     href="/auth/register"
                     className="inline-flex items-center gap-2 font-bold rounded-xl h-12 px-8 transition-all hover:opacity-90 text-on-primary gold-gradient hover:shadow-xl hover:shadow-primary/25 hover:scale-[1.02]"
                   >
-                    Comenzar Gratis <ArrowRight className="w-4 h-4" />
+                    Comenzar gratis <ArrowRight className="w-4 h-4" />
                   </Link>
                 </div>
               </div>

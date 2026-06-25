@@ -1,0 +1,61 @@
+# Ignore VCS, IDE, editor metadata
+.git
+.gitignore
+.gitattributes
+.github
+.vscode
+.idea
+.cursor
+.atl
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Local env files — must NEVER be baked into images
+.env
+.env.local
+.env.development
+.env.test
+.env.production
+.env.*.local
+
+# Build artefacts (rebuilt inside the image)
+**/node_modules
+**/.next
+**/dist
+**/build
+**/__pycache__
+**/*.pyc
+**/.pytest_cache
+**/.ruff_cache
+**/.mypy_cache
+**/.coverage
+**/htmlcov
+
+# Tests, fixtures, dev tooling (not needed at runtime)
+**/tests
+**/test
+**/*.test.ts
+**/*.test.tsx
+**/*.spec.ts
+**/__tests__
+tests/load
+sdks
+sdd
+openspec
+_pitch
+docs
+*.md
+!apps/api/README.md
+!apps/web/README.md
+
+# Backups / local data
+backups
+volumes
+*.dump
+*.sql.gz
+
+# IDE
+*.swp
+*~

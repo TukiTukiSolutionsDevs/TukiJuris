@@ -86,6 +86,69 @@ class RateLimiter:
             "reset_at": now + window_seconds,
         }
 
+    async def peek_rate_limit(
+        self,
+        key: str,
+        max_requests: int,
+        window_seconds: int,
+    ) -> dict:
+        """Check the sliding window WITHOUT recording a request.
+
+        Mirrors ``check_rate_limit`` but does not add a new entry to the
+        sorted set. Use this when the caller wants to gate access on the
+        current count and only record a hit on failure (e.g. a login
+        attempt: successful logins should not consume quota).
+
+        Fail-open: any Redis error returns ``allowed=True``.
+        """
+        try:
+            r = await self._get_redis()
+            now = int(time.time())
+            window_start = now - window_seconds
+            redis_key = f"ratelimit:{key}"
+            async with r.pipeline(transaction=True) as pipe:
+                pipe.zremrangebyscore(redis_key, 0, window_start)
+                pipe.zcard(redis_key)
+                results = await pipe.execute()
+            current_count: int = results[1]
+            allowed = current_count < max_requests
+            remaining = max(0, max_requests - current_count) if allowed else 0
+            return {
+                "allowed": allowed,
+                "remaining": remaining,
+                "limit": max_requests,
+                "reset_at": now + window_seconds,
+            }
+        except Exception as exc:
+            logger.warning("peek_rate_limit error (fail-open): %s", exc)
+            return {
+                "allowed": True,
+                "remaining": max_requests,
+                "limit": max_requests,
+                "reset_at": int(time.time()) + window_seconds,
+            }
+
+    async def record_hit(self, key: str, window_seconds: int) -> None:
+        """Record a hit against the sliding window without enforcing a limit.
+
+        Used to consume quota AFTER a failed operation (e.g. a failed login
+        attempt) while leaving successful operations untouched.
+
+        Fail-open: Redis errors are swallowed so audit/security code paths
+        never break the caller.
+        """
+        try:
+            r = await self._get_redis()
+            now = int(time.time())
+            redis_key = f"ratelimit:{key}"
+            member = f"{now}:{id(r)}"
+            async with r.pipeline(transaction=True) as pipe:
+                pipe.zadd(redis_key, {member: now})
+                pipe.expire(redis_key, window_seconds + 1)
+                await pipe.execute()
+        except Exception as exc:
+            logger.warning("record_hit error (swallowing): %s", exc)
+
     async def close(self) -> None:
         if self._redis is not None:
             await self._redis.close()

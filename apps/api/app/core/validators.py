@@ -98,6 +98,7 @@ def validate_email_format(email: str) -> tuple[bool, str]:
 
 _VALID_LEGAL_AREAS: frozenset[str] = frozenset(
     {
+        # — Núcleo (heredado) —
         "civil",
         "penal",
         "laboral",
@@ -109,6 +110,28 @@ _VALID_LEGAL_AREAS: frozenset[str] = frozenset(
         "competencia",
         "compliance",
         "comercio_exterior",
+        # — Procesales y privado extendido —
+        "procesal",
+        "familia",
+        "comercial",
+        "notarial",
+        "seguridad_social",
+        # — Económico-regulatorio —
+        "consumidor",
+        "propiedad_intelectual",
+        "datos_personales",
+        "financiero",
+        "mercado_valores",
+        "seguros",
+        # — Sectoriales —
+        "ambiental",
+        "minero",
+        "hidrocarburos",
+        "telecom",
+        "transporte",
+        "salud",
+        # — Estado —
+        "contrataciones_estado",
     }
 )
 

@@ -126,7 +126,7 @@ export default function AuthenticationPage() {
             content: (
               <CodeBlock
                 lang="bash"
-                code={`curl -X POST https://api.tukijuris.net.pe/api/auth/login \\
+                code={`curl -X POST https://api.tukijuris.com.pe/api/auth/login \\
   -H "Content-Type: application/json" \\
   -d '{"email": "dev@lawfirm.com", "password": "SecurePass123"}'
 
@@ -144,7 +144,7 @@ export default function AuthenticationPage() {
               <CodeBlock
                 lang="bash"
                 code={`# Usá el token en el header Authorization
-curl -X POST https://api.tukijuris.net.pe/api/v1/query \\
+curl -X POST https://api.tukijuris.com.pe/api/v1/query \\
   -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..." \\
   -H "Content-Type: application/json" \\
   -d '{"query": "Plazo de prescripción en derecho penal"}'`}
@@ -169,7 +169,7 @@ curl -X POST https://api.tukijuris.net.pe/api/v1/query \\
                 <CodeBlock
                   lang="bash"
                   code={`# Necesitás un JWT token para crear la key
-curl -X POST https://api.tukijuris.net.pe/api/keys/ \\
+curl -X POST https://api.tukijuris.com.pe/api/keys/ \\
   -H "Authorization: Bearer eyJ..." \\
   -H "Content-Type: application/json" \\
   -d '{
@@ -188,7 +188,7 @@ curl -X POST https://api.tukijuris.net.pe/api/keys/ \\
                 <CodeBlock
                   lang="bash"
                   code={`# Enviá la key en el header X-API-Key
-curl -X POST https://api.tukijuris.net.pe/api/v1/query \\
+curl -X POST https://api.tukijuris.com.pe/api/v1/query \\
   -H "X-API-Key: ak_7f3b2c..." \\
   -H "Content-Type: application/json" \\
   -d '{"query": "Requisitos para constituir una SRL"}'`}
@@ -201,11 +201,11 @@ curl -X POST https://api.tukijuris.net.pe/api/v1/query \\
                 <CodeBlock
                   lang="bash"
                   code={`# Listá tus keys activas
-curl https://api.tukijuris.net.pe/api/keys/ \\
+curl https://api.tukijuris.com.pe/api/keys/ \\
   -H "Authorization: Bearer eyJ..."
 
 # Revocá una key específica por ID
-curl -X DELETE https://api.tukijuris.net.pe/api/keys/key_id_123 \\
+curl -X DELETE https://api.tukijuris.com.pe/api/keys/key_id_123 \\
   -H "Authorization: Bearer eyJ..."
 
 # La key deja de funcionar inmediatamente`}

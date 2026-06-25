@@ -1,11 +1,11 @@
 #!/bin/bash
-# Initialize Let's Encrypt SSL certificates for tukijuris.net.pe
+# Initialize Let's Encrypt SSL certificates for tukijuris.com.pe
 # Run ONCE on the production server before starting nginx with HTTPS
 
 set -e
 
-DOMAIN="tukijuris.net.pe"
-EMAIL="admin@tukijuris.net.pe"  # Change to real email
+DOMAIN="tukijuris.com.pe"
+EMAIL="admin@tukijuris.com.pe"  # Change to real email
 STAGING=0  # Set to 1 for testing (avoids rate limits)
 
 echo "=== Requesting SSL certificate for $DOMAIN ==="

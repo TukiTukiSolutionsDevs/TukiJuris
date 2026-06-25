@@ -58,6 +58,20 @@ from services.ingestion.seeders.derecho_corporativo_ext import CORPORATIVO_EXT_A
 from services.ingestion.seeders.derecho_tributario_ext import TRIBUTARIO_EXT_ARTICLES
 from services.ingestion.seeders.derecho_laboral_ext import LABORAL_EXT_ARTICLES
 
+# --- Super-ingesta 2026-06-24: Nuevas áreas regulatorias ---
+from services.ingestion.seeders.consumidor import CONSUMIDOR_ARTICLES
+from services.ingestion.seeders.datos_personales import DATOS_PERSONALES_ARTICLES
+from services.ingestion.seeders.ambiental import AMBIENTAL_ARTICLES
+from services.ingestion.seeders.contrataciones_estado import CONTRATACIONES_ESTADO_ARTICLES
+# Super-ingesta 2026-06-25 — seven new specialized seeders
+from services.ingestion.seeders.familia import FAMILIA_ARTICLES
+from services.ingestion.seeders.seguridad_social import SEGURIDAD_SOCIAL_ARTICLES
+from services.ingestion.seeders.comercial import COMERCIAL_ARTICLES
+from services.ingestion.seeders.notarial import NOTARIAL_ARTICLES
+from services.ingestion.seeders.propiedad_intelectual import PROPIEDAD_INTELECTUAL_ARTICLES
+from services.ingestion.seeders.seguros import SEGUROS_ARTICLES
+from services.ingestion.seeders.minero import MINERO_ARTICLES
+
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
@@ -378,6 +392,160 @@ DOCUMENT_DEFINITIONS = [
         "source": "sunat.gob.pe",
         "source_url": "https://www.sunat.gob.pe",
         "articles": COMERCIO_EXT_ARTICLES_SPRINT12,
+    },
+
+    # =========================================================================
+    # CONSUMIDOR — Super-ingesta 2026-06-24
+    # =========================================================================
+    {
+        "title": "Ley 29571 — Código de Protección y Defensa del Consumidor",
+        "document_type": "ley",
+        "document_number": "Ley 29571 - Código de Consumo",
+        "legal_area": "consumidor",
+        "hierarchy": "legal",
+        "source": "spij",
+        "source_url": "https://spijweb.minjus.gob.pe",
+        "articles": CONSUMIDOR_ARTICLES,
+    },
+
+    # =========================================================================
+    # DATOS PERSONALES — Super-ingesta 2026-06-24
+    # =========================================================================
+    {
+        "title": "Ley 29733 — Ley de Protección de Datos Personales (LPDP)",
+        "document_type": "ley",
+        "document_number": "Ley 29733 - LPDP",
+        "legal_area": "datos_personales",
+        "hierarchy": "legal",
+        "source": "spij",
+        "source_url": "https://spijweb.minjus.gob.pe",
+        "articles": DATOS_PERSONALES_ARTICLES,
+    },
+
+    # =========================================================================
+    # AMBIENTAL — Super-ingesta 2026-06-24
+    # =========================================================================
+    {
+        "title": "Ley 28611 + SEIA + Recursos Hídricos + OEFA + GIRS",
+        "document_type": "compilacion",
+        "document_number": "AMBIENTAL-BASE-2026",
+        "legal_area": "ambiental",
+        "hierarchy": "legal",
+        "source": "minam.gob.pe",
+        "source_url": "https://www.gob.pe/minam",
+        "articles": AMBIENTAL_ARTICLES,
+    },
+
+    # =========================================================================
+    # CONTRATACIONES DEL ESTADO — Super-ingesta 2026-06-24
+    # =========================================================================
+    {
+        "title": "Ley 32069 — Ley General de Contrataciones Públicas (vigente 22-abr-2025)",
+        "document_type": "ley",
+        "document_number": "Ley 32069 - LGCP",
+        "legal_area": "contrataciones_estado",
+        "hierarchy": "legal",
+        "source": "oece.gob.pe",
+        "source_url": "https://www.gob.pe/oece",
+        "articles": CONTRATACIONES_ESTADO_ARTICLES,
+    },
+
+    # =========================================================================
+    # FAMILIA — Super-ingesta 2026-06-25
+    # =========================================================================
+    {
+        "title": "Código Civil Libro III + Ley 30364 + CNA — Derecho de Familia",
+        "document_type": "compilacion",
+        "document_number": "FAMILIA-BASE-2026",
+        "legal_area": "familia",
+        "hierarchy": "legal",
+        "source": "spij",
+        "source_url": "https://spijweb.minjus.gob.pe",
+        "articles": FAMILIA_ARTICLES,
+    },
+
+    # =========================================================================
+    # SEGURIDAD SOCIAL Y PENSIONES — Super-ingesta 2026-06-25
+    # =========================================================================
+    {
+        "title": "DL 19990 (SNP) + DL 25897 (SPP) + Ley 26790 (EsSalud) — Seguridad Social",
+        "document_type": "compilacion",
+        "document_number": "SEG-SOCIAL-BASE-2026",
+        "legal_area": "seguridad_social",
+        "hierarchy": "legal",
+        "source": "spij",
+        "source_url": "https://spijweb.minjus.gob.pe",
+        "articles": SEGURIDAD_SOCIAL_ARTICLES,
+    },
+
+    # =========================================================================
+    # COMERCIAL / MERCANTIL — Super-ingesta 2026-06-25
+    # =========================================================================
+    {
+        "title": "Ley 27287 (Títulos Valores) + Ley 27809 (Concursal) + DL 1071 (Arbitraje)",
+        "document_type": "compilacion",
+        "document_number": "COMERCIAL-BASE-2026",
+        "legal_area": "comercial",
+        "hierarchy": "legal",
+        "source": "spij",
+        "source_url": "https://spijweb.minjus.gob.pe",
+        "articles": COMERCIAL_ARTICLES,
+    },
+
+    # =========================================================================
+    # NOTARIAL — Super-ingesta 2026-06-25
+    # =========================================================================
+    {
+        "title": "DL 1049 — Ley del Notariado + Ley 26662 — Competencia notarial no contenciosa",
+        "document_type": "compilacion",
+        "document_number": "NOTARIAL-BASE-2026",
+        "legal_area": "notarial",
+        "hierarchy": "legal",
+        "source": "spij",
+        "source_url": "https://spijweb.minjus.gob.pe",
+        "articles": NOTARIAL_ARTICLES,
+    },
+
+    # =========================================================================
+    # PROPIEDAD INTELECTUAL — Super-ingesta 2026-06-25
+    # =========================================================================
+    {
+        "title": "DL 1075 + Decisión 486 (PI Industrial) + DL 822 + Decisión 351 (Autor)",
+        "document_type": "compilacion",
+        "document_number": "PI-BASE-2026",
+        "legal_area": "propiedad_intelectual",
+        "hierarchy": "legal",
+        "source": "indecopi.gob.pe",
+        "source_url": "https://www.gob.pe/indecopi",
+        "articles": PROPIEDAD_INTELECTUAL_ARTICLES,
+    },
+
+    # =========================================================================
+    # SEGUROS — Super-ingesta 2026-06-25
+    # =========================================================================
+    {
+        "title": "Ley 29946 — Ley del Contrato de Seguro + Ley 26702 Título VI + DS Microseguros",
+        "document_type": "compilacion",
+        "document_number": "SEGUROS-BASE-2026",
+        "legal_area": "seguros",
+        "hierarchy": "legal",
+        "source": "spij",
+        "source_url": "https://spijweb.minjus.gob.pe",
+        "articles": SEGUROS_ARTICLES,
+    },
+
+    # =========================================================================
+    # MINERO — Super-ingesta 2026-06-25
+    # =========================================================================
+    {
+        "title": "TUO LGM (DS 014-92-EM) + Ley 28090 Cierre + Ley 28271 PAM + DL 1336 MAPE + DL 1100",
+        "document_type": "compilacion",
+        "document_number": "MINERO-BASE-2026",
+        "legal_area": "minero",
+        "hierarchy": "legal",
+        "source": "minem.gob.pe",
+        "source_url": "https://www.gob.pe/minem",
+        "articles": MINERO_ARTICLES,
     },
 ]
 

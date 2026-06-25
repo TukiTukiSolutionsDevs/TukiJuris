@@ -35,8 +35,18 @@ class PlanService:
 
     @staticmethod
     def queries_day_for(plan_id: str) -> int:
-        """Return daily query cap for the plan. -1 means unlimited."""
+        """Return daily NORMAL query cap for the plan. -1 means unlimited."""
         return PlanService.get_config(plan_id).queries_day
+
+    @staticmethod
+    def reasoning_queries_day_for(plan_id: str) -> int:
+        """Return daily REASONING query cap for the plan. -1 means unlimited.
+
+        Reasoning queries are those routed to a thinking-capable model with a
+        non-null `reasoning_effort`. They consume from a separate pool so the
+        free tier can offer "1 reasoning + 4 normal" cleanly.
+        """
+        return PlanService.get_config(plan_id).reasoning_queries_day
 
     # ── Pricing ──────────────────────────────────────────────────────────
 

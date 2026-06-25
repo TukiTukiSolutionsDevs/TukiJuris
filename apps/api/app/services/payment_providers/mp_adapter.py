@@ -174,7 +174,7 @@ class MPAdapter:
                 "transaction_amount": amount_decimal,
                 "currency_id": currency,
             },
-            "back_url": "https://tukijuris.net.pe/billing",
+            "back_url": "https://tukijuris.com.pe/billing",
             "status": "paused",
         }
 

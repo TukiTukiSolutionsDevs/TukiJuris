@@ -55,27 +55,21 @@ interface Organization {
   role?: string;
 }
 
+import { LEGAL_AREAS as CANONICAL_AREAS } from "@/app/chat/constants";
+
+// Local LEGAL_AREAS = canonical list prefixed with "Sin preferencia" sentinel for the
+// "default area" <select> in this page. Uses the canonical `label` for full names.
 const LEGAL_AREAS = [
   { id: "", name: "Sin preferencia" },
-  { id: "civil", name: "Civil" },
-  { id: "penal", name: "Penal" },
-  { id: "laboral", name: "Laboral" },
-  { id: "tributario", name: "Tributario" },
-  { id: "constitucional", name: "Constitucional" },
-  { id: "administrativo", name: "Administrativo" },
-  { id: "corporativo", name: "Corporativo" },
-  { id: "registral", name: "Registral" },
-  { id: "comercio_exterior", name: "Comercio Exterior" },
-  { id: "compliance", name: "Compliance" },
-  { id: "competencia", name: "Competencia/PI" },
+  ...CANONICAL_AREAS.map((a) => ({ id: a.id, name: a.label })),
 ];
 
 const PROVIDER_ORDER = ["google", "groq", "deepseek", "openai", "anthropic", "xai"] as const;
 
 const tierBadgeStyles: Record<string, string> = {
-  free: "bg-[#1a3a2a] text-[#6ee7b7]",
+  free: "bg-status-success/15 text-status-success",
   standard: "bg-secondary-container text-secondary",
-  pro: "bg-[#2d1f4a] text-[#c4b5fd]",
+  pro: "bg-status-info/15 text-status-info",
 };
 
 const tierBadgeLabels: Record<string, string> = {
@@ -167,7 +161,7 @@ function DisclosureCard({
 }) {
   const cardTone =
     tone === "danger"
-      ? "border border-[#ffb4ab]/20 bg-[#93000a]/10"
+      ? "border border-status-danger/20 bg-status-danger/10"
       : "";
 
   return (
@@ -179,7 +173,7 @@ function DisclosureCard({
         aria-expanded={open}
       >
         <SectionHeader icon={icon} title={title} description={description} />
-        <div className="mb-5 shrink-0 rounded-xl border border-[rgba(79,70,51,0.15)] bg-surface px-3 py-2 text-on-surface/55">
+        <div className="mb-5 shrink-0 rounded-xl border border-outline-variant bg-surface px-3 py-2 text-on-surface/55">
           {open ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
         </div>
       </button>
@@ -187,7 +181,7 @@ function DisclosureCard({
       {open ? (
         children
       ) : (
-        <div className="-mt-1 rounded-2xl border border-dashed border-[rgba(79,70,51,0.15)] bg-surface/60 px-4 py-3 text-sm text-on-surface/45">
+        <div className="-mt-1 rounded-2xl border border-dashed border-outline-variant bg-surface/60 px-4 py-3 text-sm text-on-surface/45">
           Oculto para reducir ruido visual. Abrilo solo cuando lo necesites.
         </div>
       )}
@@ -243,10 +237,10 @@ interface UploadedDoc {
 
 const CATEGORY_COLORS: Record<string, string> = {
   profession: "bg-secondary-container text-secondary",
-  interests: "bg-[#1a3a2a] text-[#6ee7b7]",
-  cases: "bg-[#4f3700]/40 text-primary",
-  preferences: "bg-[#2d1f4a] text-[#c4b5fd]",
-  context: "bg-[#0f2d35] text-[#67e8f9]",
+  interests: "bg-status-success/15 text-status-success",
+  cases: "bg-[rgba(201,168,76,0.15)] text-primary",
+  preferences: "bg-status-info/15 text-status-info",
+  context: "bg-[rgba(103,232,249,0.10)] text-[#67E8F9]",
 };
 
 // LLM Key types
@@ -313,19 +307,19 @@ const LLM_PROVIDERS: LLMProvider[] = [
     id: "openai",
     name: "OpenAI",
     description: "GPT-5.4 con 1M contexto y 128K output. Flagship de OpenAI para análisis legal.",
-    accent: "text-green-400",
-    accentBg: "bg-green-500/10",
-    accentBorder: "border-green-500/30",
+    accent: "text-status-success",
+    accentBg: "bg-status-success/10",
+    accentBorder: "border-status-success/30",
     docsUrl: "https://platform.openai.com/api-keys",
     docsLabel: "platform.openai.com/api-keys",
-    models: ["GPT-5.4 Nano ($0.20/M)", "GPT-5.4 Mini ($0.75/M)", "GPT-5.4 ($2.50/M)"],
+    models: ["GPT-5.5 (más rápido)", "GPT-5.4 Mini ($0.75/M)", "GPT-5.4 ($2.50/M)"],
   },
   {
     id: "anthropic",
     name: "Anthropic (Claude)",
     description: "Claude 4.6 — el más inteligente del mercado. 1M contexto, excelente razonamiento legal.",
-    accent: "text-amber-400",
-    accentBg: "bg-amber-500/10",
+    accent: "text-status-warning",
+    accentBg: "bg-status-warning/10",
     accentBorder: "border-amber-500/30",
     docsUrl: "https://console.anthropic.com/settings/keys",
     docsLabel: "console.anthropic.com",
@@ -335,7 +329,7 @@ const LLM_PROVIDERS: LLMProvider[] = [
     id: "xai",
     name: "xAI (Grok)",
     description: "Grok 4.20 — menor alucinación del mercado. 2M contexto, reasoning + tool-calling.",
-    accent: "text-purple-400",
+    accent: "text-status-info",
     accentBg: "bg-purple-500/10",
     accentBorder: "border-purple-500/30",
     docsUrl: "https://console.x.ai",
@@ -443,6 +437,8 @@ export default function ConfiguracionPage() {
   // LLM Keys state + dynamic backend providers + free models (B2)
   const [freeModels, setFreeModels] = useState<FreeModel[]>([]);
   const [backendProviders, setBackendProviders] = useState<Array<{ id: string; name: string }>>([]);
+  const [platformProviderStatus, setPlatformProviderStatus] = useState<Record<string, boolean>>({});
+  const [platformProviderViaProxy, setPlatformProviderViaProxy] = useState<Record<string, boolean>>({});
   const [llmKeys, setLlmKeys] = useState<LLMKey[]>([]);
   const [loadingLlmKeys, setLoadingLlmKeys] = useState(false);
   const [addingProvider, setAddingProvider] = useState<string | null>(null);
@@ -587,7 +583,7 @@ export default function ConfiguracionPage() {
             try {
               await logout();
             } finally {
-              router.push("/login");
+              router.push("/auth/login");
             }
           }, 1500);
           return;
@@ -775,11 +771,12 @@ export default function ConfiguracionPage() {
     }
     if (activeTab === "apikeys" || activeTab === "preferencias") {
       loadLlmKeys();
-      // B2: fetch dynamic provider list + free models in parallel (best-effort, graceful fallback)
+      // B2: fetch dynamic provider list + free models + platform key status in parallel
       Promise.all([
         authFetch(`/api/keys/llm-providers`, {}).then((r) => r.ok ? r.json() : []).catch(() => []),
         authFetch(`/api/keys/free-models`, {}).then((r) => r.ok ? r.json() : null).catch(() => null),
-      ]).then(([providersData, freeModelsData]) => {
+        authFetch(`/api/keys/platform-status`, {}).then((r) => r.ok ? r.json() : null).catch(() => null),
+      ]).then(([providersData, freeModelsData, platformData]) => {
         if (Array.isArray(providersData)) {
           setBackendProviders(providersData as Array<{ id: string; name: string }>);
         } else if (process.env.NODE_ENV !== "production") {
@@ -789,6 +786,16 @@ export default function ConfiguracionPage() {
           setFreeModels((freeModelsData as { models: FreeModel[] }).models);
         } else if (process.env.NODE_ENV !== "production") {
           console.warn("[configuracion] /api/keys/free-models failed — free models unavailable");
+        }
+        if (platformData && Array.isArray((platformData as { providers?: unknown }).providers)) {
+          const active: Record<string, boolean> = {};
+          const proxy: Record<string, boolean> = {};
+          for (const p of (platformData as { providers: Array<{ id: string; active: boolean; via_proxy?: boolean }> }).providers) {
+            active[p.id] = p.active;
+            proxy[p.id] = !!p.via_proxy;
+          }
+          setPlatformProviderStatus(active);
+          setPlatformProviderViaProxy(proxy);
         }
       }).catch(() => {});
     }
@@ -927,13 +934,13 @@ export default function ConfiguracionPage() {
         <div className="w-full px-4 py-6 sm:py-8 lg:px-6 xl:px-8">
           {/* Alerts */}
           {error && (
-            <div className="flex items-center gap-3 bg-[#93000a]/20 border border-[#ffb4ab]/30 text-[#ffb4ab] rounded-lg px-4 py-3 mb-6 text-sm">
+            <div className="flex items-center gap-3 bg-status-danger/15 border border-status-danger/30 text-status-danger rounded-lg px-4 py-3 mb-6 text-sm">
               <AlertTriangle className="w-4 h-4 shrink-0" />
               <span>{error}</span>
             </div>
           )}
           {successMsg && (
-            <div className="flex items-center gap-3 bg-[#1a3a2a]/60 border border-[#6ee7b7]/20 text-[#6ee7b7] rounded-lg px-4 py-3 mb-6 text-sm">
+            <div className="flex items-center gap-3 bg-status-success/15 border border-status-success/25 text-status-success rounded-lg px-4 py-3 mb-6 text-sm">
               <CheckCircle2 className="w-4 h-4 shrink-0" />
               <span>{successMsg}</span>
             </div>
@@ -970,7 +977,7 @@ export default function ConfiguracionPage() {
                     })}
                     <button
                       onClick={handleLogout}
-                      className="flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm text-[#ffb4ab]/70 hover:text-[#ffb4ab] transition-colors whitespace-nowrap"
+                      className="flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm text-status-danger/70 hover:text-status-danger transition-colors whitespace-nowrap"
                     >
                       <LogOut className="w-4 h-4" />
                       Salir
@@ -986,7 +993,7 @@ export default function ConfiguracionPage() {
                       <button
                         key={tab.id}
                         onClick={() => { setActiveTab(tab.id); setError(""); }}
-                        className={`w-full flex items-center gap-3 px-4 py-3 text-sm transition-colors border-b border-[rgba(79,70,51,0.15)] last:border-0 ${
+                        className={`w-full flex items-center gap-3 px-4 py-3 text-sm transition-colors border-b border-outline-variant last:border-0 ${
                           activeTab === tab.id
                             ? "bg-primary/10 text-primary"
                             : "text-on-surface/60 hover:text-on-surface hover:bg-surface-container"
@@ -997,10 +1004,10 @@ export default function ConfiguracionPage() {
                       </button>
                     );
                   })}
-                  <div className="border-t border-[rgba(79,70,51,0.15)]">
+                  <div className="border-t border-outline-variant">
                     <button
                       onClick={handleLogout}
-                      className="w-full flex items-center gap-3 px-4 py-3 text-sm text-[#ffb4ab]/70 hover:text-[#ffb4ab] hover:bg-[#93000a]/20 transition-colors"
+                      className="w-full flex items-center gap-3 px-4 py-3 text-sm text-status-danger/70 hover:text-status-danger hover:bg-status-danger/15 transition-colors"
                     >
                       <LogOut className="w-4 h-4" />
                       Cerrar sesion
@@ -1022,11 +1029,11 @@ export default function ConfiguracionPage() {
                     </div>
                   </div>
                   <div className="flex flex-wrap items-center gap-2 xl:justify-end">
-                    <div className="rounded-xl border border-[rgba(79,70,51,0.15)] bg-surface px-3 py-1.5">
+                    <div className="rounded-xl border border-outline-variant bg-surface px-3 py-1.5">
                       <p className="text-[10px] uppercase tracking-[0.18em] text-on-surface/38">Cuenta</p>
                       <p className="mt-1 max-w-[18rem] truncate text-xs font-medium text-on-surface">{profile?.email || "Sin email"}</p>
                     </div>
-                    <div className="rounded-xl border border-[rgba(79,70,51,0.15)] bg-surface px-3 py-1.5">
+                    <div className="rounded-xl border border-outline-variant bg-surface px-3 py-1.5">
                       <p className="text-[10px] uppercase tracking-[0.18em] text-on-surface/38">Organización</p>
                       <p className="mt-1 max-w-[12rem] truncate text-xs font-medium text-on-surface">{org?.name || "Sin organización"}</p>
                     </div>
@@ -1034,7 +1041,7 @@ export default function ConfiguracionPage() {
                       <button
                         type="button"
                         onClick={() => setIsPasswordPanelOpen((prev) => !prev)}
-                        className="inline-flex items-center gap-2 rounded-xl border border-[rgba(79,70,51,0.15)] bg-surface px-3 py-2 text-xs font-medium text-on-surface/65 transition-colors hover:border-primary/30 hover:text-on-surface"
+                        className="inline-flex items-center gap-2 rounded-xl border border-outline-variant bg-surface px-3 py-2 text-xs font-medium text-on-surface/65 transition-colors hover:border-primary/30 hover:text-on-surface"
                       >
                         <Lock className="h-3.5 w-3.5 text-primary" />
                         {isPasswordPanelOpen ? "Ocultar clave" : "Cambiar clave"}
@@ -1186,7 +1193,7 @@ export default function ConfiguracionPage() {
                               <button
                                 type="button"
                                 onClick={() => setIsPasswordPanelOpen(false)}
-                                className="rounded-xl border border-[rgba(79,70,51,0.15)] px-4 py-2.5 text-sm text-on-surface/55 transition-colors hover:text-on-surface"
+                                className="rounded-xl border border-outline-variant px-4 py-2.5 text-sm text-on-surface/55 transition-colors hover:text-on-surface"
                               >
                                 Cancelar
                               </button>
@@ -1206,7 +1213,7 @@ export default function ConfiguracionPage() {
                     <SessionsList />
 
                     {/* Logout all devices */}
-                    <div className="flex items-center justify-between rounded-xl border border-[rgba(79,70,51,0.15)] bg-surface-container px-4 py-3.5">
+                    <div className="flex items-center justify-between rounded-xl border border-outline-variant bg-surface-container px-4 py-3.5">
                       <div>
                         <p className="text-sm font-medium text-on-surface">Cerrar sesion en todos los dispositivos</p>
                         <p className="mt-0.5 text-xs text-on-surface/50">Revoca todos los tokens activos e invalida todas las sesiones abiertas.</p>
@@ -1215,7 +1222,7 @@ export default function ConfiguracionPage() {
                         type="button"
                         onClick={handleLogoutAll}
                         data-testid="logout-all-btn"
-                        className="flex items-center gap-2 rounded-lg border border-[#ffb4ab]/30 px-4 py-2 text-sm text-[#ffb4ab] transition-colors hover:bg-[#93000a]/20"
+                        className="flex items-center gap-2 rounded-lg border border-status-danger/30 px-4 py-2 text-sm text-status-danger transition-colors hover:bg-status-danger/15"
                       >
                         <LogOut className="w-3.5 h-3.5" />
                         Cerrar todas las sesiones
@@ -1264,7 +1271,7 @@ export default function ConfiguracionPage() {
                             </div>
                             <div>
                               <label className={labelClassName}>Plan</label>
-                              <div className="flex items-center gap-2 rounded-xl border border-[rgba(79,70,51,0.15)] bg-surface px-3 py-3">
+                              <div className="flex items-center gap-2 rounded-xl border border-outline-variant bg-surface px-3 py-3">
                                 <span className="text-sm text-on-surface capitalize">{org.plan}</span>
                                 <Link href="/billing" className="text-xs text-primary hover:text-primary-container transition-colors">
                                   Cambiar plan
@@ -1285,7 +1292,7 @@ export default function ConfiguracionPage() {
                         </DisclosureCard>
 
                         <DisclosureCard
-                          icon={<AlertTriangle className="w-4 h-4 text-[#ffb4ab]" />}
+                          icon={<AlertTriangle className="w-4 h-4 text-status-danger" />}
                           title="Zona de peligro"
                           description="Acciones sensibles e irreversibles sobre tu organización."
                           open={isOrgDangerOpen}
@@ -1310,7 +1317,7 @@ export default function ConfiguracionPage() {
                                 setError(err instanceof Error ? err.message : "Error al abandonar la organización");
                               }
                             }}
-                            className="flex items-center gap-2 px-4 py-2.5 rounded-lg border border-[#ffb4ab]/30 text-[#ffb4ab] hover:bg-[#93000a]/20 text-sm transition-colors"
+                            className="flex items-center gap-2 px-4 py-2.5 rounded-lg border border-status-danger/30 text-status-danger hover:bg-status-danger/15 text-sm transition-colors"
                           >
                             <LogOut className="w-3.5 h-3.5" />
                             Abandonar organizacion
@@ -1351,25 +1358,35 @@ export default function ConfiguracionPage() {
                             MODEL_CATALOG.some((model) => model.provider === providerId) ||
                             freeModels.some((m) => m.provider === providerId);
                           if (!hasModels) return null;
-                          const isActive = visibleProvider === providerId;
-                          const hasKey = configuredProviders.has(providerId);
+                            const isActive = visibleProvider === providerId;
+                            const platformActive = !!platformProviderStatus[providerId];
 
                           return (
                             <button
                               key={providerId}
                               type="button"
-                              onClick={() => setSelectedProvider(providerId)}
+                              onClick={() => {
+                                setSelectedProvider(providerId);
+                                // Switch defaultModel to the first model of the new provider so
+                                // the model-meta sync effect doesn't pull us back to the previous one.
+                                const firstModel = allModels.find((m) => m.provider === providerId);
+                                if (firstModel) setDefaultModel(firstModel.id);
+                              }}
                               className={`rounded-xl border px-3 py-2 text-left transition-all ${
                                 isActive
                                   ? `bg-gradient-to-br ${label.tone ?? ""} ${label.color ?? "text-primary"}`
-                                  : "border-[rgba(79,70,51,0.15)] bg-surface text-on-surface/55 hover:text-on-surface"
+                                  : "border-outline-variant bg-surface text-on-surface/55 hover:text-on-surface"
                               }`}
                             >
                               <div className="flex items-center gap-2">
-                                <span className={`h-2 w-2 rounded-full ${hasKey ? "bg-[#6ee7b7]" : "bg-on-surface/20"}`} />
+                                <span className={`h-2 w-2 rounded-full ${platformActive ? "bg-status-success" : "bg-on-surface/20"}`} />
                                 <span className="text-[11px] font-semibold uppercase tracking-[0.18em]">{label.displayName}</span>
                               </div>
-                              <p className="mt-1 text-[10px] text-on-surface/40">{hasKey ? "Configurado" : "Sin API key"}</p>
+                              <p className="mt-1 text-[10px] text-on-surface/40">
+                                {platformActive
+                                  ? (platformProviderViaProxy[providerId] ? "Activo · vía proxy" : "Activo")
+                                  : "No disponible"}
+                              </p>
                             </button>
                           );
                         })}
@@ -1379,7 +1396,7 @@ export default function ConfiguracionPage() {
                           {visibleModels.map((model) => {
                             const isSelected = defaultModel === model.id;
                             const providerInfo = labelForProvider(visibleProvider);
-                            const hasKey = configuredProviders.has(visibleProvider);
+                            const platformActive = !!platformProviderStatus[visibleProvider];
 
                           return (
                             <label
@@ -1387,15 +1404,15 @@ export default function ConfiguracionPage() {
                               className={`group flex min-h-[10.5rem] cursor-pointer flex-col rounded-[1.25rem] border p-4 transition-all ${
                                 isSelected
                                   ? "border-primary/30 bg-primary/10 shadow-[0_10px_30px_rgba(201,169,97,0.08)]"
-                                  : "border-[rgba(79,70,51,0.15)] bg-surface hover:border-primary/20 hover:bg-surface-container"
-                              } ${!hasKey ? "opacity-35 cursor-not-allowed" : ""}`}
+                                  : "border-outline-variant bg-surface hover:border-primary/20 hover:bg-surface-container"
+                              } ${!platformActive ? "opacity-35 cursor-not-allowed" : ""}`}
                             >
                               <input
                                 type="radio"
                                 name="defaultModel"
                                 value={model.id}
                                 checked={isSelected}
-                                disabled={!hasKey}
+                                disabled={!platformActive}
                                 onChange={(e) => setDefaultModel(e.target.value)}
                                 className="sr-only"
                               />
@@ -1413,7 +1430,11 @@ export default function ConfiguracionPage() {
                                 <span className={`rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.16em] ${tierBadgeStyles[model.tier] || "bg-surface-container text-on-surface/55"}`}>
                                   {tierBadgeLabels[model.tier] || model.tier}
                                 </span>
-                                <span className="text-[11px] text-on-surface/38">{hasKey ? "Listo para usar" : "Conectá una API key"}</span>
+                                <span className="text-[11px] text-on-surface/38">
+                                  {platformActive
+                                    ? (platformProviderViaProxy[visibleProvider] ? "Disponible · vía proxy" : "Disponible")
+                                    : "Provider no activo"}
+                                </span>
                               </div>
                             </label>
                           );
@@ -1429,7 +1450,7 @@ export default function ConfiguracionPage() {
                       />
 
                       <form onSubmit={handleSavePreferences} className="flex h-full flex-col gap-4">
-                        <div className="rounded-2xl border border-[rgba(79,70,51,0.15)] bg-surface px-4 py-4">
+                        <div className="rounded-2xl border border-outline-variant bg-surface px-4 py-4">
                           <p className="text-[10px] uppercase tracking-[0.18em] text-on-surface/40">Modelo elegido</p>
                           <p className="mt-2 text-lg font-semibold text-on-surface">{selectedModelMeta?.name || "Sin selección"}</p>
                            <p className="mt-1 text-sm text-on-surface/50">{labelForProvider(selectedModelMeta?.provider ?? visibleProvider).displayName}</p>
@@ -1449,9 +1470,9 @@ export default function ConfiguracionPage() {
                           <p className="mt-1 text-[10px] text-on-surface/30">Las consultas nuevas se abrirán con esta orientación por defecto.</p>
                         </div>
 
-                        <div className="rounded-xl border border-[rgba(79,70,51,0.15)] bg-surface px-3 py-3">
+                        <div className="rounded-xl border border-outline-variant bg-surface px-3 py-3">
                           <div className="flex items-center gap-3">
-                            <div className="h-4 w-4 rounded-full border border-[rgba(79,70,51,0.15)] bg-[#0e0e14]" />
+                            <div className="h-4 w-4 rounded-full border border-outline-variant bg-surface-dim" />
                             <div>
                               <p className="text-sm font-medium text-on-surface">Tema activo</p>
                               <p className="text-[11px] text-on-surface/40">Modo oscuro permanente</p>
@@ -1459,10 +1480,10 @@ export default function ConfiguracionPage() {
                           </div>
                         </div>
 
-                        <div className="rounded-xl border border-dashed border-[rgba(79,70,51,0.15)] px-3 py-3 text-sm leading-6 text-on-surface/50">
-                          {configuredProviders.has(visibleProvider)
-                            ? "Tu proveedor seleccionado ya tiene credenciales activas. Solo te falta confirmar la combinación que querés usar por defecto."
-                            : "Este proveedor todavía no tiene API key conectada. Podés configurarla desde la pestaña API Keys."}
+                        <div className="rounded-xl border border-dashed border-outline-variant px-3 py-3 text-sm leading-6 text-on-surface/50">
+                          {platformProviderStatus[visibleProvider]
+                            ? "Este proveedor está activo en la plataforma. Confirmá el modelo que querés usar por defecto."
+                            : "Este proveedor no está disponible por ahora. Elegí otro o consultá nuestro plan Empresarial para BYOK."}
                         </div>
 
                         <div className="mt-auto flex items-center justify-between gap-3 pt-2">
@@ -1509,7 +1530,7 @@ export default function ConfiguracionPage() {
                               aria-label={(memSettings?.memory_enabled ?? true) ? "Desactivar memoria" : "Activar memoria"}
                               data-testid="toggle-memory-enabled"
                               className={`shrink-0 w-10 h-6 rounded-full transition-colors relative disabled:opacity-50 ${
-                                (memSettings?.memory_enabled ?? true) ? "bg-primary-container" : "bg-[#35343a]"
+                                (memSettings?.memory_enabled ?? true) ? "bg-primary-container" : "bg-surface-container"
                               }`}
                             >
                               <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white transition-transform shadow ${
@@ -1532,7 +1553,7 @@ export default function ConfiguracionPage() {
                               aria-label={(memSettings?.auto_extract ?? true) ? "Desactivar extracción" : "Activar extracción"}
                               data-testid="toggle-auto-extraction"
                               className={`shrink-0 w-10 h-6 rounded-full transition-colors relative disabled:opacity-50 ${
-                                (memSettings?.auto_extract ?? true) && (memSettings?.memory_enabled ?? true) ? "bg-primary-container" : "bg-[#35343a]"
+                                (memSettings?.auto_extract ?? true) && (memSettings?.memory_enabled ?? true) ? "bg-primary-container" : "bg-surface-container"
                               }`}
                             >
                               <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white transition-transform shadow ${
@@ -1543,7 +1564,7 @@ export default function ConfiguracionPage() {
 
                           {/* Disabled notice */}
                           {!(memSettings?.memory_enabled ?? true) && (
-                            <p className="text-xs text-on-surface/40 rounded-lg border border-[rgba(79,70,51,0.15)] bg-surface px-3 py-2.5" data-testid="memory-disabled-notice">
+                            <p className="text-xs text-on-surface/40 rounded-lg border border-outline-variant bg-surface px-3 py-2.5" data-testid="memory-disabled-notice">
                               La memoria está desactivada. Las nuevas conversaciones no serán recordadas.
                             </p>
                           )}
@@ -1573,7 +1594,7 @@ export default function ConfiguracionPage() {
                           <span className="text-sm text-on-surface/40">Cargando memorias...</span>
                         </div>
                       ) : !memoriesData || memoriesData.total === 0 ? (
-                        <div className="flex flex-col items-center justify-center py-10 text-center border border-dashed border-[rgba(79,70,51,0.15)] rounded-lg">
+                        <div className="flex flex-col items-center justify-center py-10 text-center border border-dashed border-outline-variant rounded-lg">
                           <Brain className="w-10 h-10 text-on-surface/10 mb-3" />
                           <p className="text-sm font-medium text-on-surface/40 mb-1">
                             Sin memorias todavia
@@ -1589,7 +1610,7 @@ export default function ConfiguracionPage() {
                               <div className="flex items-center gap-2 mb-2">
                                 <span
                                   className={`text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded ${
-                                    CATEGORY_COLORS[group.category] || "bg-[#35343a] text-on-surface/60"
+                                    CATEGORY_COLORS[group.category] || "bg-surface-container text-on-surface/60"
                                   }`}
                                 >
                                   {group.label}
@@ -1610,14 +1631,14 @@ export default function ConfiguracionPage() {
                                       <button
                                         onClick={() => handleToggleMemory(memory.id, !memory.is_active)}
                                         title={memory.is_active ? "Desactivar" : "Activar"}
-                                        className="p-1.5 rounded-lg text-on-surface/30 hover:text-on-surface hover:bg-[#35343a] transition-colors"
+                                        className="p-1.5 rounded-lg text-on-surface/30 hover:text-on-surface hover:bg-surface-container transition-colors"
                                       >
                                         <Eye className="w-3.5 h-3.5" />
                                       </button>
                                       <button
                                         onClick={() => handleDeleteMemory(memory.id)}
                                         title="Eliminar"
-                                        className="p-1.5 rounded-lg text-on-surface/30 hover:text-[#ffb4ab] hover:bg-[#93000a]/20 transition-colors"
+                                        className="p-1.5 rounded-lg text-on-surface/30 hover:text-status-danger hover:bg-status-danger/15 transition-colors"
                                       >
                                         <Trash2 className="w-3.5 h-3.5" />
                                       </button>
@@ -1633,7 +1654,7 @@ export default function ConfiguracionPage() {
 
                     {memoriesData && memoriesData.total > 0 && (
                       <DisclosureCard
-                        icon={<AlertTriangle className="w-4 h-4 text-[#ffb4ab]" />}
+                        icon={<AlertTriangle className="w-4 h-4 text-status-danger" />}
                         title="Zona de peligro"
                         description="Borrado total de memoria personal almacenada."
                         open={isMemoryDangerOpen}
@@ -1643,7 +1664,7 @@ export default function ConfiguracionPage() {
                         <button
                           onClick={handleClearAllMemories}
                           disabled={clearingMemories}
-                          className="flex items-center gap-2 px-4 py-2.5 rounded-lg border border-[#ffb4ab]/30 text-[#ffb4ab] hover:bg-[#93000a]/20 disabled:opacity-50 text-sm transition-colors"
+                          className="flex items-center gap-2 px-4 py-2.5 rounded-lg border border-status-danger/30 text-status-danger hover:bg-status-danger/15 disabled:opacity-50 text-sm transition-colors"
                         >
                           {clearingMemories ? (
                             <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -1669,17 +1690,19 @@ export default function ConfiguracionPage() {
                         </div>
                         <div>
                           <p className="text-sm font-semibold text-on-surface mb-1">
-                            BYOK disponible en planes de pago
+                            BYOK · disponible solo en plan Empresarial
                           </p>
-                          <p className="text-xs text-[#7c7885] max-w-xs">
-                            Conectá tu propia API key con el plan Profesional o Estudio.
+                          <p className="text-xs text-on-surface-subtle max-w-md">
+                            Conectá tu propia clave de OpenAI, Anthropic, Google AI o DeepSeek
+                            con el plan Empresarial. Te asignamos un asesor que coordina la
+                            implementación con tu equipo legal y TI.
                           </p>
                         </div>
                         <a
-                          href="/billing"
+                          href="mailto:ventas@tukijuris.com?subject=Plan%20Empresarial%20-%20BYOK"
                           className="mt-2 px-4 py-2 rounded-lg bg-primary/10 text-primary text-xs font-bold hover:bg-primary/20 transition-colors"
                         >
-                          Ver planes
+                          Contactar a ventas
                         </a>
                       </div>
                     }
@@ -1702,13 +1725,13 @@ export default function ConfiguracionPage() {
                           const activeCount = llmKeys.length;
                           const providerCount = new Set(llmKeys.map(k => k.provider)).size;
                           if (activeCount === 0) return (
-                            <div className="flex items-center gap-2 text-xs text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2">
+                            <div className="flex items-center gap-2 text-xs text-status-warning bg-status-warning/10 border border-amber-500/20 rounded-lg px-3 py-2">
                               <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
                               <span>No tienes claves configuradas. Agrega al menos una para usar la plataforma.</span>
                             </div>
                           );
                           return (
-                            <div className="flex items-center gap-2 text-xs text-[#6ee7b7] bg-[#1a3a2a]/60 border border-[#6ee7b7]/20 rounded-lg px-3 py-2">
+                            <div className="flex items-center gap-2 text-xs text-status-success bg-status-success/15 border border-status-success/25 rounded-lg px-3 py-2">
                               <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
                               <span>{activeCount} {activeCount === 1 ? "clave activa" : "claves activas"} en {providerCount} {providerCount === 1 ? "proveedor" : "proveedores"}</span>
                             </div>
@@ -1734,7 +1757,7 @@ export default function ConfiguracionPage() {
                              <div
                               key={provider.id}
                               className={`panel-base border rounded-[1.35rem] overflow-hidden transition-colors ${
-                                isActive ? `${provider.accentBorder}` : "border-[rgba(79,70,51,0.15)]"
+                                isActive ? `${provider.accentBorder}` : "border-outline-variant"
                               }`}
                             >
                                <div className="flex items-start justify-between gap-3 px-5 py-4">
@@ -1746,7 +1769,7 @@ export default function ConfiguracionPage() {
                                 >
                                   <div className="flex-1 min-w-0">
                                   <div className="flex items-center gap-2 mb-1">
-                                    <span className={`w-2 h-2 rounded-full shrink-0 ${isActive ? "bg-[#6ee7b7]" : "bg-[#35343a]"}`} />
+                                    <span className={`w-2 h-2 rounded-full shrink-0 ${isActive ? "bg-status-success" : "bg-surface-container"}`} />
                                     <span className={`text-sm font-bold ${isActive ? provider.accent : "text-on-surface"}`}>
                                       {provider.name}
                                     </span>
@@ -1756,7 +1779,7 @@ export default function ConfiguracionPage() {
                                       </span>
                                     )}
                                     {isActive && (
-                                      <span className="text-[9px] uppercase tracking-widest font-bold bg-[#1a3a2a] text-[#6ee7b7] px-1.5 py-0.5 rounded">
+                                      <span className="text-[9px] uppercase tracking-widest font-bold bg-status-success/15 text-status-success px-1.5 py-0.5 rounded">
                                         Activo
                                       </span>
                                     )}
@@ -1788,13 +1811,13 @@ export default function ConfiguracionPage() {
                                )}
 
                                {isExpanded && providerKeys.length > 0 && (
-                                 <div className="border-t border-[rgba(79,70,51,0.15)]">
+                                 <div className="border-t border-outline-variant">
                                   {providerKeys.map((key) => (
-                                    <div key={key.id} className="flex items-center gap-3 px-5 py-3 border-b border-[rgba(79,70,51,0.08)] last:border-0">
+                                    <div key={key.id} className="flex items-center gap-3 px-5 py-3 border-b border-outline-variant/40 last:border-0">
                                       <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                                        testResults[provider.id]?.ok === true ? "bg-[#6ee7b7]" :
-                                        testResults[provider.id]?.ok === false ? "bg-[#ffb4ab]" :
-                                        "bg-[#6ee7b7]"
+                                        testResults[provider.id]?.ok === true ? "bg-status-success" :
+                                        testResults[provider.id]?.ok === false ? "bg-status-danger" :
+                                        "bg-status-success"
                                       }`} />
                                       <div className="flex-1 min-w-0">
                                         <span className="text-xs font-mono text-on-surface">{key.hint}</span>
@@ -1817,7 +1840,7 @@ export default function ConfiguracionPage() {
                                       <button
                                         onClick={() => handleDeleteKey(key.id)}
                                         disabled={deletingKeyId === key.id}
-                                        className="flex items-center gap-1 text-xs text-[#ffb4ab]/60 hover:text-[#ffb4ab] hover:bg-[#93000a]/20 px-2 py-1 rounded-lg transition-colors disabled:opacity-50"
+                                        className="flex items-center gap-1 text-xs text-status-danger/60 hover:text-status-danger hover:bg-status-danger/15 px-2 py-1 rounded-lg transition-colors disabled:opacity-50"
                                       >
                                         {deletingKeyId === key.id ? (
                                           <Loader2 className="w-3 h-3 animate-spin" />
@@ -1831,8 +1854,8 @@ export default function ConfiguracionPage() {
                                   {testResults[provider.id] && (
                                     <div className={`px-5 py-2 text-xs flex items-center gap-2 ${
                                       testResults[provider.id].ok
-                                        ? "bg-[#1a3a2a]/60 text-[#6ee7b7]"
-                                        : "bg-[#93000a]/20 text-[#ffb4ab]"
+                                        ? "bg-status-success/15 text-status-success"
+                                        : "bg-status-danger/15 text-status-danger"
                                     }`}>
                                       {testResults[provider.id].ok ? (
                                         <>
@@ -1851,7 +1874,7 @@ export default function ConfiguracionPage() {
                                )}
 
                                {isExpanded && !isAdding && (
-                                 <div className={`px-5 py-3 flex items-center justify-between ${providerKeys.length > 0 ? "border-t border-[rgba(79,70,51,0.15)]" : ""}`}>
+                                 <div className={`px-5 py-3 flex items-center justify-between ${providerKeys.length > 0 ? "border-t border-outline-variant" : ""}`}>
                                   {providerKeys.length === 0 && (
                                     <span className="text-xs text-on-surface/20">Sin clave configurada</span>
                                   )}
@@ -1871,10 +1894,10 @@ export default function ConfiguracionPage() {
                                )}
 
                                {isExpanded && isAdding && (
-                                 <div className="px-5 py-4 space-y-3 border-t border-[rgba(79,70,51,0.15)]">
+                                 <div className="px-5 py-4 space-y-3 border-t border-outline-variant">
                                   <div>
                                     <label className="block text-xs uppercase tracking-widest text-on-surface-variant mb-1.5">
-                                      API Key <span className="text-[#ffb4ab]">*</span>
+                                      API Key <span className="text-status-danger">*</span>
                                     </label>
                                     <div className="relative">
                                       <input
@@ -1913,7 +1936,7 @@ export default function ConfiguracionPage() {
                                         setNewApiKey("");
                                         setNewApiLabel("");
                                       }}
-                                      className="px-3 py-1.5 text-xs text-on-surface/60 hover:text-on-surface border border-[rgba(79,70,51,0.15)] rounded-lg transition-colors"
+                                      className="px-3 py-1.5 text-xs text-on-surface/60 hover:text-on-surface border border-outline-variant rounded-lg transition-colors"
                                     >
                                       Cancelar
                                     </button>
@@ -1984,7 +2007,7 @@ export default function ConfiguracionPage() {
                         </div>
                       ) : uploadsError ? (
                         <div className="flex flex-col items-center justify-center py-8 gap-3 text-center">
-                          <AlertTriangle className="w-6 h-6 text-[#ffb4ab]" />
+                          <AlertTriangle className="w-6 h-6 text-status-danger" />
                           <p className="text-sm text-on-surface/50" data-testid="uploads-error">{uploadsError}</p>
                           <button
                             type="button"
@@ -1996,7 +2019,7 @@ export default function ConfiguracionPage() {
                           </button>
                         </div>
                       ) : uploads.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center py-10 text-center border border-dashed border-[rgba(79,70,51,0.15)] rounded-lg" data-testid="uploads-empty">
+                        <div className="flex flex-col items-center justify-center py-10 text-center border border-dashed border-outline-variant rounded-lg" data-testid="uploads-empty">
                           <FileText className="w-10 h-10 text-on-surface/10 mb-3" />
                           <p className="text-sm font-medium text-on-surface/40 mb-1">Todavía no subiste ningún archivo.</p>
                           <p className="text-xs text-on-surface/25 max-w-xs">Subí documentos desde una consulta para que TukiJuris los use como contexto.</p>
@@ -2005,7 +2028,7 @@ export default function ConfiguracionPage() {
                         <div className="overflow-x-auto" data-testid="uploads-table">
                           <table className="w-full text-sm">
                             <thead>
-                              <tr className="text-left text-[10px] uppercase tracking-[0.18em] text-on-surface/38 border-b border-[rgba(79,70,51,0.15)]">
+                              <tr className="text-left text-[10px] uppercase tracking-[0.18em] text-on-surface/38 border-b border-outline-variant">
                                 <th className="pb-2 pr-4">Archivo</th>
                                 <th className="pb-2 pr-4">Tipo</th>
                                 <th className="pb-2 pr-4">Tamaño</th>
@@ -2037,7 +2060,7 @@ export default function ConfiguracionPage() {
                                       disabled={deletingUploadId === doc.id}
                                       aria-busy={deletingUploadId === doc.id}
                                       data-testid={`delete-upload-${doc.id}`}
-                                      className="flex items-center gap-1 text-xs text-[#ffb4ab]/60 hover:text-[#ffb4ab] hover:bg-[#93000a]/20 px-2 py-1 rounded-lg transition-colors disabled:opacity-50"
+                                      className="flex items-center gap-1 text-xs text-status-danger/60 hover:text-status-danger hover:bg-status-danger/15 px-2 py-1 rounded-lg transition-colors disabled:opacity-50"
                                     >
                                       {deletingUploadId === doc.id ? (
                                         <Loader2 className="w-3 h-3 animate-spin" />

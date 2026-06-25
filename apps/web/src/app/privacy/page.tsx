@@ -1,9 +1,10 @@
 import Link from "next/link";
+import Image from "next/image";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Politica de Privacidad | TukiJuris",
-  description: "Politica de privacidad y proteccion de datos de TukiJuris.",
+  title: "Política de Privacidad | TukiJuris",
+  description: "Política de privacidad y protección de datos de TukiJuris conforme a la Ley 29733 de Perú.",
 };
 
 // ─────────────────────────────────────────────
@@ -17,21 +18,21 @@ function LegalHeader() {
     >
       <div className="max-w-7xl mx-auto px-4 lg:px-8 h-16 flex items-center justify-between">
         <Link href="/landing" className="flex items-center">
-          <img src="/brand/logo-full.png" alt="TukiJuris" className="h-10 w-auto" />
+          <Image src="/brand/logo-full.png" alt="TukiJuris" width={120} height={40} className="h-10 w-auto" />
         </Link>
         <div className="flex items-center gap-3">
           <Link
             href="/auth/login"
             className="text-sm text-on-surface/60 hover:text-on-surface transition-colors px-3 py-2"
           >
-            Iniciar Sesion
+            Iniciar sesión
           </Link>
           <Link
             href="/auth/register"
             className="text-sm font-bold rounded-lg h-11 px-6 flex items-center transition-opacity hover:opacity-90 whitespace-nowrap text-on-primary"
             style={{ background: "linear-gradient(135deg, var(--gold-gradient-from) 0%, var(--gold-gradient-to) 100%)" }}
           >
-            Comenzar Gratis
+            Comenzar gratis
           </Link>
         </div>
       </div>
@@ -48,8 +49,9 @@ function LegalFooter() {
       <div className="max-w-4xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-on-surface/60 uppercase tracking-widest">
         <span>&copy; 2026 TukiJuris — TukiTuki Solutions SAC. Todos los derechos reservados.</span>
         <nav className="flex gap-4">
-          <Link href="/terms" className="hover:text-primary transition-colors">Terminos</Link>
+          <Link href="/terms" className="hover:text-primary transition-colors">Términos</Link>
           <Link href="/privacy" className="hover:text-primary transition-colors">Privacidad</Link>
+          <Link href="/libro-reclamaciones" className="hover:text-primary transition-colors">Libro de Reclamaciones</Link>
           <Link href="/landing" className="hover:text-primary transition-colors">Inicio</Link>
         </nav>
       </div>
@@ -81,10 +83,10 @@ export default function PrivacyPage() {
             Privacidad
           </span>
           <h1 className="font-['Newsreader'] text-3xl sm:text-4xl font-bold text-on-surface mb-3">
-            Politica de Privacidad
+            Política de Privacidad
           </h1>
           <p className="text-sm text-on-surface/50">
-            Ultima actualizacion: 9 de abril de 2026
+            Última actualización: 31 de mayo de 2026
           </p>
           <div className="mt-4 h-px bg-gradient-to-r from-primary/30 to-transparent" />
         </div>
@@ -98,55 +100,55 @@ export default function PrivacyPage() {
             <strong className="text-on-surface">TukiJuris</strong>.
           </p>
           <p>
-            Esta politica cumple con la Ley N° 29733 — Ley de Proteccion de Datos Personales del
-            Peru y su Reglamento (D.S. N° 003-2013-JUS).
+            Esta política cumple con la Ley N° 29733 — Ley de Protección de Datos Personales del
+            Perú y su Reglamento (D.S. N° 003-2013-JUS).
           </p>
         </div>
 
-        {/* Content */}
-        <Section title="1. Datos que Recopilamos">
-          <p>Recopilamos las siguientes categorias de datos:</p>
+        <Section title="1. Datos que recopilamos">
+          <p>Recopilamos las siguientes categorías de datos:</p>
 
           <h3 className="text-on-surface font-semibold text-sm mt-4 mb-2">1.1 Datos de registro</h3>
           <ul className="list-disc list-inside space-y-1 ml-2">
             <li>Nombre completo</li>
-            <li>Correo electronico</li>
-            <li>Contrasena (almacenada con hash bcrypt, nunca en texto plano)</li>
+            <li>Correo electrónico</li>
+            <li>Contraseña (almacenada con hash bcrypt, nunca en texto plano)</li>
           </ul>
 
           <h3 className="text-on-surface font-semibold text-sm mt-4 mb-2">1.2 Datos de uso</h3>
           <ul className="list-disc list-inside space-y-1 ml-2">
             <li>Consultas realizadas a la plataforma</li>
-            <li>Areas del derecho consultadas</li>
+            <li>Áreas del derecho consultadas</li>
             <li>Frecuencia y patrones de uso</li>
-            <li>Direccion IP y datos del navegador (User-Agent)</li>
+            <li>Dirección IP y datos del navegador (User-Agent)</li>
           </ul>
 
           <h3 className="text-on-surface font-semibold text-sm mt-4 mb-2">1.3 Claves API de terceros (BYOK)</h3>
           <ul className="list-disc list-inside space-y-1 ml-2">
-            <li>Las claves API proporcionadas por el usuario son cifradas en reposo (AES-256).</li>
+            <li>Las claves API proporcionadas por el usuario son cifradas en reposo con Fernet (AES-128 en modo CBC + HMAC-SHA256).</li>
             <li>Solo se descifran en memoria durante el procesamiento de cada solicitud.</li>
-            <li>Jamas se almacenan en logs, se comparten con terceros ni se exponen en la interfaz.</li>
+            <li>Jamás se almacenan en logs, se comparten con terceros ni se exponen en la interfaz.</li>
           </ul>
 
           <h3 className="text-on-surface font-semibold text-sm mt-4 mb-2">1.4 Datos de pago</h3>
           <ul className="list-disc list-inside space-y-1 ml-2">
             <li>
-              Los datos de tarjeta de credito/debito son procesados directamente por las pasarelas
-              de pago (Stripe/Culqi). TukiJuris NO almacena numeros de tarjeta.
+              Los datos de tarjeta de crédito o débito son procesados directamente por la pasarela
+              de pagos <strong className="text-on-surface">Culqi</strong>. TukiJuris NO almacena
+              números de tarjeta ni códigos CVV en ningún momento.
             </li>
           </ul>
         </Section>
 
-        <Section title="2. Finalidad del Tratamiento">
+        <Section title="2. Finalidad del tratamiento">
           <p>Los datos personales son tratados para:</p>
           <ul className="list-disc list-inside space-y-1 ml-2">
             <li>Proveer y mantener el servicio de TukiJuris</li>
             <li>Autenticar y gestionar las cuentas de usuario</li>
             <li>Procesar pagos y gestionar suscripciones</li>
-            <li>Mejorar la calidad del servicio y los modelos de busqueda</li>
+            <li>Mejorar la calidad del servicio y los modelos de búsqueda</li>
             <li>Enviar comunicaciones relacionadas con el servicio (actualizaciones, mantenimiento)</li>
-            <li>Cumplir con obligaciones legales</li>
+            <li>Cumplir con obligaciones legales y tributarias</li>
           </ul>
           <p className="mt-2">
             <strong className="text-on-surface">No vendemos ni compartimos datos personales con
@@ -154,52 +156,53 @@ export default function PrivacyPage() {
           </p>
         </Section>
 
-        <Section title="3. Base Legal del Tratamiento">
+        <Section title="3. Base legal del tratamiento">
           <ul className="list-disc list-inside space-y-1 ml-2">
             <li>
-              <strong className="text-on-surface">Ejecucion contractual:</strong> El tratamiento es
+              <strong className="text-on-surface">Ejecución contractual:</strong> El tratamiento es
               necesario para prestar el servicio contratado.
             </li>
             <li>
               <strong className="text-on-surface">Consentimiento:</strong> Otorgado al registrarse
-              y aceptar estos terminos.
+              y aceptar estos términos.
             </li>
             <li>
-              <strong className="text-on-surface">Obligacion legal:</strong> Cumplimiento de la Ley
+              <strong className="text-on-surface">Obligación legal:</strong> Cumplimiento de la Ley
               29733 y normativa tributaria peruana.
             </li>
           </ul>
         </Section>
 
-        <Section title="4. Comparticion de Datos con Terceros">
+        <Section title="4. Compartición de datos con terceros">
           <p>Los datos del usuario pueden ser compartidos con:</p>
           <ul className="list-disc list-inside space-y-1 ml-2">
             <li>
               <strong className="text-on-surface">Proveedores de IA</strong> (OpenAI, Google,
-              Anthropic): Reciben unicamente el texto de la consulta del usuario para generar
-              respuestas. NO reciben datos personales identificables.
+              Anthropic, Groq, DeepSeek y otros): Reciben únicamente el texto de la consulta del
+              usuario para generar respuestas. No reciben datos personales identificables del
+              usuario más allá del contenido que este decida incluir en la consulta.
             </li>
             <li>
-              <strong className="text-on-surface">Pasarelas de pago</strong> (Stripe/Culqi):
-              Procesan datos de pago directamente, bajo sus propias politicas de privacidad.
+              <strong className="text-on-surface">Pasarela de pagos Culqi:</strong> Procesa datos
+              de pago directamente, bajo sus propias políticas de privacidad y certificación PCI-DSS.
             </li>
             <li>
-              <strong className="text-on-surface">Proveedores de infraestructura</strong>:
+              <strong className="text-on-surface">Proveedores de infraestructura:</strong>{" "}
               Servicios de hosting y base de datos operan bajo acuerdos de confidencialidad.
             </li>
             <li>
-              <strong className="text-on-surface">Autoridades competentes</strong>: Cuando sea
-              requerido por ley o por orden judicial.
+              <strong className="text-on-surface">Autoridades competentes:</strong> Cuando sea
+              requerido por ley, orden judicial o solicitud formal de la SUNAT o el Ministerio Público.
             </li>
           </ul>
         </Section>
 
-        <Section title="5. Seguridad de los Datos">
+        <Section title="5. Seguridad de los datos">
           <p>Implementamos las siguientes medidas de seguridad:</p>
           <ul className="list-disc list-inside space-y-1 ml-2">
-            <li>Cifrado en transito (TLS/HTTPS) para todas las comunicaciones</li>
-            <li>Cifrado en reposo para claves API (AES-256) y contrasenas (bcrypt)</li>
-            <li>Autenticacion basada en JWT con expiracion configurable</li>
+            <li>Cifrado en tránsito (TLS/HTTPS) para todas las comunicaciones</li>
+            <li>Cifrado en reposo para claves API (Fernet/AES) y contraseñas (bcrypt)</li>
+            <li>Autenticación basada en JWT con refresh-token rotation y detección de reuso</li>
             <li>Rate limiting por IP y por usuario para prevenir abuso</li>
             <li>Logs de acceso y monitoreo de actividad sospechosa</li>
             <li>Backups cifrados de la base de datos</li>
@@ -209,118 +212,153 @@ export default function PrivacyPage() {
             style={{ border: "1px solid rgba(255,209,101,0.15)" }}
           >
             <p className="text-primary font-medium text-sm">
-              TukiJuris es un software de asistencia juridica, NO un estudio de abogados.
+              TukiJuris es un software de asistencia jurídica basado en IA, NO un estudio de abogados.
             </p>
             <p className="text-on-surface-variant text-xs mt-1">
-              Las consultas realizadas a traves de la plataforma NO estan protegidas por el
-              secreto profesional abogado-cliente. No ingrese informacion sensible o confidencial
-              que requiera dicha proteccion.
+              Las consultas realizadas a través de la plataforma NO están protegidas por el
+              secreto profesional abogado-cliente. No ingreses información sensible o confidencial
+              que requiera dicha protección.
             </p>
           </div>
         </Section>
 
-        <Section title="6. Conservacion de Datos">
+        <Section title="6. Conservación de datos">
           <ul className="list-disc list-inside space-y-1 ml-2">
             <li>
               <strong className="text-on-surface">Datos de cuenta:</strong> Se conservan mientras
-              la cuenta este activa. Tras la eliminacion de cuenta, se eliminan en un plazo de 30 dias.
+              la cuenta esté activa. Tras la eliminación de cuenta, se eliminan en un plazo de 30 días.
             </li>
             <li>
               <strong className="text-on-surface">Historial de consultas:</strong> Se conserva
-              mientras la cuenta este activa. El usuario puede eliminarlo manualmente.
+              mientras la cuenta esté activa. El usuario puede eliminarlo manualmente.
             </li>
             <li>
-              <strong className="text-on-surface">Datos de facturacion:</strong> Se conservan por
-              el periodo requerido por la legislacion tributaria peruana (hasta 5 anos).
+              <strong className="text-on-surface">Datos de facturación:</strong> Se conservan por
+              el período requerido por la legislación tributaria peruana (hasta 5 años).
             </li>
             <li>
               <strong className="text-on-surface">Logs de acceso:</strong> Se conservan por un
-              maximo de 12 meses.
+              máximo de 12 meses.
             </li>
           </ul>
         </Section>
 
-        <Section title="7. Derechos del Usuario (ARCO)">
+        <Section title="7. Derechos del usuario (ARCO + portabilidad)">
           <p>
-            De acuerdo con la Ley 29733, el usuario tiene derecho a:
+            De acuerdo con la Ley 29733 y su Reglamento, el titular de los datos tiene derecho a:
           </p>
           <ul className="list-disc list-inside space-y-1 ml-2">
             <li>
-              <strong className="text-on-surface">Acceso:</strong> Solicitar informacion sobre los
-              datos personales que tenemos.
+              <strong className="text-on-surface">Acceso:</strong> Solicitar información sobre los
+              datos personales que tenemos sobre ti.
             </li>
             <li>
-              <strong className="text-on-surface">Rectificacion:</strong> Corregir datos inexactos
+              <strong className="text-on-surface">Rectificación:</strong> Corregir datos inexactos
               o incompletos.
             </li>
             <li>
-              <strong className="text-on-surface">Cancelacion:</strong> Solicitar la eliminacion de
-              sus datos personales.
+              <strong className="text-on-surface">Cancelación:</strong> Solicitar la eliminación de
+              tus datos personales.
             </li>
             <li>
-              <strong className="text-on-surface">Oposicion:</strong> Oponerse al tratamiento de
-              sus datos para fines especificos.
+              <strong className="text-on-surface">Oposición:</strong> Oponerte al tratamiento de
+              tus datos para fines específicos.
+            </li>
+            <li>
+              <strong className="text-on-surface">Información y portabilidad:</strong> Recibir tus
+              datos en un formato estructurado de uso común.
             </li>
           </ul>
           <p className="mt-3">
             Para ejercer estos derechos, contactar a:{" "}
-            <a href="mailto:privacidad@tukijuris.net.pe" className="text-primary hover:underline">
-              privacidad@tukijuris.net.pe
+            <a href="mailto:privacidad@tukijuris.com.pe" className="text-primary hover:underline">
+              privacidad@tukijuris.com.pe
             </a>
           </p>
           <p>
-            Se respondera en un plazo maximo de 10 dias habiles, conforme a la ley.
+            Se responderá en un plazo máximo de 10 días hábiles, conforme a la ley.
+          </p>
+          <p className="mt-3 text-on-surface/80">
+            Si consideras que tus derechos no han sido atendidos adecuadamente, puedes presentar
+            una reclamación ante la{" "}
+            <strong className="text-on-surface">
+              Autoridad Nacional de Protección de Datos Personales (ANPD)
+            </strong>{" "}
+            del Ministerio de Justicia y Derechos Humanos del Perú (MINJUSDH), a través de su Mesa de
+            Partes Virtual o la dirección oficial publicada en{" "}
+            <a
+              href="https://www.gob.pe/anpd"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-primary hover:underline"
+            >
+              gob.pe/anpd
+            </a>.
           </p>
         </Section>
 
-        <Section title="8. Cookies y Tecnologias de Rastreo">
+        <Section title="8. Cookies y tecnologías de rastreo">
           <p>TukiJuris utiliza:</p>
           <ul className="list-disc list-inside space-y-1 ml-2">
             <li>
               <strong className="text-on-surface">Cookies esenciales:</strong> Para mantener la
-              sesion del usuario (JWT token). Son necesarias para el funcionamiento de la plataforma.
+              sesión del usuario (cookies <code>refresh_token</code> y <code>tk_session</code>).
+              Son necesarias para el funcionamiento de la plataforma.
             </li>
             <li>
               <strong className="text-on-surface">Almacenamiento local (localStorage):</strong>{" "}
-              Para preferencias de interfaz y configuracion del usuario.
+              Para preferencias de interfaz (tema claro/oscuro, organización seleccionada).
             </li>
           </ul>
           <p className="mt-2">
-            No utilizamos cookies de terceros para publicidad ni rastreo.
+            No utilizamos cookies de terceros para publicidad ni rastreo. No requerimos
+            consentimiento previo para las cookies esenciales según la guía interpretativa de la ANPD.
           </p>
         </Section>
 
-        <Section title="9. Menores de Edad">
+        <Section title="9. Menores de edad">
           <p>
-            TukiJuris no esta dirigido a menores de 18 anos. No recopilamos intencionalmente datos
+            TukiJuris no está dirigido a menores de 18 años. No recopilamos intencionalmente datos
             de menores de edad. Si detectamos que un menor se ha registrado, procederemos a eliminar
             su cuenta y datos asociados.
           </p>
         </Section>
 
-        <Section title="10. Transferencias Internacionales">
+        <Section title="10. Transferencias internacionales">
           <p>
-            Los datos pueden ser procesados en servidores ubicados fuera del Peru (proveedores de
-            cloud como AWS, Google Cloud, etc.). En todos los casos, se garantiza un nivel de
-            proteccion adecuado conforme a la legislacion peruana.
+            Los datos pueden ser procesados en servidores ubicados fuera del Perú, principalmente
+            en los siguientes flujos:
           </p>
-          <p>
-            Las consultas enviadas a proveedores de IA (OpenAI, Google, Anthropic) se procesan en
-            sus servidores internacionales. Estas transferencias son necesarias para la prestacion
-            del servicio y el usuario las consiente al utilizar la plataforma.
+          <ul className="list-disc list-inside space-y-1 ml-2">
+            <li>
+              <strong className="text-on-surface">Proveedores de IA (Estados Unidos y Unión Europea):</strong>{" "}
+              OpenAI, Anthropic, Google y otros. Las consultas del usuario son procesadas en
+              servidores internacionales para generar respuestas. Estos proveedores cuentan con
+              acuerdos de procesamiento de datos y certificaciones SOC 2.
+            </li>
+            <li>
+              <strong className="text-on-surface">Servicios de correo (Estados Unidos):</strong>{" "}
+              El proveedor Resend procesa los correos transaccionales (registro, recuperación de
+              contraseña, notificaciones).
+            </li>
+          </ul>
+          <p className="mt-2">
+            En todos los casos exigimos un nivel de protección adecuado conforme a la legislación
+            peruana. El usuario consiente estas transferencias al utilizar la plataforma, y puede
+            revocar su consentimiento eliminando su cuenta en cualquier momento.
           </p>
         </Section>
 
-        <Section title="11. Cambios en esta Politica">
+        <Section title="11. Cambios en esta política">
           <p>
-            TukiTuki Solutions SAC se reserva el derecho de actualizar esta politica en cualquier
-            momento. Los cambios significativos seran notificados a traves de la plataforma o por
-            correo electronico. La fecha de ultima actualizacion siempre estara visible al inicio
-            de este documento.
+            TukiTuki Solutions SAC se reserva el derecho de actualizar esta política en cualquier
+            momento. Los cambios significativos serán notificados a través de la plataforma o por
+            correo electrónico con al menos 30 días de anticipación. La fecha de última actualización
+            siempre estará visible al inicio de este documento.
           </p>
         </Section>
 
-        <Section title="12. Contacto del Responsable de Datos">
+        <Section title="12. Contacto del responsable de datos">
           <p>
             <strong className="text-on-surface">Responsable:</strong> TukiTuki Solutions SAC
           </p>
@@ -329,14 +367,14 @@ export default function PrivacyPage() {
           </p>
           <p>
             <strong className="text-on-surface">Email:</strong>{" "}
-            <a href="mailto:privacidad@tukijuris.net.pe" className="text-primary hover:underline">
-              privacidad@tukijuris.net.pe
+            <a href="mailto:privacidad@tukijuris.com.pe" className="text-primary hover:underline">
+              privacidad@tukijuris.com.pe
             </a>
           </p>
           <p>
             <strong className="text-on-surface">Web:</strong>{" "}
-            <a href="https://tukijuris.net.pe" className="text-primary hover:underline">
-              tukijuris.net.pe
+            <a href="https://tukijuris.com.pe" className="text-primary hover:underline">
+              tukijuris.com.pe
             </a>
           </p>
         </Section>

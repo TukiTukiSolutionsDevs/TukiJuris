@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     app_env: str = "development"
     app_debug: bool = True
     api_port: int = 8000
-    app_base_url: str = "https://tukijuris.net.pe"
+    app_base_url: str = "https://tukijuris.com.pe"
 
     # Database
     database_url: str = "postgresql+asyncpg://postgres:postgres@db:5432/agente_derecho"
@@ -35,6 +35,14 @@ class Settings(BaseSettings):
     byok_encryption_key: str | None = None
 
     # LLM
+    #
+    # Provider API keys are managed by the operator via /admin?tab=claves and
+    # stored encrypted in `platform_llm_keys` (read via platform_llm_key_service).
+    #
+    # The fields below remain ONLY as defaulted-empty placeholders so the
+    # legacy callsites in llm_adapter / rag / reranker keep importing cleanly.
+    # `.env` no longer carries keys; these defaults stay "" forever.
+    # New code MUST read keys via the service, never via these fields.
     openai_api_key: str = ""
     anthropic_api_key: str = ""
     google_api_key: str = ""
@@ -52,7 +60,7 @@ class Settings(BaseSettings):
         "groq/llama-3.3-70b-versatile",
         "openrouter/z-ai/glm-4.5-air:free",
     ]
-    free_tier_daily_limit: int = 10
+    free_tier_daily_limit: int = 5
 
     # Embeddings
     embedding_model: str = "text-embedding-004"          # Google model (primary)
@@ -60,7 +68,7 @@ class Settings(BaseSettings):
     embedding_provider: str = "google"                    # google | openai
 
     # CORS
-    cors_origins: list[str] = ["http://localhost:3000", "https://tukijuris.net.pe", "https://www.tukijuris.net.pe"]
+    cors_origins: list[str] = ["http://localhost:3000", "https://tukijuris.com.pe", "https://www.tukijuris.com.pe"]
     frontend_url: str = "http://localhost:3000"
     cors_allow_credentials: bool = True
     cors_max_age: int = 600  # Cache preflight responses for 10 minutes
@@ -114,7 +122,7 @@ class Settings(BaseSettings):
     smtp_port: int = 587
     smtp_user: str = ""
     smtp_password: str = ""
-    email_from: str = "TukiJuris <noreply@tukijuris.net.pe>"
+    email_from: str = "TukiJuris <noreply@tukijuris.com.pe>"
     email_enabled: bool = False           # Set True when provider is configured
 
     # Feature flags
@@ -143,7 +151,7 @@ class Settings(BaseSettings):
     cache_stats_ttl: int = 60            # 1 minute (more dynamic counters)
 
     # Cookies
-    cookie_domain: str = ""  # e.g. ".tukijuris.net.pe" for cross-subdomain; empty = host-only (localhost)
+    cookie_domain: str = ""  # e.g. ".tukijuris.com.pe" for cross-subdomain; empty = host-only (localhost)
 
     # Performance
     gzip_enabled: bool = True

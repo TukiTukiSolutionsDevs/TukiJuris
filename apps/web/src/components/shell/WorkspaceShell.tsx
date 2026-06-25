@@ -26,7 +26,7 @@ export function WorkspaceShell({
 
         <div className="flex min-h-0 min-w-0 flex-1">
           <main
-            className={`flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto bg-surface-container-lowest ${contentClassName ?? ""}`.trim()}
+            className={`flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto bg-background ${contentClassName ?? ""}`.trim()}
           >
             {children}
           </main>

@@ -4,13 +4,13 @@
 set -e
 
 NGINX_CONF="/root/torolococayma/ToroLocoCayma/docker/nginx/nginx.conf"
-CERT_PATH="/root/torolococayma/ToroLocoCayma/docker/certbot/conf/live/tukijuris.net.pe/fullchain.pem"
+CERT_PATH="/root/torolococayma/ToroLocoCayma/docker/certbot/conf/live/tukijuris.com.pe/fullchain.pem"
 
 # Check cert exists
 if [ ! -f "$CERT_PATH" ]; then
     echo "ERROR: SSL certificate not found at $CERT_PATH"
     echo "Run certbot first:"
-    echo '  docker run --rm -v /root/torolococayma/ToroLocoCayma/docker/certbot/conf:/etc/letsencrypt -v /root/torolococayma/ToroLocoCayma/docker/certbot/www:/var/www/certbot certbot/certbot certonly --webroot --webroot-path=/var/www/certbot -d tukijuris.net.pe -d www.tukijuris.net.pe --non-interactive --agree-tos --email admin@tukijuris.net.pe'
+    echo '  docker run --rm -v /root/torolococayma/ToroLocoCayma/docker/certbot/conf:/etc/letsencrypt -v /root/torolococayma/ToroLocoCayma/docker/certbot/www:/var/www/certbot certbot/certbot certonly --webroot --webroot-path=/var/www/certbot -d tukijuris.com.pe -d www.tukijuris.com.pe --non-interactive --agree-tos --email admin@tukijuris.com.pe'
     exit 1
 fi
 
@@ -25,7 +25,7 @@ docker restart toroloco-gateway
 sleep 3
 if docker ps --filter name=toroloco-gateway --format '{{.Status}}' | grep -q "Up"; then
     echo "Gateway restarted successfully!"
-    echo "TukiJuris is now live at https://tukijuris.net.pe"
+    echo "TukiJuris is now live at https://tukijuris.com.pe"
 else
     echo "ERROR: Gateway failed to start. Check logs:"
     echo "  docker logs toroloco-gateway --tail 20"

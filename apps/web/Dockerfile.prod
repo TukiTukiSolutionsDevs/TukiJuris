@@ -2,6 +2,14 @@
 FROM node:20-alpine AS builder
 WORKDIR /app
 
+# NEXT_PUBLIC_* must be present at build time — they're baked into the client bundle.
+# Pass via build-args from docker-compose.prod.yml. Defaults match a same-origin deploy
+# served by the reverse proxy at the canonical domain.
+ARG NEXT_PUBLIC_API_URL=https://tukijuris.com.pe
+ARG NEXT_PUBLIC_APP_URL=https://tukijuris.com.pe
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_APP_URL=$NEXT_PUBLIC_APP_URL
+
 COPY package*.json ./
 RUN npm ci
 
@@ -34,5 +42,10 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 USER nextjs
 
 EXPOSE 3000
+
+# Healthcheck: Next.js standalone server responds with 200 on `/` once ready.
+# wget is busybox-builtin on Alpine.
+HEALTHCHECK --interval=30s --timeout=10s --start-period=20s --retries=3 \
+    CMD wget --no-verbose --tries=1 --spider http://localhost:3000/ || exit 1
 
 CMD ["node", "server.js"]

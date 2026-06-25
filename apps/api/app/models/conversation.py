@@ -29,6 +29,11 @@ class Conversation(Base):
     folder_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("folders.id", ondelete="SET NULL"), nullable=True
     )
+    # Snapshot of the case-analysis state machine (phase, facts, pending
+    # questions, etc). Updated on every turn by the chat route so the user
+    # can close the tab and continue the case later from /historial.
+    # Null for legacy conversations created before this column existed.
+    case_state: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC)
     )

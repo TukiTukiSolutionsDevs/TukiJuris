@@ -8,6 +8,7 @@ import { useTheme } from "@/components/ThemeProvider";
 import { cn } from "@/lib/utils";
 
 const NAV_LINKS = [
+  { href: "/buscar", label: "Buscar corpus" },
   { href: "/caracteristicas", label: "Características" },
   { href: "/precios", label: "Precios" },
   { href: "/docs", label: "Documentación" },

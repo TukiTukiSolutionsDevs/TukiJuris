@@ -145,6 +145,24 @@ async def update_conversation_area(
     )
 
 
+async def update_case_state(
+    db: AsyncSession,
+    conversation_id: uuid.UUID,
+    case_state: dict | None,
+) -> None:
+    """Persist the latest case-analysis state snapshot for the conversation.
+
+    Called on every turn by the chat route so the case can be resumed later
+    from /historial. Pass `None` to clear (e.g. on "new case" reset, though
+    today we just leave the old state since each new case starts a new row).
+    """
+    await db.execute(
+        update(Conversation)
+        .where(Conversation.id == conversation_id)
+        .values(case_state=case_state)
+    )
+
+
 async def rename_conversation(
     db: AsyncSession,
     conversation_id: uuid.UUID,

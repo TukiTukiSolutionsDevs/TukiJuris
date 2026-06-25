@@ -281,3 +281,107 @@ export async function patchAdminTrial(
   }
   return res.json() as Promise<TrialAdminRow>;
 }
+
+// ---------------------------------------------------------------------------
+// Platform LLM keys (operator-managed)
+//
+// These keys back the free/pro tiers. Plaintext is NEVER returned from the
+// backend — only api_key_hint (e.g. "sk-...3kF2") for display.
+// ---------------------------------------------------------------------------
+
+export interface PlatformKey {
+  provider: string;
+  label: string | null;
+  api_key_hint: string;
+  is_active: boolean;
+  updated_at: string;
+}
+
+export interface PlatformKeyUpsertBody {
+  provider: string;
+  api_key: string;
+  label?: string | null;
+}
+
+export interface PlatformKeyTestResult {
+  provider: string;
+  ok: boolean;
+  message: string;
+}
+
+export const PLATFORM_PROVIDERS = [
+  "openai",
+  "anthropic",
+  "google",
+  "deepseek",
+  "groq",
+  "xai",
+  "openrouter",
+] as const;
+
+export type PlatformProvider = (typeof PLATFORM_PROVIDERS)[number];
+
+export async function fetchPlatformKeys(
+  authFetch: AuthFetch,
+): Promise<PlatformKey[]> {
+  const res = await authFetch("/api/admin/platform-keys/", { cache: "no-store" });
+  if (!res.ok) {
+    const err = new Error(`fetchPlatformKeys failed: ${res.status}`);
+    (err as Error & { status: number }).status = res.status;
+    throw err;
+  }
+  return res.json() as Promise<PlatformKey[]>;
+}
+
+export async function upsertPlatformKey(
+  authFetch: AuthFetch,
+  body: PlatformKeyUpsertBody,
+): Promise<PlatformKey> {
+  const res = await authFetch("/api/admin/platform-keys/", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    let detail: string | undefined;
+    try {
+      const j = (await res.json()) as { detail?: string };
+      detail = j.detail;
+    } catch {
+      /* ignore */
+    }
+    const err = new Error(detail || `upsertPlatformKey failed: ${res.status}`);
+    (err as Error & { status: number }).status = res.status;
+    throw err;
+  }
+  return res.json() as Promise<PlatformKey>;
+}
+
+export async function deletePlatformKey(
+  authFetch: AuthFetch,
+  provider: string,
+): Promise<void> {
+  const res = await authFetch(`/api/admin/platform-keys/${provider}`, {
+    method: "DELETE",
+  });
+  if (!res.ok && res.status !== 204) {
+    const err = new Error(`deletePlatformKey failed: ${res.status}`);
+    (err as Error & { status: number }).status = res.status;
+    throw err;
+  }
+}
+
+export async function testPlatformKey(
+  authFetch: AuthFetch,
+  provider: string,
+): Promise<PlatformKeyTestResult> {
+  const res = await authFetch(`/api/admin/platform-keys/${provider}/test`, {
+    method: "POST",
+  });
+  if (!res.ok) {
+    const err = new Error(`testPlatformKey failed: ${res.status}`);
+    (err as Error & { status: number }).status = res.status;
+    throw err;
+  }
+  return res.json() as Promise<PlatformKeyTestResult>;
+}

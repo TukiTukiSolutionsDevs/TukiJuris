@@ -65,8 +65,10 @@ async def test_chat_stream_rejects_cross_tenant_free_tier_fallback(client, monke
     )
     assert add_key.status_code == 201, add_key.text
 
-    stream_res = await client.post(
-        "/api/chat/stream",
+    # /api/chat/query and /api/chat/stream-case share the same key resolution.
+    # The legacy /api/chat/stream endpoint was removed in 2026-06-25.
+    query_res = await client.post(
+        "/api/chat/query",
         json={
             "message": "Necesito orientación laboral",
             "model": "gemini/gemini-2.5-flash",
@@ -74,7 +76,7 @@ async def test_chat_stream_rejects_cross_tenant_free_tier_fallback(client, monke
         headers=headers_2,
     )
 
-    assert stream_res.status_code == 400, stream_res.text
-    # Error copy updated: model unavailable on platform (no platform key + no BYOK) —
+    assert query_res.status_code == 400, query_res.text
+    # Error copy: model unavailable on platform (no platform key + no BYOK) —
     # verifies rejection without cross-tenant key leakage.
-    assert "no disponible en la plataforma" in stream_res.json()["detail"]
+    assert "no disponible en la plataforma" in query_res.json()["detail"]

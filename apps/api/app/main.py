@@ -15,7 +15,9 @@ from starlette.middleware.gzip import GZipMiddleware
 from app.api.middleware import RateLimitMiddleware, SecurityHeadersMiddleware
 from app.api.routes import (
     admin,
+    admin_config,
     admin_invoices,
+    admin_platform_keys,
     admin_saas,
     admin_trials,
     analysis,
@@ -44,7 +46,7 @@ from app.api.routes import (
     rbac_admin,
     search,
     shared,
-    stream,
+
     tags,
     trials,
     v1,
@@ -86,6 +88,21 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
+    # Defense-in-depth against reverse-proxy host leaks.
+    #
+    # Behind the Next.js dev proxy, a trailing-slash mismatch used to fire
+    # FastAPI's built-in 307 redirect. That redirect's Location header is
+    # built from the internal Host (`localhost:8000` / `api:8000`) because
+    # uvicorn's `--proxy-headers` does NOT honour `X-Forwarded-Host`. The
+    # browser then follows the 307 cross-origin, drops the httpOnly cookie,
+    # and the request lands unauthenticated at the backend.
+    #
+    # All routes in this service are declared with an explicit trailing
+    # slash (`@router.get("/")`) or no slash at all — never both — and every
+    # client call in apps/web matches the declared form, so this does not
+    # remove any behaviour the app depends on. A slash mismatch now returns
+    # 404 (clear, debuggable) instead of a host-leaking 307.
+    redirect_slashes=False,
     title="TukiJuris API",
     description="""
 ## TukiJuris — Plataforma Juridica Inteligente
@@ -133,7 +150,7 @@ Requieren autenticacion via JWT o API key con los scopes correspondientes.
 - **ReDoc**: `/redoc`
 """,
     version="0.5.0",
-    contact={"name": "TukiJuris", "url": "https://tukijuris.net.pe"},
+    contact={"name": "TukiJuris", "url": "https://tukijuris.com.pe"},
     license_info={"name": "Proprietary"},
     lifespan=lifespan,
     docs_url="/docs",
@@ -142,9 +159,8 @@ Requieren autenticacion via JWT o API key con los scopes correspondientes.
         {"name": "health", "description": "Liveness, readiness probes y metricas del sistema"},
         {"name": "auth", "description": "Autenticacion — registro, login, JWT"},
         {"name": "oauth", "description": "SSO — Google y Microsoft OAuth2"},
-        {"name": "chat", "description": "Chat legal — consulta y streaming de respuestas"},
+        {"name": "chat", "description": "Chat legal — consulta y streaming de respuestas (SSE)"},
         {"name": "conversations", "description": "Historial de conversaciones"},
-        {"name": "stream", "description": "Streaming SSE de respuestas del chat"},
         {"name": "documents", "description": "Busqueda y navegacion de la base de conocimiento legal"},
         {"name": "organizations", "description": "Gestion multi-tenant de organizaciones"},
         {"name": "plans", "description": "Catalogo publico de planes — pricing, IGV, BYOK y features"},
@@ -194,7 +210,6 @@ app.include_router(auth.router, prefix="/api")
 app.include_router(emails.router, prefix="/api")
 app.include_router(oauth.router, prefix="/api")
 app.include_router(chat.router, prefix="/api")
-app.include_router(stream.router, prefix="/api")
 app.include_router(conversations.router, prefix="/api")
 app.include_router(documents.router, prefix="/api")
 app.include_router(feedback.router, prefix="/api")
@@ -208,6 +223,8 @@ app.include_router(me_invoices.router, prefix="/api/billing")
 app.include_router(admin.router, prefix="/api")
 app.include_router(admin_saas.router, prefix="/api")
 app.include_router(admin_invoices.router, prefix="/api")
+app.include_router(admin_config.router, prefix="/api")
+app.include_router(admin_platform_keys.router, prefix="/api")
 app.include_router(admin_trials.router, prefix="/api")
 app.include_router(rbac_admin.router, prefix="/api")
 app.include_router(analytics.router, prefix="/api")

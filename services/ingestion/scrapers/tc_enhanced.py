@@ -641,8 +641,12 @@ class TCEnhancedScraper(BaseScraper):
 
 
 if __name__ == "__main__":
+    import os
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
-    db = sys.argv[1] if len(sys.argv) > 1 else DB_URL
+    env_db = os.environ.get("DATABASE_URL_SYNC", DB_URL).replace(
+        "postgresql+asyncpg://", "postgresql://"
+    )
+    db = sys.argv[1] if len(sys.argv) > 1 else env_db
     scraper = TCEnhancedScraper(db)
     result = asyncio.run(scraper.run())
     print(f"TC Enhanced result: {result}")

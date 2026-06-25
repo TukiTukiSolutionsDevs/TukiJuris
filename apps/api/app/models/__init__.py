@@ -11,6 +11,7 @@ from app.models.tag import Tag, Folder, ConversationTag
 from app.models.memory import UserMemory
 from app.models.uploaded_document import UploadedDocument
 from app.models.llm_key import UserLLMKey
+from app.models.platform_llm_key import PlatformLLMKey
 from app.models.refresh_token import RefreshToken
 
 __all__ = [
@@ -29,6 +30,7 @@ __all__ = [
     "UserMemory",
     "UploadedDocument",
     "UserLLMKey",
+    "PlatformLLMKey",
     "RefreshToken",
 ]
 

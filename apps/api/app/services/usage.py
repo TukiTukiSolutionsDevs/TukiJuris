@@ -37,12 +37,21 @@ _TIER_LIMITS_DAY: dict[str, dict[int, int]] = {
 
 
 class DailyLimitResult(TypedDict):
-    allowed: bool
+    """Daily quota snapshot with split pools for normal vs reasoning queries.
+
+    Free tier example (4 normal + 1 reasoning):
+        used_today=2, limit=4, remaining=2,
+        used_today_reasoning=1, limit_reasoning=1, remaining_reasoning=0
+    """
+    allowed: bool                      # True when at least the relevant pool has room
     used_today: int
-    limit: int  # -1 means unlimited
-    remaining: int  # -1 if unlimited
+    limit: int                         # -1 means unlimited
+    remaining: int                     # -1 if unlimited
+    used_today_reasoning: int
+    limit_reasoning: int               # -1 means unlimited
+    remaining_reasoning: int           # -1 if unlimited
     plan: str
-    reset_at: datetime  # next UTC midnight
+    reset_at: datetime                 # next UTC midnight
 
 
 class UsageService:
@@ -64,19 +73,29 @@ class UsageService:
         org_id: uuid.UUID | None,
         user_id: uuid.UUID,
         tokens: int = 0,
+        is_reasoning: bool = False,
     ) -> None:
         """Increment daily usage for a user.
 
-        Delegates entirely to increment_daily_usage — the old monthly INSERT
-        block is gone (that table column no longer exists).
-        org_id may be None for free-tier users without an organisation.
+        When `is_reasoning=True` the query consumes from the reasoning pool
+        (`reasoning_count`), otherwise from the normal pool (`query_count`).
+        Free tier callers MUST set this flag based on whether the model used
+        a reasoning_effort > none — see chat routes.
         """
-        await self.increment_daily_usage(user_id, org_id, query_count=1, token_count=tokens)
+        if is_reasoning:
+            await self.increment_daily_usage(
+                user_id, org_id, query_count=0, reasoning_count=1, token_count=tokens
+            )
+        else:
+            await self.increment_daily_usage(
+                user_id, org_id, query_count=1, reasoning_count=0, token_count=tokens
+            )
         logger.debug(
-            "UsageService.track_query: org=%s user=%s tokens=%d",
+            "UsageService.track_query: org=%s user=%s tokens=%d reasoning=%s",
             org_id,
             user_id,
             tokens,
+            is_reasoning,
         )
 
         # Fire-and-forget: check org thresholds and send usage alert if needed.
@@ -99,12 +118,14 @@ class UsageService:
         org_id: uuid.UUID | None,
         query_count: int = 1,
         token_count: int = 0,
+        reasoning_count: int = 0,
     ) -> None:
         """Upsert today's usage row.  Safe when org_id is None (free-tier users).
 
-        Uses ON CONFLICT (user_id, day) to atomically create-or-increment.
-        No SELECT FOR UPDATE — a +1 overshoot on concurrent requests is
-        accepted per spec §9 AC4.  Redis counters deferred to future sprint.
+        Uses ON CONFLICT (user_id, day) to atomically create-or-increment all
+        three counters (query_count, reasoning_count, token_count). No
+        SELECT FOR UPDATE — a +1 overshoot on concurrent requests is accepted
+        per spec §9 AC4.  Redis counters deferred to future sprint.
         """
         today = datetime.now(UTC).date()
         pool = await self._get_pool()
@@ -112,12 +133,13 @@ class UsageService:
             await conn.execute(
                 """
                 INSERT INTO usage_records
-                    (id, user_id, organization_id, day, query_count, token_count,
-                     created_at, updated_at)
+                    (id, user_id, organization_id, day, query_count,
+                     reasoning_count, token_count, created_at, updated_at)
                 VALUES
-                    (gen_random_uuid(), $1, $2, $3, $4, $5, NOW(), NOW())
+                    (gen_random_uuid(), $1, $2, $3, $4, $5, $6, NOW(), NOW())
                 ON CONFLICT (user_id, day) DO UPDATE SET
                     query_count     = usage_records.query_count     + EXCLUDED.query_count,
+                    reasoning_count = usage_records.reasoning_count + EXCLUDED.reasoning_count,
                     token_count     = usage_records.token_count     + EXCLUDED.token_count,
                     organization_id = COALESCE(
                         usage_records.organization_id, EXCLUDED.organization_id
@@ -128,63 +150,77 @@ class UsageService:
                 org_id,
                 today,
                 query_count,
+                reasoning_count,
                 token_count,
             )
 
     # ── Read path ────────────────────────────────────────────────────────────
 
     async def check_daily_limit(self, user_id: uuid.UUID, plan: str) -> DailyLimitResult:
-        """Check today's UTC usage against plan daily cap.
+        """Check today's UTC usage against the plan's two daily caps.
 
-        Reads usage_records only — never the messages table (spec §2).
-        Returns DailyLimitResult with allowed/remaining/reset_at/plan.
+        Returns split snapshot for normal and reasoning queries.
+        - `allowed` is True when at least the relevant pool has room. The
+          chat routes decide which pool the user wants to consume
+          based on whether the call carries a reasoning_effort.
 
-        Daily cap is sourced from PlanService (canonical config/plans.py).
-        Free tier cap (10/day) is ALWAYS enforced regardless of BETA_MODE.
+        Daily caps come from PlanService (canonical config/plans.py).
+        Free tier caps are ALWAYS enforced regardless of BETA_MODE.
         """
         from app.services.plan_service import PlanService
 
         try:
             daily_limit = PlanService.queries_day_for(plan)
+            reasoning_limit = PlanService.reasoning_queries_day_for(plan)
         except ValueError:
-            # Unknown plan string — treat as free (safe default: 10/day).
-            daily_limit = 10
+            # Unknown plan string — treat as free (safe defaults).
+            daily_limit = 4
+            reasoning_limit = 1
+
         now = datetime.now(UTC)
         reset_at = (now + timedelta(days=1)).replace(
             hour=0, minute=0, second=0, microsecond=0
         )
 
-        if daily_limit == -1:
-            return {
-                "allowed": True,
-                "used_today": 0,
-                "limit": -1,
-                "remaining": -1,
-                "plan": plan,
-                "reset_at": reset_at,
-            }
+        # Read both counters in one round trip when at least one cap applies.
+        used_today = 0
+        used_reasoning = 0
+        if daily_limit != -1 or reasoning_limit != -1:
+            today = now.date()
+            pool = await self._get_pool()
+            async with pool.acquire() as conn:
+                row = await conn.fetchrow(
+                    """
+                    SELECT query_count, reasoning_count
+                    FROM usage_records
+                    WHERE user_id = $1 AND day = $2
+                    """,
+                    user_id,
+                    today,
+                )
+            if row:
+                used_today = int(row["query_count"])
+                used_reasoning = int(row["reasoning_count"])
 
-        today = now.date()  # native datetime.date — passed as DATE to asyncpg
-
-        pool = await self._get_pool()
-        async with pool.acquire() as conn:
-            row = await conn.fetchrow(
-                """
-                SELECT query_count FROM usage_records
-                WHERE user_id = $1 AND day = $2
-                """,
-                user_id,
-                today,
-            )
-
-        used_today = int(row["query_count"]) if row else 0
-        remaining = max(0, daily_limit - used_today)
+        remaining = -1 if daily_limit == -1 else max(0, daily_limit - used_today)
+        remaining_reasoning = (
+            -1 if reasoning_limit == -1 else max(0, reasoning_limit - used_reasoning)
+        )
+        # `allowed` is permissive: True when at least one pool still has room.
+        # Per-pool enforcement happens in the chat route based on the request.
+        allowed = (
+            (daily_limit == -1 or used_today < daily_limit)
+            or (reasoning_limit == -1 or used_reasoning < reasoning_limit)
+        )
 
         return {
-            "allowed": used_today < daily_limit,
+            "allowed": allowed,
             "used_today": used_today,
             "limit": daily_limit,
             "remaining": remaining,
+            "used_today_reasoning": used_reasoning,
+            "limit_reasoning": reasoning_limit,
+            "remaining_reasoning": remaining_reasoning,
             "plan": plan,
             "reset_at": reset_at,
         }

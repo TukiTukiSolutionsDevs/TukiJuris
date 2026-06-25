@@ -27,160 +27,178 @@ import {
   CheckCircle2,
   Mail,
   ExternalLink,
+  Banknote,
+  ClipboardSignature,
+  Fuel,
+  HeartPulse,
+  Leaf,
+  Pickaxe,
+  ShieldCheck,
+  ShoppingCart,
+  Stamp,
+  Truck,
+  TrendingUp,
+  Wifi,
+  Store,
 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
-import { AppLayout } from "@/components/AppLayout";
+import { PublicLayout } from "@/components/public/PublicLayout";
 
 // ————————————————————————————————————————————————
 // DATA
 // ————————————————————————————————————————————————
 
-const LEGAL_AREAS = [
-  {
-    id: "civil",
-    name: "Derecho Civil",
-    icon: BookOpen,
-    color: "text-blue-400",
-    description:
-      "Contratos, responsabilidad civil, derechos reales, familia y sucesiones.",
-    examples: [
-      "Art. 1969 del Código Civil sobre responsabilidad civil",
-      "Requisitos para un contrato de compraventa válido",
-      "Plazos de prescripción en acciones civiles",
-    ],
-  },
-  {
-    id: "penal",
-    name: "Derecho Penal",
-    icon: Shield,
-    color: "text-red-400",
-    description:
-      "Delitos, penas, proceso penal, medidas cautelares y jurisprudencia del PJ.",
-    examples: [
-      "Elementos del delito de estafa según el Código Penal",
-      "Diferencia entre homicidio culposo y doloso",
-      "Plazos de detención preliminar en Perú",
-    ],
-  },
-  {
-    id: "laboral",
-    name: "Derecho Laboral",
-    icon: Briefcase,
-    color: "text-green-400",
-    description:
-      "Contratos laborales, beneficios sociales, CTS, despidos y SUNAFIL.",
-    examples: [
-      "¿Cómo se calcula la CTS en Perú?",
-      "Requisitos para un despido justificado",
-      "Beneficios sociales en contratos a tiempo parcial",
-    ],
-  },
-  {
-    id: "tributario",
-    name: "Derecho Tributario",
-    icon: Landmark,
-    color: "text-yellow-400",
-    description:
-      "IGV, Impuesto a la Renta, SUNAT, infracciones tributarias y procedimientos.",
-    examples: [
-      "Tasa del IGV y excepciones en Perú",
-      "Regímenes tributarios para MYPES",
-      "Procedimiento de fiscalización SUNAT",
-    ],
-  },
-  {
-    id: "constitucional",
-    name: "Derecho Constitucional",
-    icon: Gavel,
-    color: "text-purple-400",
-    description:
-      "Habeas corpus, amparo, inconstitucionalidad, derechos fundamentales y TC.",
-    examples: [
-      "¿Cuándo procede un habeas corpus?",
-      "Diferencia entre amparo e inconstitucionalidad",
-      "Jurisprudencia del TC sobre libertad de expresión",
-    ],
-  },
-  {
-    id: "administrativo",
-    name: "Derecho Administrativo",
-    icon: Building2,
-    color: "text-orange-400",
-    description:
-      "Actos administrativos, silencio administrativo, recursos y Ley 27444.",
-    examples: [
-      "Plazos del silencio administrativo positivo y negativo",
-      "Cómo apelar un acto administrativo",
-      "Responsabilidad del Estado por actos administrativos",
-    ],
-  },
-  {
-    id: "corporativo",
-    name: "Derecho Corporativo",
-    icon: ScrollText,
-    color: "text-cyan-400",
-    description:
-      "Sociedades comerciales, M&A, gobierno corporativo, LGS y BCRP.",
-    examples: [
-      "Requisitos para constituir una SAC en Perú",
-      "Diferencia entre directorio y junta general",
-      "Responsabilidad de socios en SRL",
-    ],
-  },
-  {
-    id: "registral",
-    name: "Derecho Registral",
-    icon: FileCheck,
-    color: "text-pink-400",
-    description:
-      "Registros Públicos, SUNARP, inscripciones, publicidad registral.",
-    examples: [
-      "Cómo inscribir una empresa en SUNARP",
-      "Principio de prioridad registral",
-      "Rectificación de partidas registrales",
-    ],
-  },
-  {
-    id: "comercio_exterior",
-    name: "Comercio Exterior",
-    icon: Globe,
-    color: "text-teal-400",
-    description:
-      "Aduanas, regímenes aduaneros, SUNAT Aduanas, tratados comerciales.",
-    examples: [
-      "Regímenes de importación temporal en Perú",
-      "Drawback: requisitos y cálculo",
-      "Valoración aduanera según el acuerdo de la OMC",
-    ],
-  },
-  {
-    id: "compliance",
-    name: "Compliance",
-    icon: Lock,
-    color: "text-indigo-400",
-    description:
-      "LAFT, protección de datos personales, SAGRILAFT, prevención lavado.",
-    examples: [
-      "Obligaciones de la Ley 29733 de protección de datos",
-      "¿Qué empresas deben tener sistema SPLAFT?",
-      "Procedimiento de debida diligencia del cliente",
-    ],
-  },
-  {
-    id: "competencia",
-    name: "Competencia / PI",
-    icon: BadgeCheck,
-    color: "text-primary",
-    description:
-      "INDECOPI, marcas, patentes, competencia desleal y publicidad.",
-    examples: [
-      "Cómo registrar una marca en INDECOPI",
-      "Prácticas restrictivas de la competencia",
-      "Procedimiento por publicidad engañosa",
-    ],
-  },
-];
+import { LEGAL_AREAS } from "@/app/chat/constants";
+
+// Per-area example queries (page-specific). Keyed by canonical area id.
+const AREA_EXAMPLES: Record<string, string[]> = {
+  civil: [
+    "Art. 1969 del Código Civil sobre responsabilidad civil",
+    "Requisitos para un contrato de compraventa válido",
+    "Plazos de prescripción en acciones civiles",
+  ],
+  penal: [
+    "Elementos del delito de estafa según el Código Penal",
+    "Diferencia entre homicidio culposo y doloso",
+    "Plazos de detención preliminar en Perú",
+  ],
+  laboral: [
+    "¿Cómo se calcula la CTS en Perú?",
+    "Requisitos para un despido justificado",
+    "Beneficios sociales en contratos a tiempo parcial",
+  ],
+  tributario: [
+    "Tasa del IGV y excepciones en Perú",
+    "Regímenes tributarios para MYPES",
+    "Procedimiento de fiscalización SUNAT",
+  ],
+  constitucional: [
+    "¿Cuándo procede un habeas corpus?",
+    "Diferencia entre amparo e inconstitucionalidad",
+    "Jurisprudencia del TC sobre libertad de expresión",
+  ],
+  administrativo: [
+    "Plazos del silencio administrativo positivo y negativo",
+    "Cómo apelar un acto administrativo",
+    "Responsabilidad del Estado por actos administrativos",
+  ],
+  corporativo: [
+    "Requisitos para constituir una SAC en Perú",
+    "Diferencia entre directorio y junta general",
+    "Responsabilidad de socios en SRL",
+  ],
+  registral: [
+    "Cómo inscribir una empresa en SUNARP",
+    "Principio de prioridad registral",
+    "Rectificación de partidas registrales",
+  ],
+  comercio_exterior: [
+    "Regímenes de importación temporal en Perú",
+    "Drawback: requisitos y cálculo",
+    "Valoración aduanera según el acuerdo de la OMC",
+  ],
+  compliance: [
+    "Obligaciones de la Ley 29733 de protección de datos",
+    "¿Qué empresas deben tener sistema SPLAFT?",
+    "Procedimiento de debida diligencia del cliente",
+  ],
+  competencia: [
+    "Prácticas restrictivas de la competencia según DL 1034",
+    "Control de fusiones bajo la Ley 31112",
+    "Sanciones del INDECOPI por abuso de posición de dominio",
+  ],
+  familia: [
+    "Requisitos para divorcio convencional notarial",
+    "Cálculo de pensión de alimentos en Perú",
+    "Medidas de protección por violencia familiar",
+  ],
+  procesal: [
+    "Plazos para presentar recurso de casación",
+    "Vías procedimentales en el CPC peruano",
+    "Audiencia única en la Nueva Ley Procesal del Trabajo",
+  ],
+  seguridad_social: [
+    "Diferencia entre el SNP y el SPP",
+    "Requisitos para pensión de jubilación adelantada",
+    "Cobertura del SCTR para riesgos laborales",
+  ],
+  comercial: [
+    "Protesto de letra de cambio por falta de pago",
+    "Procedimiento concursal preventivo",
+    "Cláusula arbitral en contratos mercantiles",
+  ],
+  notarial: [
+    "Sucesión intestada por vía notarial (Ley 26662)",
+    "Requisitos para una escritura pública de constitución",
+    "Diferencia entre acta notarial y escritura pública",
+  ],
+  consumidor: [
+    "Cláusulas abusivas en contratos de adhesión",
+    "Procedimiento sumarísimo ante INDECOPI",
+    "Derecho de revocación en compras a distancia",
+  ],
+  propiedad_intelectual: [
+    "Procedimiento de registro de marca ante INDECOPI",
+    "Requisitos de patentabilidad de invención",
+    "Protección de derechos morales del autor",
+  ],
+  datos_personales: [
+    "Definición de dato sensible bajo la LPDP",
+    "Transferencia internacional de datos personales",
+    "Plazo de respuesta para ejercicio de derechos ARCO",
+  ],
+  financiero: [
+    "Topes máximos de interés en créditos de consumo",
+    "Régimen sancionador de la SBS",
+    "Garantías financieras admisibles para créditos",
+  ],
+  mercado_valores: [
+    "Requisitos de oferta pública primaria",
+    "Información privilegiada y sanciones SMV",
+    "Régimen de fondos mutuos de inversión",
+  ],
+  seguros: [
+    "Buena fe en el contrato de seguro",
+    "Plazo para denuncia de siniestro",
+    "Cargas del contratante y del asegurado",
+  ],
+  ambiental: [
+    "Clasificación de proyectos en el SEIA",
+    "Sanciones del OEFA por incumplimiento ambiental",
+    "Consulta previa a comunidades indígenas (Ley 29785)",
+  ],
+  minero: [
+    "Petitorio minero: requisitos y procedimiento",
+    "Garantía de cierre de unidad minera",
+    "Régimen de pequeña minería y minería artesanal",
+  ],
+  hidrocarburos: [
+    "Tipos de contrato de exploración y explotación con Perupetro",
+    "Concesión de generación eléctrica",
+    "Régimen sancionador del OSINERGMIN",
+  ],
+  telecom: [
+    "Régimen de concesiones de servicios públicos de telecomunicaciones",
+    "Resoluciones del TRASU sobre reclamos",
+    "Compartición de infraestructura (Ley 28295)",
+  ],
+  transporte: [
+    "Sanciones por exceso de velocidad",
+    "Permiso de operación para transporte de carga",
+    "Reglamento Nacional de Vehículos",
+  ],
+  salud: [
+    "Registro sanitario de medicamentos en DIGEMID",
+    "Derechos del paciente (Ley 29414)",
+    "Régimen sancionador de SUSALUD",
+  ],
+  contrataciones_estado: [
+    "Procedimientos de selección bajo la Ley 32069",
+    "Impedimentos para contratar con el Estado",
+    "Recurso de apelación ante el Tribunal de Contrataciones",
+  ],
+};
 
 const FAQ_ITEMS = [
   {
@@ -241,7 +259,7 @@ const FAQ_ITEMS = [
   },
   {
     q: "¿Cómo cambio de plan?",
-    a: "Desde /billing podés ver tu plan actual, el uso del mes y las opciones de upgrade. El cambio es inmediato al confirmar el pago. Si tenés preguntas sobre precios o necesitás un plan corporativo, escribinos a soporte@tukijuris.net.pe.",
+    a: "Desde /billing podés ver tu plan actual, el uso del mes y las opciones de upgrade. El cambio es inmediato al confirmar el pago. Si tenés preguntas sobre precios o necesitás un plan corporativo, escribinos a soporte@tukijuris.com.pe.",
   },
   {
     q: "¿Necesito crear una cuenta para usar TukiJuris?",
@@ -260,7 +278,7 @@ const HOW_IT_WORKS = [
     step: 2,
     title: "Clasificación automática",
     desc: "El orquestador analiza tu consulta y la clasifica en el área del derecho correspondiente. También podés seleccionar el área manualmente desde el sidebar.",
-    detail: "El clasificador tiene 95%+ de precisión en las 11 áreas soportadas.",
+    detail: "El clasificador tiene 95%+ de precisión en las 29 áreas soportadas.",
   },
   {
     step: 3,
@@ -360,7 +378,7 @@ export default function GuiaPage() {
   const [expandedArea, setExpandedArea] = useState<string | null>(null);
 
   return (
-    <AppLayout>
+    <PublicLayout>
       <div className="flex min-h-full flex-col text-on-surface">
         {/* Top bar */}
         <div
@@ -500,7 +518,7 @@ export default function GuiaPage() {
                               Consultas de ejemplo
                             </p>
                             <ul className="space-y-1.5">
-                              {area.examples.map((ex) => (
+                              {(AREA_EXAMPLES[area.id] ?? []).map((ex) => (
                                 <li
                                   key={ex}
                                   className="flex items-start gap-2 text-xs text-on-surface/40"
@@ -635,11 +653,11 @@ export default function GuiaPage() {
                 </p>
                 <div className="flex flex-col sm:flex-row gap-3">
                   <a
-                    href="mailto:soporte@tukijuris.net.pe"
+                    href="mailto:soporte@tukijuris.com.pe"
                     className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-primary hover:bg-primary/90 text-background text-sm font-medium transition-colors"
                   >
                     <Mail className="w-4 h-4" />
-                    soporte@tukijuris.net.pe
+                    soporte@tukijuris.com.pe
                   </a>
                   <a
                     href="/status"
@@ -660,6 +678,6 @@ export default function GuiaPage() {
           </div>
         </div>
       </div>
-    </AppLayout>
+    </PublicLayout>
   );
 }

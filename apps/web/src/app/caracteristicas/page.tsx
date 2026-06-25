@@ -56,10 +56,10 @@ function Reveal({ children, className, delay }: { children: ReactNode; className
 const FEATURES_SHOWCASE = [
   {
     icon: Scale,
-    title: "11 Áreas del Derecho Peruano",
-    desc: "Agentes especializados en Civil, Penal, Laboral, Tributario, Constitucional, Administrativo, Corporativo, Registral, Competencia, Compliance y Comercio Exterior. Cada uno entrenado con legislación, jurisprudencia y doctrina de su área.",
+    title: "29 Áreas del Derecho Peruano",
+    desc: "Cobertura completa del ordenamiento jurídico peruano vigente: núcleo clásico (Civil, Familia, Penal, Procesal, Laboral, Seguridad Social, Tributario, Constitucional), económico-regulatorio (Consumidor, Datos Personales, Propiedad Intelectual, Libre Competencia, Compliance), sectorial (Ambiental, Minero, Hidrocarburos, Telecom, Transporte, Salud, Financiero, Mercado de Valores, Seguros), Estado (Contrataciones Ley 32069). 1500+ documentos oficiales indexados con embeddings multilingües.",
     image: "/landing/feature-areas.png",
-    badges: ["Civil", "Penal", "Laboral", "Tributario", "+7 más"],
+    badges: ["Civil", "Penal", "Laboral", "Tributario", "+25 más"],
   },
   {
     icon: Search,
@@ -71,10 +71,10 @@ const FEATURES_SHOWCASE = [
   },
   {
     icon: Key,
-    title: "Tu Propia Clave de IA (BYOK)",
-    desc: "Conectá tu API key de OpenAI, Google o Anthropic. Usá GPT-4o, Gemini Pro o Claude con control total de costos. También incluimos modelos gratuitos como Gemini Flash, Groq y DeepSeek.",
+    title: "BYOK — exclusivo plan Empresarial",
+    desc: "Para estudios y empresas que requieren usar su propia clave API (OpenAI, Google, Anthropic) con control directo de costos del proveedor, ofrecemos integración BYOK como parte del plan Empresarial a medida. Configurado, mantenido y auditado por nuestro equipo. Contactar a ventas@tukijuris.com para evaluación y propuesta comercial.",
     image: "/landing/feature-byok.png",
-    badges: ["OpenAI", "Google", "Anthropic", "Gratuitos incluidos"],
+    badges: ["Plan Empresarial", "Contactar ventas", "Setup gestionado"],
   },
 ];
 

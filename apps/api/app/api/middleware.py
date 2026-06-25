@@ -67,12 +67,16 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 _EXEMPT_PREFIXES = ("/api/health", "/docs", "/redoc", "/openapi")
 
 # Auth-adjacent paths that retain IP-based rate limiting even for authenticated requests.
-# These are the anonymous-abuse vectors (credential stuffing, brute force).
+# These are the anonymous-abuse vectors (credential stuffing, brute force, email flood).
 # All other authenticated requests bypass the middleware IP bucket entirely —
 # fine-grained per-plan limits are handled by RateLimitGuard at the route level.
+#
+# /api/auth/password-reset is the real route (see emails.py); /forgot-password is a
+# legacy alias retained for defence-in-depth in case a client still calls the old path.
 _AUTH_ADJACENT_PREFIXES = (
     "/api/auth/login",
     "/api/auth/register",
+    "/api/auth/password-reset",
     "/api/auth/forgot-password",
     "/api/auth/oauth",
 )

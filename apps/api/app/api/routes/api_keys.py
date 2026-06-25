@@ -373,6 +373,57 @@ async def list_llm_providers(
     return get_available_providers()
 
 
+@router.get("/platform-status", summary="List provider availability based on platform keys")
+async def platform_provider_status(
+    db: AsyncSession = Depends(get_db),
+    _rl: None = Depends(RateLimitGuard(RateLimitBucket.READ)),
+) -> dict:
+    """Return per-provider availability status based on platform-managed keys.
+
+    The frontend uses this to render the model selector for clients: providers
+    with an active platform key are usable, the rest are shown as inactive.
+    Values of the keys themselves are NEVER returned — only the boolean
+    `active` flag. This endpoint requires no admin scope.
+    """
+    from app.models.platform_llm_key import PlatformLLMKey
+
+    result = await db.execute(select(PlatformLLMKey.provider, PlatformLLMKey.is_active))
+    active_providers = {
+        row.provider.lower() for row in result.fetchall() if row.is_active
+    }
+
+    from app.services.llm_key_service import get_available_providers
+
+    # A provider is "via proxy" when its <PROVIDER>_BASE_URL env var is set.
+    # LiteLLM picks these up automatically; we surface the flag so the UI can
+    # distinguish a real provider key from a dev proxy.
+    proxy_env_map = {
+        "openai": "OPENAI_BASE_URL",
+        "anthropic": "ANTHROPIC_BASE_URL",
+        "google": "GOOGLE_BASE_URL",
+        "groq": "GROQ_BASE_URL",
+        "deepseek": "DEEPSEEK_BASE_URL",
+        "xai": "XAI_BASE_URL",
+    }
+
+    providers = get_available_providers()
+    return {
+        "providers": [
+            {
+                "id": p["id"],
+                "name": p["name"],
+                "active": p["id"].lower() in active_providers,
+                "via_proxy": bool(
+                    p["id"].lower() in active_providers
+                    and os.environ.get(proxy_env_map.get(p["id"].lower(), ""), "").strip()
+                ),
+            }
+            for p in providers
+        ],
+        "any_active": len(active_providers) > 0,
+    }
+
+
 @router.get("/free-models", summary="List platform-provided free tier models")
 async def list_free_models(
     _rl: None = Depends(RateLimitGuard(RateLimitBucket.READ)),
@@ -386,7 +437,7 @@ async def list_free_models(
     from app.services.llm_adapter import llm_service
     from app.services.plan_service import PlanService
 
-    models = llm_service.get_free_tier_models()
+    models = await llm_service.get_free_tier_models()
     return {
         "models": models,
         "daily_limit": PlanService.queries_day_for("free"),
@@ -431,7 +482,7 @@ async def test_llm_key(
         "google": "gemini/gemini-2.5-flash",
         "groq": "groq/llama-3.1-8b-instant",
         "deepseek": "deepseek/deepseek-chat",
-        "openai": "openai/gpt-5.4-nano",
+        "openai": "openai/gpt-5.5",
         "anthropic": "anthropic/claude-haiku-4-5",
         "xai": "xai/grok-3-mini-fast-latest",
     }

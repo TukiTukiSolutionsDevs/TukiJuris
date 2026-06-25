@@ -14,7 +14,7 @@ Definir UNA sola arquitectura espacial para la app privada antes de seguir con r
 - Header/footer públicos según corresponda.
 
 ### 2. Privado estándar
-- `/`, `/buscar`, `/historial`, `/marcadores`, `/analytics`, `/billing`, `/configuracion`, `/organizacion`, `/guia`, `/docs`, `/status`, `/analizar`, `/documento/[id]`
+- `/`, `/buscar`, `/historial`, `/marcadores`, `/notificaciones`, `/analytics`, `/billing`, `/configuracion`, `/organizacion`, `/guia`, `/docs`, `/status`, `/analizar`, `/documento/[id]`
 - Usa `WorkspaceShell`.
 - Slots oficiales:
   - `sidebar`
@@ -38,6 +38,7 @@ Definir UNA sola arquitectura espacial para la app privada antes de seguir con r
 | `/buscar` | Sí | Sí | No por defecto | No |
 | `/historial` | Sí | Sí | No por defecto | No |
 | `/marcadores` | Sí | Sí | No por defecto | No |
+| `/notificaciones` | Sí | Sí | No por defecto | No |
 | `/analytics` | Sí | Sí | No por defecto | No |
 | `/billing` | Sí | Sí | No por defecto | No |
 | `/configuracion` | Sí | Sí | No por defecto | No |

@@ -31,17 +31,43 @@ _genai_configured: bool = False
 _openai_client = None
 
 
-def _configure_genai() -> bool:
+async def _resolve_provider_key(provider: str) -> str:
+    """Return the platform key for a provider.
+
+    Reads first from the encrypted `platform_llm_keys` table (operator-managed
+    via /admin?tab=claves). Falls back to the legacy settings field — which is
+    expected to be empty in modern deployments. Returns "" if neither has a
+    key, so callers can short-circuit cleanly.
+    """
+    from app.core.database import async_session_factory
+    from app.services.platform_llm_key_service import get_platform_key
+
+    try:
+        async with async_session_factory() as db:
+            key = await get_platform_key(provider, db)
+            if key:
+                return key
+    except Exception as e:  # noqa: BLE001
+        logger.warning("rag.platform_key_read_failed: provider=%s error=%s", provider, e)
+
+    # Legacy env fallback. In current deployments settings.<provider>_api_key
+    # is always "" — kept here only for backward compat with dev-time overrides.
+    legacy = getattr(settings, f"{provider}_api_key", "") or ""
+    return legacy
+
+
+async def _configure_genai_async() -> bool:
     """Configure Google genai once. Returns True on success."""
     global _genai_configured
     if _genai_configured:
         return True
-    if not settings.google_api_key:
+    google_key = await _resolve_provider_key("google")
+    if not google_key:
         return False
     try:
         import google.generativeai as genai  # type: ignore
 
-        genai.configure(api_key=settings.google_api_key)
+        genai.configure(api_key=google_key)
         _genai_configured = True
         return True
     except ImportError:
@@ -49,17 +75,30 @@ def _configure_genai() -> bool:
         return False
 
 
-def _get_openai_client():
-    """Lazy-init OpenAI client (fallback embeddings). Returns None if unavailable."""
+async def _get_openai_client_async():
+    """Lazy-init OpenAI client (fallback embeddings). Returns None if unavailable.
+
+    NOTE: We pass `base_url="https://api.openai.com/v1"` explicitly so that any
+    `OPENAI_BASE_URL` env override (e.g. the codex-proxy at :5050, which doesn't
+    implement /v1/embeddings) is ignored for the embedding path. We also set
+    `max_retries=0` and a tight timeout so that a misconfigured key fails fast
+    and the caller falls back to BM25 search instead of hanging the pipeline.
+    """
     global _openai_client
     if _openai_client is not None:
         return _openai_client
-    if not settings.openai_api_key:
+    openai_key = await _resolve_provider_key("openai")
+    if not openai_key:
         return None
     try:
         from openai import AsyncOpenAI  # type: ignore
 
-        _openai_client = AsyncOpenAI(api_key=settings.openai_api_key)
+        _openai_client = AsyncOpenAI(
+            api_key=openai_key,
+            base_url="https://api.openai.com/v1",
+            max_retries=0,
+            timeout=10.0,
+        )
         return _openai_client
     except ImportError:
         logger.warning("openai package not installed — OpenAI fallback unavailable")
@@ -99,8 +138,11 @@ class RAGService:
         Returns None if no provider is available or an error occurs.
         """
         # ── Google (primary) ──────────────────────────────────────────────
-        if settings.embedding_provider == "google" or settings.google_api_key:
-            if _configure_genai():
+        # Provider preference is taken from settings.embedding_provider; key
+        # availability is decided inside _configure_genai_async (DB first,
+        # legacy env after).
+        if settings.embedding_provider == "google":
+            if await _configure_genai_async():
                 try:
                     import google.generativeai as genai  # type: ignore
 
@@ -118,7 +160,7 @@ class RAGService:
                     logger.warning(f"Google embedding failed: {exc} — trying OpenAI fallback")
 
         # ── OpenAI (fallback) ─────────────────────────────────────────────
-        client = _get_openai_client()
+        client = await _get_openai_client_async()
         if client is not None:
             try:
                 response = await client.embeddings.create(
@@ -388,11 +430,12 @@ class RAGService:
             else limit
         )
 
-        # Decide which search method to use
-        use_hybrid = (
-            bool(settings.google_api_key or settings.openai_api_key)
-            and await self.has_embeddings()
-        )
+        # Decide which search method to use. Hybrid search needs an embedding
+        # provider key — try DB-backed platform keys first (operator-managed),
+        # fall back to legacy settings (typically empty).
+        google_key = await _resolve_provider_key("google")
+        openai_key = await _resolve_provider_key("openai")
+        use_hybrid = bool(google_key or openai_key) and await self.has_embeddings()
 
         if use_hybrid:
             results = await self.search_hybrid(query, legal_area=legal_area, limit=fetch_limit)
@@ -454,7 +497,17 @@ class RAGService:
     # ──────────────────────────────────────────
 
     async def get_stats(self) -> dict:
-        """Return knowledge base statistics."""
+        """
+        Knowledge base statistics — rich breakdown for the /buscar UI and
+        operational dashboards.
+
+        Returns counts of:
+            - total documents and chunks
+            - embedding coverage (chunks with embedding / total)
+            - chunks by legal_area, hierarchy, source, document_type
+            - distinct sources and document_types (lists for filter UIs)
+            - last 5 most recently ingested document titles
+        """
         pool = await self._get_pool()
         async with pool.acquire() as conn:
             total_docs = await conn.fetchval("SELECT COUNT(*) FROM documents")
@@ -462,22 +515,56 @@ class RAGService:
             embedded_chunks = await conn.fetchval(
                 "SELECT COUNT(*) FROM document_chunks WHERE embedding IS NOT NULL"
             )
+
             areas = await conn.fetch(
-                """
-                SELECT legal_area, COUNT(*) as count
-                FROM document_chunks
-                GROUP BY legal_area
-                ORDER BY count DESC
-                """
+                "SELECT legal_area, COUNT(*) as c FROM document_chunks "
+                "GROUP BY legal_area ORDER BY c DESC"
             )
+            docs_by_hierarchy = await conn.fetch(
+                "SELECT COALESCE(hierarchy, 'sin_clasificar') AS hierarchy, COUNT(*) AS c "
+                "FROM documents GROUP BY 1 ORDER BY c DESC"
+            )
+            docs_by_source = await conn.fetch(
+                "SELECT source, COUNT(*) AS c FROM documents "
+                "GROUP BY source ORDER BY c DESC"
+            )
+            docs_by_type = await conn.fetch(
+                "SELECT document_type, COUNT(*) AS c FROM documents "
+                "GROUP BY document_type ORDER BY c DESC"
+            )
+            recent = await conn.fetch(
+                "SELECT title, document_number, legal_area, source, created_at "
+                "FROM documents ORDER BY created_at DESC NULLS LAST LIMIT 5"
+            )
+
             return {
-                "total_documents": total_docs,
-                "total_chunks": total_chunks,
-                "embedded_chunks": embedded_chunks,
+                "total_documents": total_docs or 0,
+                "total_chunks": total_chunks or 0,
+                "embedded_chunks": embedded_chunks or 0,
                 "embedding_coverage": (
-                    round(embedded_chunks / total_chunks * 100, 1) if total_chunks else 0
+                    round((embedded_chunks or 0) / total_chunks * 100, 1)
+                    if total_chunks
+                    else 0
                 ),
-                "chunks_by_area": {r["legal_area"]: r["count"] for r in areas},
+                "areas_count": len(areas),
+                "chunks_by_area": {r["legal_area"]: r["c"] for r in areas},
+                "docs_by_hierarchy": {r["hierarchy"]: r["c"] for r in docs_by_hierarchy},
+                "docs_by_source": {r["source"]: r["c"] for r in docs_by_source},
+                "docs_by_type": {r["document_type"]: r["c"] for r in docs_by_type},
+                "sources": [r["source"] for r in docs_by_source],
+                "document_types": [r["document_type"] for r in docs_by_type],
+                "recent_documents": [
+                    {
+                        "title": r["title"],
+                        "document_number": r["document_number"],
+                        "legal_area": r["legal_area"],
+                        "source": r["source"],
+                        "created_at": (
+                            r["created_at"].isoformat() if r["created_at"] else None
+                        ),
+                    }
+                    for r in recent
+                ],
             }
 
 

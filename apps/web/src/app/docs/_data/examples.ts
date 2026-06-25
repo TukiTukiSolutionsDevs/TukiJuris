@@ -1,7 +1,7 @@
 export const PYTHON_EXAMPLE = `import httpx
 
 API_KEY = "ak_your_key_here"
-BASE_URL = "https://api.tukijuris.net.pe"
+BASE_URL = "https://api.tukijuris.com.pe"
 
 # Make a legal query
 response = httpx.post(
@@ -17,7 +17,7 @@ for citation in data["citations"]:
     print(f"[{citation['document']}] {citation['content'][:100]}...")`;
 
 export const JS_EXAMPLE = `const API_KEY = "ak_your_key_here";
-const BASE_URL = "https://api.tukijuris.net.pe";
+const BASE_URL = "https://api.tukijuris.com.pe";
 
 // Make a legal query
 const response = await fetch(\`\${BASE_URL}/api/v1/query\`, {
@@ -40,18 +40,18 @@ data.citations.forEach((c) => {
 });`;
 
 export const CURL_EXAMPLE = `# Register and get a JWT token
-curl -X POST https://api.tukijuris.net.pe/api/auth/login \\
+curl -X POST https://api.tukijuris.com.pe/api/auth/login \\
   -H "Content-Type: application/json" \\
   -d '{"email": "you@lawfirm.com", "password": "your-password"}'
 
 # Use the JWT token to make a legal query
-curl -X POST https://api.tukijuris.net.pe/api/v1/query \\
+curl -X POST https://api.tukijuris.com.pe/api/v1/query \\
   -H "Authorization: Bearer eyJ..." \\
   -H "Content-Type: application/json" \\
   -d '{"query": "Plazos de prescripcion en derecho penal peruano"}'
 
 # Or use an API key directly
-curl -X POST https://api.tukijuris.net.pe/api/v1/query \\
+curl -X POST https://api.tukijuris.com.pe/api/v1/query \\
   -H "X-API-Key: ak_your_key_here" \\
   -H "Content-Type: application/json" \\
   -d '{"query": "Como se calcula la CTS en Peru"}'`;
@@ -59,7 +59,7 @@ curl -X POST https://api.tukijuris.net.pe/api/v1/query \\
 export const SEARCH_EXAMPLE = `import httpx
 
 API_KEY = "ak_your_key_here"
-BASE_URL = "https://api.tukijuris.net.pe"
+BASE_URL = "https://api.tukijuris.com.pe"
 
 # Search the legal knowledge base directly
 response = httpx.post(
@@ -78,7 +78,7 @@ for r in results:
 export const ANALYZE_EXAMPLE = `import httpx
 
 API_KEY = "ak_your_key_here"
-BASE_URL = "https://api.tukijuris.net.pe"
+BASE_URL = "https://api.tukijuris.com.pe"
 
 case = """
 Un trabajador fue despedido verbalmente despues de 3 años en la empresa.

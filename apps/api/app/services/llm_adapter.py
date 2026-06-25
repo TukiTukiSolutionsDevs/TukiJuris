@@ -61,13 +61,16 @@ AVAILABLE_MODELS = [
         "cost_per_1k_tokens": 0.00059,
     },
     # --- Standard tier ---
+    # NOTE: `gpt-5.4-nano` removed — verified 2026-06-25 NOT served by the
+    # local codex-proxy (Codex CLI 0.142.0). Only gpt-5.4, gpt-5.4-mini and
+    # gpt-5.5 actually respond. See `services/codex_proxy/main.py`.
     {
-        "id": "openai/gpt-5.4-nano",
+        "id": "openai/gpt-5.5",
         "provider": "openai",
-        "name": "GPT-5.4 Nano",
-        "description": "El más barato de OpenAI ($0.20/M). Tareas simples.",
+        "name": "GPT-5.5",
+        "description": "El más rápido del codex-proxy (~4s/call). Recomendado para flujo intake/investigation.",
         "tier": "standard",
-        "cost_per_1k_tokens": 0.0002,
+        "cost_per_1k_tokens": 0.001,
     },
     {
         "id": "anthropic/claude-haiku-4-5",
@@ -213,7 +216,7 @@ MODEL_TIERS: dict[str, int] = {
     "groq/llama-3.3-70b-versatile": 1,
     "deepseek/deepseek-chat": 1,
     "xai/grok-4-1-fast-reasoning": 1,
-    "openai/gpt-5.4-nano": 1,
+    "openai/gpt-5.5": 2,
     "xai/grok-3-mini-fast-latest": 1,
     # Tier 2 — Standard (alto razonamiento)
     "anthropic/claude-haiku-4-5": 2,
@@ -221,6 +224,8 @@ MODEL_TIERS: dict[str, int] = {
     "deepseek/deepseek-reasoner": 2,
     "gemini/gemini-2.5-pro": 2,
     "groq/qwen/qwen3-32b": 2,
+    "groq/qwen/qwen3.6-27b": 2,
+    "groq/meta-llama/llama-4-scout-17b-16e-instruct": 2,
     "gemini/gemini-3.1-flash-lite-preview": 2,
     # Tier 3 — Premium
     "anthropic/claude-sonnet-4-6": 3,
@@ -228,6 +233,7 @@ MODEL_TIERS: dict[str, int] = {
     "gemini/gemini-3.1-pro-preview": 3,
     "xai/grok-4.20-reasoning-latest": 3,
     "xai/grok-4-0709": 3,
+    "groq/openai/gpt-oss-20b": 3,
     "groq/openai/gpt-oss-120b": 3,
     "xai/grok-3-fast-latest": 3,
     # Tier 4 — Ultra
@@ -271,6 +277,18 @@ FREE_TIER_MODELS = [
         "cost_per_1k_tokens": 0.0,
         "is_platform_provided": True,
     },
+    # OpenAI via local codex-proxy (dev/self-hosted setups). Only appears in
+    # the chat picker if the platform has an OpenAI key configured — get_free
+    # tier_models() filters by _get_platform_key.
+    {
+        "id": "openai/gpt-5.5",
+        "provider": "openai",
+        "name": "GPT-5.5 — vía proxy",
+        "description": "Servido por el codex-proxy local. ~4s/call. Ideal para análisis de caso.",
+        "tier": "free",
+        "cost_per_1k_tokens": 0.0,
+        "is_platform_provided": True,
+    },
 ]
 
 
@@ -278,20 +296,12 @@ class LLMService:
     """Unified interface for all LLM providers via LiteLLM."""
 
     def __init__(self):
-        self._configure_api_keys()
-
-    def _configure_api_keys(self):
-        """Set platform-level API keys from settings (used for internal operations)."""
-        import os
-
-        if settings.openai_api_key:
-            litellm.openai_key = settings.openai_api_key
-        if settings.anthropic_api_key:
-            litellm.anthropic_key = settings.anthropic_api_key
-        if settings.xai_api_key:
-            os.environ["XAI_API_KEY"] = settings.xai_api_key
-        if settings.openrouter_api_key:
-            os.environ["OPENROUTER_API_KEY"] = settings.openrouter_api_key
+        # Platform keys are NO LONGER read at startup from settings/.env.
+        # The operator manages them in /admin?tab=claves; they are decrypted
+        # on demand via `_get_platform_key` -> platform_llm_key_service.
+        # Each litellm.acompletion() call receives `api_key=` explicitly,
+        # so no global litellm/env state is required.
+        pass
 
     def _provider_from_model(self, model: str) -> str | None:
         """Map a model string to its provider name for BYOK key resolution.
@@ -330,7 +340,7 @@ class LLMService:
             return "groq"
         return None
 
-    def _get_platform_key(self, model: str) -> str | None:
+    async def _get_platform_key(self, model: str) -> str | None:
         """
         Return ONLY the platform-owned API key for a model.
 
@@ -339,23 +349,34 @@ class LLMService:
         uploaded by other users. Cross-tenant key reuse would mean one user's
         provider account pays for another user's traffic.
 
-        Therefore this method reads exclusively from server-side settings/.env.
+        Storage migrated from `.env` to the `platform_llm_keys` table — the
+        TukiJuris operator manages these keys from the admin panel. The
+        platform key is decrypted on demand via `platform_llm_key_service`,
+        using the same Fernet cipher as user BYOK keys (BYOK_ENCRYPTION_KEY).
+
+        Reads open their own short-lived session so this method does not
+        require the caller to thread a `db` parameter through every
+        completion path.
         """
         provider = self._provider_from_model(model)
-        env_keys = {
-            "openai": settings.openai_api_key,
-            "anthropic": settings.anthropic_api_key,
-            "google": settings.google_api_key,
-            "deepseek": settings.deepseek_api_key,
-            "groq": settings.groq_api_key,
-            "xai": settings.xai_api_key,
-            "openrouter": settings.openrouter_api_key,
-        }
-        env_key = env_keys.get(provider or "", "") or ""
-        if env_key:
-            return env_key
+        if not provider:
+            return None
 
-        return None
+        # Local imports to avoid circular dependency at module load time
+        # (database -> models -> services).
+        from app.core.database import async_session_factory
+        from app.services.platform_llm_key_service import get_platform_key
+
+        async with async_session_factory() as db:
+            try:
+                return await get_platform_key(provider, db)
+            except Exception as e:  # noqa: BLE001
+                logger.warning(
+                    "platform_llm_key.read_failed: provider=%s error=%s",
+                    provider,
+                    e,
+                )
+                return None
 
     async def completion(
         self,
@@ -389,8 +410,9 @@ class LLMService:
         """
         model = model or settings.default_llm_model
 
-        # BYOK key resolution
-        api_key = user_api_key or self._get_platform_key(model)
+        # BYOK key resolution. _get_platform_key is async (reads platform_llm_keys
+        # from the DB) so we await only when the user did not supply a BYOK.
+        api_key = user_api_key or await self._get_platform_key(model)
 
         try:
             call_kwargs: dict = dict(
@@ -452,7 +474,7 @@ class LLMService:
                     temperature=temperature,
                     max_tokens=max_tokens,
                 )
-                fallback_key = self._get_platform_key(fallback)
+                fallback_key = await self._get_platform_key(fallback)
                 if fallback_key:
                     fallback_kwargs["api_key"] = fallback_key
                 response = await litellm.acompletion(**fallback_kwargs)
@@ -468,22 +490,42 @@ class LLMService:
                 raise
 
     async def embed(self, text: str | list[str]) -> list[list[float]]:
-        """Generate embeddings for text using the configured embedding model."""
+        """Generate embeddings for text using the configured embedding model.
+
+        Embeddings are a platform operation (RAG ingestion + query encoding),
+        so we authenticate with the platform key for the embedding model's
+        provider — never with a user BYOK.
+
+        If the operator has not yet configured a platform key for that
+        provider, this raises a clear RuntimeError. The caller can decide
+        whether to surface this as a user-facing error or a 503.
+        """
         if isinstance(text, str):
             text = [text]
+
+        api_key = await self._get_platform_key(settings.embedding_model)
+        if not api_key:
+            raise RuntimeError(
+                "Embedding provider key not configured. The operator must "
+                "add the corresponding platform key in /admin?tab=keys "
+                f"(model: {settings.embedding_model})."
+            )
 
         response = await litellm.aembedding(
             model=settings.embedding_model,
             input=text,
+            api_key=api_key,
         )
 
         return [item["embedding"] for item in response.data]
 
-    def resolve_free_tier(self, requested_model: str | None = None) -> tuple[str, str] | None:
+    async def resolve_free_tier(self, requested_model: str | None = None) -> tuple[str, str] | None:
         """Resolve a model + API key for free tier usage.
 
         Tries the requested model first (if it's a free tier model),
         then falls back through FREE_TIER_MODELS in order.
+
+        Async since `_get_platform_key` now reads from the DB.
 
         Returns:
             (model_id, api_key) tuple, or None if no free tier key is available.
@@ -497,21 +539,21 @@ class LLMService:
         candidates.extend(m["id"] for m in FREE_TIER_MODELS if m["id"] not in candidates)
 
         for model_id in candidates:
-            key = self._get_platform_key(model_id)
+            key = await self._get_platform_key(model_id)
             if key:
                 logger.info(f"Free tier resolved: {model_id}")
                 return (model_id, key)
 
-        logger.warning("No free tier key available — all platform keys are empty")
+        logger.warning("No free tier key available — admin must configure platform keys")
         return None
 
-    def get_free_tier_models(self) -> list[dict]:
+    async def get_free_tier_models(self) -> list[dict]:
         """Return free tier models that have a working platform key."""
         if not settings.free_tier_enabled:
             return []
         result = []
         for model in FREE_TIER_MODELS:
-            key = self._get_platform_key(model["id"])
+            key = await self._get_platform_key(model["id"])
             if key:
                 result.append({**model, "available": True})
         return result

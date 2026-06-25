@@ -28,6 +28,7 @@ from app.core.rate_limiter import refresh_rate_limit
 from app.core.security import (
     check_login_attempts,
     hash_password,
+    record_failed_login_attempt,
     verify_password,
 )
 from app.core.validators import validate_password
@@ -163,7 +164,7 @@ def _set_session_cookies(
                    Next.js middleware reads this to gate /admin/** and
                    /analytics/** at the edge without exposing JWT secrets.
 
-    When ``settings.cookie_domain`` is set (e.g. ".tukijuris.net.pe"), the
+    When ``settings.cookie_domain`` is set (e.g. ".tukijuris.com.pe"), the
     ``Domain`` attribute is included so the cookies are shared across
     subdomains.  When empty (localhost dev), the attribute is fully absent —
     not "Domain=", but absent — so the cookie becomes host-only.
@@ -397,6 +398,9 @@ async def login(
     """Login with email and password, return access token + set refresh-token cookie."""
     client_ip = request.client.host if request.client else "unknown"
 
+    # Peek the sliding window — does NOT consume quota. Successful logins
+    # below leave the bucket untouched, so only real abuse (repeated failed
+    # attempts) is what fills it.
     if not await check_login_attempts(client_ip):
         raise HTTPException(
             status_code=429,
@@ -407,17 +411,30 @@ async def login(
     user = result.scalar_one_or_none()
 
     if not user or not verify_password(body.password, user.hashed_password):
+        # Only failed attempts consume the bucket — legitimate logins don't
+        # burn quota on hot-reload, multi-tab, or automated test runs.
+        await record_failed_login_attempt(client_ip)
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
     if not user.is_active:
         raise HTTPException(status_code=403, detail="Account disabled")
 
-    # T5.6 — SSO enforcement: privileged accounts must use Google SSO
+    # T5.6 — SSO enforcement: privileged accounts must use Google SSO.
+    # Bypassed in dev (APP_DEBUG=true) so local testing of admin flows does
+    # not require a configured Google OAuth client. The bypass is logged so
+    # it cannot be confused for a production behaviour.
     if await _has_privileged_role(db, user.id):
-        raise HTTPException(
-            status_code=403,
-            detail="Privileged accounts must use Google SSO",
-        )
+        if settings.app_debug:
+            logger.warning(
+                "SSO enforcement bypassed for privileged user %s (APP_DEBUG=true). "
+                "This bypass is OFF in production.",
+                user.email,
+            )
+        else:
+            raise HTTPException(
+                status_code=403,
+                detail="Privileged accounts must use Google SSO",
+            )
 
     pair = await service.issue_pair(user, _extract_device_info(request))
     _set_session_cookies(response, pair.refresh_token, is_admin=bool(user.is_admin))
@@ -596,6 +613,16 @@ async def logout_all(
     # Step 2: Bulk DB revoke
     await service.revoke_all(current_user.id)
 
+    # Step 2b (F0-SEC-06): Kill access tokens issued before now. Refresh tokens are
+    # already dead after revoke_all, but a stolen short-lived access token would
+    # still pass JWT signature verification — the marker forces get_current_user
+    # to reject it.
+    from app.core.access_revocation import mark_user_revoked as _mark_user_revoked
+    await _mark_user_revoked(
+        current_user.id,
+        ttl_seconds=max(120, settings.access_token_expire_minutes * 60),
+    )
+
     # Step 3: Populate Redis denylist with precise remaining TTLs
     now = datetime.now(UTC)
     for jti, expires_at in active_rows:
@@ -673,11 +700,32 @@ async def get_current_profile(
     """
     from app.config import settings
     from app.services.entitlement_service import EntitlementService
+    from app.services.usage import usage_service
 
     entitlements = EntitlementService.list_user_features(
         plan_id=current_user.plan,
         beta_mode=settings.beta_mode,
     )
+
+    # Daily quota snapshot — reads usage_records (spec §2). Failures are
+    # non-fatal: fall back to a "no quota info" payload so the UI still
+    # renders the rest of the profile.
+    usage_payload: dict | None = None
+    try:
+        limit = await usage_service.check_daily_limit(current_user.id, current_user.plan)
+        usage_payload = {
+            "plan": limit["plan"],
+            "used_today": limit["used_today"],
+            "daily_limit": limit["limit"],            # -1 = unlimited
+            "remaining_today": limit["remaining"],    # -1 = unlimited
+            "used_today_reasoning": limit["used_today_reasoning"],
+            "reasoning_limit": limit["limit_reasoning"],          # -1 = unlimited
+            "remaining_reasoning": limit["remaining_reasoning"],  # -1 = unlimited
+            "reset_at": limit["reset_at"].isoformat(),
+        }
+    except Exception:  # noqa: BLE001
+        logger.warning("auth.me.usage_lookup_failed user=%s", current_user.email)
+
     return {
         "id": str(current_user.id),
         "email": current_user.email,
@@ -689,6 +737,7 @@ async def get_current_profile(
         "onboarding_completed": current_user.onboarding_completed,
         "auth_provider": current_user.auth_provider,
         "created_at": current_user.created_at.isoformat() if current_user.created_at else None,
+        "usage": usage_payload,
     }
 
 
@@ -717,10 +766,30 @@ async def update_profile(
     db: AsyncSession = Depends(get_db),
     _rl: None = Depends(RateLimitGuard(RateLimitBucket.WRITE)),
 ) -> dict:
-    """Update the current user's profile fields."""
+    """Update the current user's profile fields.
+
+    `default_org_id` is validated: the user must be an ACTIVE member of the
+    target org. Otherwise a malicious client could pin their default to any
+    org id they discover, and downstream code that reads default_org_id as
+    a tenant resolver would expose cross-tenant data.
+    """
+    from app.models.organization import OrgMembership
+
     if body.full_name is not None:
         current_user.full_name = body.full_name
     if body.default_org_id is not None:
+        membership = await db.scalar(
+            select(OrgMembership).where(
+                OrgMembership.user_id == current_user.id,
+                OrgMembership.organization_id == body.default_org_id,
+                OrgMembership.is_active.is_(True),
+            )
+        )
+        if membership is None:
+            raise HTTPException(
+                status_code=403,
+                detail={"code": "not_a_member", "org_id": str(body.default_org_id)},
+            )
         current_user.default_org_id = body.default_org_id
     await db.flush()
     return {"status": "updated"}
@@ -841,6 +910,10 @@ async def change_password(
 
     # CP-7: Hash + persist (committed atomically below with revoke + audit)
     current_user.hashed_password = hash_password(body.new_password)
+    # Record the password change wall-clock for later access-token revocation
+    # (Redis write happens post-commit, see CP-8 Redis part).
+    from app.config import settings as _settings
+    from app.core.access_revocation import mark_user_revoked as _mark_user_revoked
 
     # CP-8 (DB part): Pre-query active JTIs before bulk revoke so we have TTLs for Redis denylist.
     result = await db.execute(
@@ -878,6 +951,14 @@ async def change_password(
                 await denylist.add(jti, ttl_seconds=ttl)
             except Exception as exc:
                 logger.warning("change_password: denylist.add failed for jti=%s: %s", jti, exc)
+
+    # Kill all access tokens emitted before now (F0-SEC-06). The marker lives
+    # for one full access-token lifetime; everything older is rejected at
+    # get_current_user. New tokens issued by future logins survive.
+    await _mark_user_revoked(
+        current_user.id,
+        ttl_seconds=max(120, _settings.access_token_expire_minutes * 60),
+    )
 
     # CP-10: Return 204 No Content
     return Response(status_code=status.HTTP_204_NO_CONTENT)

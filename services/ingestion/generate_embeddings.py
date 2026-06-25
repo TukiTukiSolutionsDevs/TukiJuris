@@ -64,14 +64,18 @@ def _decrypt_fernet(encrypted: str) -> str:
     from cryptography.fernet import Fernet
 
     if encrypted.startswith(_V1_PREFIX):
-        # New format: use dedicated BYOK_ENCRYPTION_KEY
-        if not _BYOK_ENCRYPTION_KEY:
-            raise RuntimeError(
-                "BYOK_ENCRYPTION_KEY env var required to decrypt v1: rows "
-                "but is not set in this environment."
-            )
-        f = Fernet(_BYOK_ENCRYPTION_KEY.encode())
+        # New format: prefer dedicated BYOK_ENCRYPTION_KEY, otherwise mirror the
+        # API's dev fallback (LLMKeyEncryption derives from JWT_SECRET when the
+        # dedicated key is missing). Rows written under this fallback also carry
+        # the v1 prefix, so we must accept both keys here.
         ct = encrypted[len(_V1_PREFIX):]
+        if _BYOK_ENCRYPTION_KEY:
+            try:
+                return Fernet(_BYOK_ENCRYPTION_KEY.encode()).decrypt(ct.encode()).decode()
+            except Exception:
+                pass
+        key_bytes = hashlib.sha256(_JWT_SECRET.encode()).digest()
+        f = Fernet(base64.urlsafe_b64encode(key_bytes))
         return f.decrypt(ct.encode()).decode()
 
     # Legacy format: derive key from JWT_SECRET (SHA-256 → base64url)
@@ -82,32 +86,62 @@ def _decrypt_fernet(encrypted: str) -> str:
 
 async def _resolve_keys_from_db(conn: asyncpg.Connection) -> None:
     """
-    Read API keys from user_llm_keys table (BYOK keys saved through the app).
-    BYOK keys ALWAYS take priority over .env keys — this is a SaaS platform,
-    users configure everything from the UI, not from server files.
+    Resolve API keys for embeddings from the database.
+
+    Priority order (last write wins, so we read platform last to override):
+      1. .env (GOOGLE_API_KEY / OPENAI_API_KEY) — already loaded by os.getenv
+      2. user_llm_keys (legacy BYOK, kept for backwards-compatibility)
+      3. platform_llm_keys (canonical source — managed via /admin?tab=claves)
     """
     global GOOGLE_API_KEY, OPENAI_API_KEY
 
-    rows = await conn.fetch(
-        """
-        SELECT provider, api_key_encrypted
-        FROM user_llm_keys
-        WHERE is_active = true
-        ORDER BY created_at ASC
-        LIMIT 10
-        """
-    )
-    for row in rows:
-        try:
-            decrypted = _decrypt_fernet(row["api_key_encrypted"])
-        except Exception:
-            continue
-        if row["provider"] == "google":
-            GOOGLE_API_KEY = decrypted
-            logger.info("Using Google API key from app (BYOK — overrides .env)")
-        elif row["provider"] == "openai":
-            OPENAI_API_KEY = decrypted
-            logger.info("Using OpenAI API key from app (BYOK — overrides .env)")
+    # Legacy BYOK keys (user_llm_keys)
+    try:
+        rows = await conn.fetch(
+            """
+            SELECT provider, api_key_encrypted
+            FROM user_llm_keys
+            WHERE is_active = true
+            ORDER BY created_at ASC
+            LIMIT 10
+            """
+        )
+        for row in rows:
+            try:
+                decrypted = _decrypt_fernet(row["api_key_encrypted"])
+            except Exception:
+                continue
+            if row["provider"] == "google":
+                GOOGLE_API_KEY = decrypted
+                logger.info("Using Google API key from user_llm_keys (BYOK)")
+            elif row["provider"] == "openai":
+                OPENAI_API_KEY = decrypted
+                logger.info("Using OpenAI API key from user_llm_keys (BYOK)")
+    except Exception as e:
+        logger.warning(f"user_llm_keys lookup skipped: {e}")
+
+    # Canonical platform keys
+    try:
+        rows = await conn.fetch(
+            """
+            SELECT provider, api_key_encrypted
+            FROM platform_llm_keys
+            WHERE is_active = true
+            """
+        )
+        for row in rows:
+            try:
+                decrypted = _decrypt_fernet(row["api_key_encrypted"])
+            except Exception:
+                continue
+            if row["provider"] == "google":
+                GOOGLE_API_KEY = decrypted
+                logger.info("Using Google API key from platform_llm_keys")
+            elif row["provider"] == "openai":
+                OPENAI_API_KEY = decrypted
+                logger.info("Using OpenAI API key from platform_llm_keys")
+    except Exception as e:
+        logger.warning(f"platform_llm_keys lookup skipped: {e}")
 
 GOOGLE_MODEL = "models/gemini-embedding-001"
 GOOGLE_DIM = 768  # native is 3072 but we request 768 via output_dimensionality for pgvector HNSW compat

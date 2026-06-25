@@ -16,41 +16,20 @@ import {
   Timer,
   Users,
   RefreshCw,
-  BookOpen,
-  Shield,
-  Briefcase,
-  Landmark,
-  Gavel,
-  Building2,
-  ScrollText,
-  FileCheck,
-  Globe,
-  Lock,
-  BadgeCheck,
   Download,
   DollarSign,
   MessageSquare,
 } from "lucide-react";
+import { LEGAL_AREAS, AREA_HEX_COLORS } from "@/app/chat/constants";
 
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
 
-const LEGAL_AREAS = [
-  { id: "civil", name: "Civil", icon: BookOpen, color: "text-blue-400", bg: "bg-blue-500", hex: "#60a5fa" },
-  { id: "penal", name: "Penal", icon: Shield, color: "text-red-400", bg: "bg-red-500", hex: "#f87171" },
-  { id: "laboral", name: "Laboral", icon: Briefcase, color: "text-green-400", bg: "bg-green-500", hex: "#4ade80" },
-  { id: "tributario", name: "Tributario", icon: Landmark, color: "text-yellow-400", bg: "bg-yellow-500", hex: "#facc15" },
-  { id: "constitucional", name: "Constitucional", icon: Gavel, color: "text-purple-400", bg: "bg-purple-500", hex: "#c084fc" },
-  { id: "administrativo", name: "Administrativo", icon: Building2, color: "text-orange-400", bg: "bg-orange-500", hex: "#fb923c" },
-  { id: "corporativo", name: "Corporativo", icon: ScrollText, color: "text-cyan-400", bg: "bg-cyan-500", hex: "#22d3ee" },
-  { id: "registral", name: "Registral", icon: FileCheck, color: "text-pink-400", bg: "bg-pink-500", hex: "#f472b6" },
-  { id: "comercio_exterior", name: "Comercio Ext.", icon: Globe, color: "text-teal-400", bg: "bg-teal-500", hex: "#2dd4bf" },
-  { id: "compliance", name: "Compliance", icon: Lock, color: "text-indigo-400", bg: "bg-indigo-500", hex: "#818cf8" },
-  { id: "competencia", name: "Competencia/PI", icon: BadgeCheck, color: "text-amber-400", bg: "bg-amber-500", hex: "#f59e0b" },
-];
-
-const AREA_MAP = Object.fromEntries(LEGAL_AREAS.map((a) => [a.id, a]));
+// Extend each area with its hex color for chart consumers that need a literal value.
+const AREA_MAP = Object.fromEntries(
+  LEGAL_AREAS.map((a) => [a.id, { ...a, hex: AREA_HEX_COLORS[a.id] ?? "#6b7280" }])
+);
 
 // ---------------------------------------------------------------------------
 // Types
@@ -131,7 +110,7 @@ interface TopQueriesData {
 function Skeleton({ className }: { className?: string }) {
   return (
     <div
-      className={`animate-pulse bg-[#25242b] rounded ${className ?? ""}`}
+      className={`animate-pulse bg-surface-container rounded ${className ?? ""}`}
     />
   );
 }
@@ -161,8 +140,8 @@ function StatCard({ label, value, sub, icon, loading }: StatCardProps) {
   return (
     <div className="panel-base rounded-xl p-6 transition-transform duration-200 hover:-translate-y-0.5">
       <div className="flex items-center justify-between mb-3">
-        <p className="section-eyebrow text-[#7c7885] leading-tight">{label}</p>
-        {icon && <div className="text-[#7c7885] shrink-0">{icon}</div>}
+        <p className="section-eyebrow text-on-surface-subtle leading-tight">{label}</p>
+        {icon && <div className="text-on-surface-subtle shrink-0">{icon}</div>}
       </div>
       <p className="font-['Newsreader'] text-3xl font-bold tracking-[-0.03em] text-primary">{value}</p>
       {sub && <div className="mt-2">{sub}</div>}
@@ -189,7 +168,7 @@ function BarChart({
         {loadingHeights.map((height, i) => (
           <div
             key={i}
-            className="flex-1 animate-pulse rounded bg-[#25242b]"
+            className="flex-1 animate-pulse rounded bg-surface-container"
             style={{ height: `${height}%` }}
           />
         ))}
@@ -199,7 +178,7 @@ function BarChart({
 
   if (!data.length) {
     return (
-      <div className="h-36 flex items-center justify-center text-[#7c7885] text-sm">
+      <div className="h-36 flex items-center justify-center text-on-surface-subtle text-sm">
         Sin datos en este periodo
       </div>
     );
@@ -221,7 +200,7 @@ function BarChart({
               className="w-full bg-primary hover:bg-primary-container rounded-t-sm transition-colors cursor-default"
               style={{ height: `${heightPct}%` }}
             />
-            <div className="absolute bottom-full mb-1 left-1/2 -translate-x-1/2 hidden group-hover:block bg-[#0e0e12] border border-[rgba(79,70,51,0.3)] rounded px-2 py-1 text-[10px] text-on-surface whitespace-nowrap z-10 pointer-events-none">
+            <div className="absolute bottom-full mb-1 left-1/2 -translate-x-1/2 hidden group-hover:block bg-surface-dim border border-outline rounded px-2 py-1 text-[10px] text-on-surface whitespace-nowrap z-10 pointer-events-none">
               {d.date}: {d.count}
             </div>
           </div>
@@ -252,7 +231,7 @@ function DonutChart({
 
   if (!data.length) {
     return (
-      <div className="h-40 flex items-center justify-center text-[#7c7885] text-sm">
+      <div className="h-40 flex items-center justify-center text-on-surface-subtle text-sm">
         Sin datos
       </div>
     );
@@ -295,8 +274,8 @@ function DonutChart({
                 className="w-2.5 h-2.5 rounded-sm shrink-0"
                 style={{ background: area?.hex ?? "#6b7280" }}
               />
-              <span className="text-[#a09ba8] truncate">{area?.name ?? d.area}</span>
-              <span className="text-[#7c7885] ml-auto pl-2">{pct}%</span>
+              <span className="text-on-surface-variant truncate">{area?.name ?? d.area}</span>
+              <span className="text-on-surface-subtle ml-auto pl-2">{pct}%</span>
             </div>
           );
         })}
@@ -310,9 +289,9 @@ function DonutChart({
 // ---------------------------------------------------------------------------
 
 function LatencyBadge({ ms }: { ms: number | null }) {
-  if (ms === null || ms === undefined) return <span className="text-[#7c7885]">—</span>;
+  if (ms === null || ms === undefined) return <span className="text-on-surface-subtle">—</span>;
   const color =
-    ms < 2000 ? "text-green-400" : ms < 5000 ? "text-primary" : "text-red-400";
+    ms < 2000 ? "text-status-success" : ms < 5000 ? "text-primary" : "text-status-danger";
   return <span className={`font-mono ${color}`}>{Math.round(ms)}ms</span>;
 }
 
@@ -328,11 +307,11 @@ function TrendIndicator({
   suffix?: string;
 }) {
   if (value === null || value === undefined) {
-    return <span className="text-[#7c7885] text-xs">—</span>;
+    return <span className="text-on-surface-subtle text-xs">—</span>;
   }
   if (value > 0) {
     return (
-      <span className="flex items-center gap-0.5 text-xs text-green-400">
+      <span className="flex items-center gap-0.5 text-xs text-status-success">
         <TrendingUp className="w-3 h-3" />
         +{value}{suffix}
       </span>
@@ -340,14 +319,14 @@ function TrendIndicator({
   }
   if (value < 0) {
     return (
-      <span className="flex items-center gap-0.5 text-xs text-red-400">
+      <span className="flex items-center gap-0.5 text-xs text-status-danger">
         <TrendingDown className="w-3 h-3" />
         {value}{suffix}
       </span>
     );
   }
   return (
-    <span className="flex items-center gap-0.5 text-xs text-[#7c7885]">
+    <span className="flex items-center gap-0.5 text-xs text-on-surface-subtle">
       <Minus className="w-3 h-3" />
       0{suffix}
     </span>
@@ -359,10 +338,10 @@ function TrendIndicator({
 // ---------------------------------------------------------------------------
 
 function AreaBadge({ area }: { area: string | null }) {
-  if (!area) return <span className="text-[#7c7885] text-xs">—</span>;
+  if (!area) return <span className="text-on-surface-subtle text-xs">—</span>;
   const a = AREA_MAP[area];
   return (
-    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-surface-container-low border border-[rgba(79,70,51,0.15)]">
+    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-surface-container-low border border-outline-variant">
       <span
         className="w-1.5 h-1.5 rounded-full"
         style={{ background: a?.hex ?? "#6b7280" }}
@@ -397,15 +376,10 @@ export default function AnalyticsPage() {
 
   const { authFetch, user } = useAuth();
   const router = useRouter();
-
-  // Defense-in-depth: client-side admin check (middleware is the primary gate).
-  // Redirects non-admin users to / once auth state is resolved.
-  // While user === null (auth still loading), we show the neutral loading state.
-  useEffect(() => {
-    if (user !== null && !user.isAdmin) {
-      router.replace('/');
-    }
-  }, [user, router]);
+  // Analytics is a user/org-facing feature (see plan "Pro" in /billing).
+  // Backend analytics.py allows any org member; only admin bypasses org-role gating.
+  // No admin guard here — access is gated by session + backend RBAC.
+  void user; void router;
 
   // Fetch user's organizations on mount; hydrate selected org from localStorage.
   useEffect(() => {
@@ -539,7 +513,7 @@ export default function AnalyticsPage() {
           utilitySlot={<div className="hidden md:flex"><ShellUtilityActions /></div>}
           actions={<div className="flex items-center gap-2">
             {/* Date range selector */}
-            <div className="flex items-center gap-1 bg-surface-container-low border border-[rgba(79,70,51,0.15)] rounded-lg p-1">
+            <div className="flex items-center gap-1 bg-surface-container-low border border-outline-variant rounded-lg p-1">
               {dateRangeOptions.map((opt) => (
                 <button
                   key={opt.value}
@@ -547,7 +521,7 @@ export default function AnalyticsPage() {
                   className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
                     days === opt.value
                       ? "bg-primary/10 text-primary"
-                      : "text-[#a09ba8] hover:text-on-surface"
+                      : "text-on-surface-variant hover:text-on-surface"
                   }`}
                 >
                   {opt.label}
@@ -559,7 +533,7 @@ export default function AnalyticsPage() {
             <button
               onClick={handleExport}
               disabled={exporting}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold uppercase tracking-widest text-on-surface border border-[rgba(79,70,51,0.15)] hover:bg-surface-container-high transition-colors disabled:opacity-50"
+              className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold uppercase tracking-widest text-on-surface border border-outline-variant hover:bg-surface-container-high transition-colors disabled:opacity-50"
               title="Exportar CSV"
             >
               <Download className={`w-3.5 h-3.5 ${exporting ? "animate-bounce" : ""}`} />
@@ -570,7 +544,7 @@ export default function AnalyticsPage() {
             <button
               onClick={() => fetchData(true)}
               disabled={refreshing}
-              className="p-2 rounded-lg text-[#7c7885] hover:text-on-surface border border-[rgba(79,70,51,0.15)] hover:bg-surface-container-high transition-colors disabled:opacity-50"
+              className="p-2 rounded-lg text-on-surface-subtle hover:text-on-surface border border-outline-variant hover:bg-surface-container-high transition-colors disabled:opacity-50"
               title="Actualizar datos"
             >
               <RefreshCw className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`} />
@@ -583,18 +557,18 @@ export default function AnalyticsPage() {
           {orgLoading && (
             <div className="flex items-center justify-center py-20">
               <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin mr-3" />
-              <span className="text-[#a09ba8] text-sm">Cargando organización...</span>
+              <span className="text-on-surface-variant text-sm">Cargando organización...</span>
             </div>
           )}
 
           {/* No org state */}
           {!orgLoading && !orgId && (
             <div className="flex flex-col items-center justify-center py-20 text-center">
-              <BarChart3 className="w-12 h-12 text-[#25242b] mb-4" />
+              <BarChart3 className="w-12 h-12 text-surface-container-high mb-4" />
               <h2 className="font-['Newsreader'] text-3xl font-bold text-on-surface mb-2">
                 Sin organización
               </h2>
-              <p className="text-[#7c7885] text-sm max-w-sm">
+              <p className="text-on-surface-subtle text-sm max-w-sm">
                 Crea una organización para ver analytics.
               </p>
               <a
@@ -608,7 +582,7 @@ export default function AnalyticsPage() {
 
           {/* Error banner */}
           {!orgLoading && orgId && error && (
-            <div className="bg-red-950/50 border border-red-800/50 rounded-lg px-4 py-3 text-sm text-red-300">
+            <div className="bg-status-danger/10 border border-status-danger/30 rounded-lg px-4 py-3 text-sm text-status-danger">
               <strong>Error:</strong> {error}
             </div>
           )}
@@ -629,7 +603,7 @@ export default function AnalyticsPage() {
               )}
 
               {/* Tab navigation */}
-              <div className="flex items-center gap-1 border-b border-[rgba(79,70,51,0.15)] -mb-2">
+              <div className="flex items-center gap-1 border-b border-outline-variant -mb-2">
                 {(
                   [
                     { id: "overview", label: "Resumen", icon: BarChart3 },
@@ -643,7 +617,7 @@ export default function AnalyticsPage() {
                     className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-medium border-b-2 transition-colors ${
                       activeTab === id
                         ? "border-primary text-primary"
-                        : "border-transparent text-[#7c7885] hover:text-on-surface"
+                        : "border-transparent text-on-surface-subtle hover:text-on-surface"
                     }`}
                   >
                     <Icon className="w-3.5 h-3.5" />
@@ -672,7 +646,7 @@ export default function AnalyticsPage() {
                       value={overview?.queries_month ?? 0}
                       icon={<TrendingUp className="w-4 h-4" />}
                       sub={
-                        <p className="text-xs text-[#7c7885]">
+                        <p className="text-xs text-on-surface-subtle">
                           {overview?.queries_week ?? 0} esta semana
                         </p>
                       }
@@ -691,8 +665,8 @@ export default function AnalyticsPage() {
                       icon={<Users className="w-4 h-4" />}
                       sub={
                         overview?.satisfaction_rate ? (
-                          <div className="flex items-center gap-1 text-xs text-[#7c7885]">
-                            <ThumbsUp className="w-3 h-3 text-green-400" />
+                          <div className="flex items-center gap-1 text-xs text-on-surface-subtle">
+                            <ThumbsUp className="w-3 h-3 text-status-success" />
                             <span>{overview.satisfaction_rate}% satisfacción</span>
                           </div>
                         ) : null
@@ -703,19 +677,19 @@ export default function AnalyticsPage() {
                   {/* Charts row */}
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                     {/* Bar chart */}
-                    <div className="bg-surface-container-low border border-[rgba(79,70,51,0.15)] rounded-lg p-6">
+                    <div className="bg-surface-container-low border border-outline-variant rounded-lg p-6">
                       <div className="flex items-center justify-between mb-4">
                         <div>
                           <h2 className="font-['Newsreader'] text-lg font-bold text-on-surface">
                             Volumen de consultas
                           </h2>
-                          <p className="text-xs text-[#7c7885]">Últimos {days} días</p>
+                          <p className="text-xs text-on-surface-subtle">Últimos {days} días</p>
                         </div>
-                        <BarChart3 className="w-4 h-4 text-[#25242b]" />
+                        <BarChart3 className="w-4 h-4 text-surface-container-high" />
                       </div>
                       <BarChart data={overview?.queries_trend ?? []} loading={loading} />
                       {!loading && overview?.queries_trend && overview.queries_trend.length > 1 && (
-                        <div className="flex justify-between mt-1 text-[10px] text-[#7c7885]">
+                        <div className="flex justify-between mt-1 text-[10px] text-on-surface-subtle">
                           <span>{overview.queries_trend[0]?.date.slice(5)}</span>
                           <span>
                             {
@@ -732,13 +706,13 @@ export default function AnalyticsPage() {
                     </div>
 
                     {/* Donut chart */}
-                    <div className="bg-surface-container-low border border-[rgba(79,70,51,0.15)] rounded-lg p-6">
+                    <div className="bg-surface-container-low border border-outline-variant rounded-lg p-6">
                       <div className="flex items-center justify-between mb-4">
                         <div>
                           <h2 className="font-['Newsreader'] text-lg font-bold text-on-surface">
                             Por área jurídica
                           </h2>
-                          <p className="text-xs text-[#7c7885]">Distribución del periodo</p>
+                          <p className="text-xs text-on-surface-subtle">Distribución del periodo</p>
                         </div>
                       </div>
                       <DonutChart
@@ -751,8 +725,8 @@ export default function AnalyticsPage() {
                   {/* Tables row */}
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                     {/* Top legal areas table */}
-                    <div className="bg-surface-container-low border border-[rgba(79,70,51,0.15)] rounded-lg overflow-hidden">
-                      <div className="px-5 py-4 border-b border-[rgba(79,70,51,0.15)] bg-surface">
+                    <div className="bg-surface-container-low border border-outline-variant rounded-lg overflow-hidden">
+                      <div className="px-5 py-4 border-b border-outline-variant bg-surface">
                         <h2 className="font-['Newsreader'] text-base font-bold text-on-surface">
                           Áreas más consultadas
                         </h2>
@@ -760,17 +734,17 @@ export default function AnalyticsPage() {
                       <div className="overflow-x-auto">
                         <table className="w-full min-w-[380px] text-xs">
                           <thead>
-                            <tr className="border-b border-[rgba(79,70,51,0.15)] bg-surface">
-                              <th className="text-left px-5 py-3 text-[#7c7885] font-medium uppercase tracking-wider">
+                            <tr className="border-b border-outline-variant bg-surface">
+                              <th className="text-left px-5 py-3 text-on-surface-subtle font-medium uppercase tracking-wider">
                                 Área
                               </th>
-                              <th className="text-right px-4 py-3 text-[#7c7885] font-medium uppercase tracking-wider">
+                              <th className="text-right px-4 py-3 text-on-surface-subtle font-medium uppercase tracking-wider">
                                 Consultas
                               </th>
-                              <th className="text-right px-4 py-3 text-[#7c7885] font-medium uppercase tracking-wider">
+                              <th className="text-right px-4 py-3 text-on-surface-subtle font-medium uppercase tracking-wider">
                                 %
                               </th>
-                              <th className="text-right px-5 py-3 text-[#7c7885] font-medium uppercase tracking-wider">
+                              <th className="text-right px-5 py-3 text-on-surface-subtle font-medium uppercase tracking-wider">
                                 Tendencia
                               </th>
                             </tr>
@@ -780,7 +754,7 @@ export default function AnalyticsPage() {
                               ? Array.from({ length: 5 }).map((_, i) => (
                                   <tr
                                     key={i}
-                                    className={`border-b border-[rgba(79,70,51,0.1)] ${
+                                    className={`border-b border-outline-variant/60 ${
                                       i % 2 === 0 ? "bg-surface-container-low" : "bg-surface"
                                     }`}
                                   >
@@ -801,7 +775,7 @@ export default function AnalyticsPage() {
                               : areas.length === 0
                               ? (
                                 <tr>
-                                  <td colSpan={4} className="px-5 py-8 text-center text-[#7c7885]">
+                                  <td colSpan={4} className="px-5 py-8 text-center text-on-surface-subtle">
                                     Sin datos disponibles
                                   </td>
                                 </tr>
@@ -811,7 +785,7 @@ export default function AnalyticsPage() {
                                   return (
                                     <tr
                                       key={a.area}
-                                      className={`border-b border-[rgba(79,70,51,0.1)] hover:bg-[#25242b] transition-colors ${
+                                      className={`border-b border-outline-variant/60 hover:bg-surface-container transition-colors ${
                                         idx % 2 === 0 ? "bg-surface-container-low" : "bg-surface"
                                       }`}
                                     >
@@ -829,7 +803,7 @@ export default function AnalyticsPage() {
                                       </td>
                                       <td className="px-4 py-3 text-right">
                                         <div className="flex items-center justify-end gap-1.5">
-                                          <div className="w-12 h-1.5 bg-[#25242b] rounded-full overflow-hidden">
+                                          <div className="w-12 h-1.5 bg-surface-container rounded-full overflow-hidden">
                                             <div
                                               className="h-full rounded-full"
                                               style={{
@@ -838,24 +812,24 @@ export default function AnalyticsPage() {
                                               }}
                                             />
                                           </div>
-                                          <span className="text-[#a09ba8] w-8 text-right">
+                                          <span className="text-on-surface-variant w-8 text-right">
                                             {a.percentage}%
                                           </span>
                                         </div>
                                       </td>
                                       <td className="px-5 py-3 text-right">
                                         {a.trend === "up" ? (
-                                          <span className="flex items-center justify-end gap-0.5 text-green-400">
+                                          <span className="flex items-center justify-end gap-0.5 text-status-success">
                                             <TrendingUp className="w-3 h-3" />
                                             {a.change_pct !== null ? `+${a.change_pct}%` : ""}
                                           </span>
                                         ) : a.trend === "down" ? (
-                                          <span className="flex items-center justify-end gap-0.5 text-red-400">
+                                          <span className="flex items-center justify-end gap-0.5 text-status-danger">
                                             <TrendingDown className="w-3 h-3" />
                                             {a.change_pct !== null ? `${a.change_pct}%` : ""}
                                           </span>
                                         ) : (
-                                          <span className="flex items-center justify-end gap-0.5 text-[#7c7885]">
+                                          <span className="flex items-center justify-end gap-0.5 text-on-surface-subtle">
                                             <Minus className="w-3 h-3" />
                                           </span>
                                         )}
@@ -869,8 +843,8 @@ export default function AnalyticsPage() {
                     </div>
 
                     {/* Model usage table */}
-                    <div className="bg-surface-container-low border border-[rgba(79,70,51,0.15)] rounded-lg overflow-hidden">
-                      <div className="px-5 py-4 border-b border-[rgba(79,70,51,0.15)] bg-surface">
+                    <div className="bg-surface-container-low border border-outline-variant rounded-lg overflow-hidden">
+                      <div className="px-5 py-4 border-b border-outline-variant bg-surface">
                         <h2 className="font-['Newsreader'] text-base font-bold text-on-surface">
                           Uso por modelo
                         </h2>
@@ -878,14 +852,14 @@ export default function AnalyticsPage() {
                       <div className="overflow-x-auto">
                         <table className="w-full min-w-[360px] text-xs">
                           <thead>
-                            <tr className="border-b border-[rgba(79,70,51,0.15)] bg-surface">
-                              <th className="text-left px-5 py-3 text-[#7c7885] font-medium uppercase tracking-wider">
+                            <tr className="border-b border-outline-variant bg-surface">
+                              <th className="text-left px-5 py-3 text-on-surface-subtle font-medium uppercase tracking-wider">
                                 Modelo
                               </th>
-                              <th className="text-right px-4 py-3 text-[#7c7885] font-medium uppercase tracking-wider">
+                              <th className="text-right px-4 py-3 text-on-surface-subtle font-medium uppercase tracking-wider">
                                 Consultas
                               </th>
-                              <th className="text-right px-5 py-3 text-[#7c7885] font-medium uppercase tracking-wider">
+                              <th className="text-right px-5 py-3 text-on-surface-subtle font-medium uppercase tracking-wider">
                                 Latencia prom.
                               </th>
                             </tr>
@@ -895,7 +869,7 @@ export default function AnalyticsPage() {
                               ? Array.from({ length: 4 }).map((_, i) => (
                                   <tr
                                     key={i}
-                                    className={`border-b border-[rgba(79,70,51,0.1)] ${
+                                    className={`border-b border-outline-variant/60 ${
                                       i % 2 === 0 ? "bg-surface-container-low" : "bg-surface"
                                     }`}
                                   >
@@ -913,7 +887,7 @@ export default function AnalyticsPage() {
                               : models.length === 0
                               ? (
                                 <tr>
-                                  <td colSpan={3} className="px-5 py-8 text-center text-[#7c7885]">
+                                  <td colSpan={3} className="px-5 py-8 text-center text-on-surface-subtle">
                                     Sin datos disponibles
                                   </td>
                                 </tr>
@@ -921,7 +895,7 @@ export default function AnalyticsPage() {
                               : models.map((m, idx) => (
                                   <tr
                                     key={m.model}
-                                    className={`border-b border-[rgba(79,70,51,0.1)] hover:bg-[#25242b] transition-colors ${
+                                    className={`border-b border-outline-variant/60 hover:bg-surface-container transition-colors ${
                                       idx % 2 === 0 ? "bg-surface-container-low" : "bg-surface"
                                     }`}
                                   >
@@ -930,7 +904,7 @@ export default function AnalyticsPage() {
                                         <p className="text-on-surface font-medium">
                                           {m.model.split("/").pop() ?? m.model}
                                         </p>
-                                        <div className="w-24 h-1 bg-[#25242b] rounded-full overflow-hidden">
+                                        <div className="w-24 h-1 bg-surface-container rounded-full overflow-hidden">
                                           <div
                                             className="h-full bg-primary rounded-full"
                                             style={{ width: `${m.percentage}%` }}
@@ -940,7 +914,7 @@ export default function AnalyticsPage() {
                                     </td>
                                     <td className="px-4 py-3 text-right text-on-surface font-mono">
                                       {m.count.toLocaleString()}
-                                      <span className="text-[#7c7885] ml-1">({m.percentage}%)</span>
+                                      <span className="text-on-surface-subtle ml-1">({m.percentage}%)</span>
                                     </td>
                                     <td className="px-5 py-3 text-right">
                                       <LatencyBadge ms={m.avg_latency_ms} />
@@ -954,32 +928,32 @@ export default function AnalyticsPage() {
                   </div>
 
                   {/* Recent queries */}
-                  <div className="bg-surface-container-low border border-[rgba(79,70,51,0.15)] rounded-lg overflow-hidden">
-                    <div className="px-5 py-4 border-b border-[rgba(79,70,51,0.15)] bg-surface flex items-center justify-between">
+                  <div className="bg-surface-container-low border border-outline-variant rounded-lg overflow-hidden">
+                    <div className="px-5 py-4 border-b border-outline-variant bg-surface flex items-center justify-between">
                       <div>
                         <h2 className="font-['Newsreader'] text-base font-bold text-on-surface">
                           Consultas recientes
                         </h2>
-                        <p className="text-xs text-[#7c7885]">Últimas 20 respuestas del asistente</p>
+                        <p className="text-xs text-on-surface-subtle">Últimas 20 respuestas del asistente</p>
                       </div>
                     </div>
                     <div className="overflow-x-auto">
                       <table className="w-full min-w-[600px] text-xs">
                         <thead>
-                          <tr className="border-b border-[rgba(79,70,51,0.15)] bg-surface">
-                            <th className="text-left px-5 py-3 text-[#7c7885] font-medium uppercase tracking-wider">
+                          <tr className="border-b border-outline-variant bg-surface">
+                            <th className="text-left px-5 py-3 text-on-surface-subtle font-medium uppercase tracking-wider">
                               Fecha
                             </th>
-                            <th className="text-left px-4 py-3 text-[#7c7885] font-medium uppercase tracking-wider">
+                            <th className="text-left px-4 py-3 text-on-surface-subtle font-medium uppercase tracking-wider">
                               Usuario
                             </th>
-                            <th className="text-left px-4 py-3 text-[#7c7885] font-medium uppercase tracking-wider">
+                            <th className="text-left px-4 py-3 text-on-surface-subtle font-medium uppercase tracking-wider">
                               Área
                             </th>
-                            <th className="text-left px-4 py-3 text-[#7c7885] font-medium uppercase tracking-wider">
+                            <th className="text-left px-4 py-3 text-on-surface-subtle font-medium uppercase tracking-wider">
                               Modelo
                             </th>
-                            <th className="text-right px-5 py-3 text-[#7c7885] font-medium uppercase tracking-wider">
+                            <th className="text-right px-5 py-3 text-on-surface-subtle font-medium uppercase tracking-wider">
                               Latencia
                             </th>
                           </tr>
@@ -989,7 +963,7 @@ export default function AnalyticsPage() {
                             ? Array.from({ length: 8 }).map((_, i) => (
                                 <tr
                                   key={i}
-                                  className={`border-b border-[rgba(79,70,51,0.1)] ${
+                                  className={`border-b border-outline-variant/60 ${
                                     i % 2 === 0 ? "bg-surface-container-low" : "bg-surface"
                                   }`}
                                 >
@@ -1003,7 +977,7 @@ export default function AnalyticsPage() {
                             : queries.length === 0
                             ? (
                               <tr>
-                                <td colSpan={5} className="px-5 py-10 text-center text-[#7c7885]">
+                                <td colSpan={5} className="px-5 py-10 text-center text-on-surface-subtle">
                                   No hay consultas registradas en este periodo
                                 </td>
                               </tr>
@@ -1011,11 +985,11 @@ export default function AnalyticsPage() {
                             : queries.map((q, idx) => (
                                 <tr
                                   key={q.id}
-                                  className={`border-b border-[rgba(79,70,51,0.1)] hover:bg-[#25242b] transition-colors ${
+                                  className={`border-b border-outline-variant/60 hover:bg-surface-container transition-colors ${
                                     idx % 2 === 0 ? "bg-surface-container-low" : "bg-surface"
                                   }`}
                                 >
-                                  <td className="px-5 py-3 text-[#7c7885] whitespace-nowrap">
+                                  <td className="px-5 py-3 text-on-surface-subtle whitespace-nowrap">
                                     {q.created_at
                                       ? new Date(q.created_at).toLocaleString("es-PE", {
                                           month: "short",
@@ -1031,7 +1005,7 @@ export default function AnalyticsPage() {
                                   <td className="px-4 py-3">
                                     <AreaBadge area={q.legal_area} />
                                   </td>
-                                  <td className="px-4 py-3 text-[#a09ba8] max-w-[140px] truncate">
+                                  <td className="px-4 py-3 text-on-surface-variant max-w-[140px] truncate">
                                     {q.model?.split("/").pop() ?? "—"}
                                   </td>
                                   <td className="px-5 py-3 text-right">
@@ -1044,7 +1018,7 @@ export default function AnalyticsPage() {
                     </div>
                   </div>
 
-                  <p className="text-center text-[11px] text-[#25242b] pb-2">
+                  <p className="text-center text-[11px] text-surface-container-high pb-2">
                     Datos en tiempo real — actualizado al momento de la carga
                   </p>
                 </>
@@ -1061,7 +1035,7 @@ export default function AnalyticsPage() {
                       label={`Costo total (${days}d)`}
                       value={costs ? `$${costs.total_cost_usd.toFixed(4)}` : "$0.0000"}
                       icon={<DollarSign className="w-4 h-4" />}
-                      sub={<p className="text-xs text-[#7c7885]">Estimado USD</p>}
+                      sub={<p className="text-xs text-on-surface-subtle">Estimado USD</p>}
                     />
                     <StatCard
                       loading={loading}
@@ -1085,32 +1059,32 @@ export default function AnalyticsPage() {
                   </div>
 
                   {/* Cost breakdown table */}
-                  <div className="bg-surface-container-low border border-[rgba(79,70,51,0.15)] rounded-lg overflow-hidden">
-                    <div className="px-5 py-4 border-b border-[rgba(79,70,51,0.15)] bg-surface">
+                  <div className="bg-surface-container-low border border-outline-variant rounded-lg overflow-hidden">
+                    <div className="px-5 py-4 border-b border-outline-variant bg-surface">
                       <h2 className="font-['Newsreader'] text-base font-bold text-on-surface">
                         Desglose por modelo
                       </h2>
-                      <p className="text-xs text-[#7c7885]">
+                      <p className="text-xs text-on-surface-subtle">
                         Costo estimado basado en tokens usados
                       </p>
                     </div>
                     <div className="overflow-x-auto">
                       <table className="w-full min-w-[540px] text-xs">
                         <thead>
-                          <tr className="border-b border-[rgba(79,70,51,0.15)] bg-surface">
-                            <th className="text-left px-5 py-3 text-[#7c7885] font-medium uppercase tracking-wider">
+                          <tr className="border-b border-outline-variant bg-surface">
+                            <th className="text-left px-5 py-3 text-on-surface-subtle font-medium uppercase tracking-wider">
                               Modelo
                             </th>
-                            <th className="text-right px-4 py-3 text-[#7c7885] font-medium uppercase tracking-wider">
+                            <th className="text-right px-4 py-3 text-on-surface-subtle font-medium uppercase tracking-wider">
                               Consultas
                             </th>
-                            <th className="text-right px-4 py-3 text-[#7c7885] font-medium uppercase tracking-wider">
+                            <th className="text-right px-4 py-3 text-on-surface-subtle font-medium uppercase tracking-wider">
                               Tokens totales
                             </th>
-                            <th className="text-right px-4 py-3 text-[#7c7885] font-medium uppercase tracking-wider">
+                            <th className="text-right px-4 py-3 text-on-surface-subtle font-medium uppercase tracking-wider">
                               Tokens / consulta
                             </th>
-                            <th className="text-right px-5 py-3 text-[#7c7885] font-medium uppercase tracking-wider">
+                            <th className="text-right px-5 py-3 text-on-surface-subtle font-medium uppercase tracking-wider">
                               Costo USD
                             </th>
                           </tr>
@@ -1120,7 +1094,7 @@ export default function AnalyticsPage() {
                             Array.from({ length: 4 }).map((_, i) => (
                               <tr
                                 key={i}
-                                className={`border-b border-[rgba(79,70,51,0.1)] ${
+                                className={`border-b border-outline-variant/60 ${
                                   i % 2 === 0 ? "bg-surface-container-low" : "bg-surface"
                                 }`}
                               >
@@ -1133,7 +1107,7 @@ export default function AnalyticsPage() {
                             ))
                           ) : !costs || costs.models.length === 0 ? (
                             <tr>
-                              <td colSpan={5} className="px-5 py-10 text-center text-[#7c7885]">
+                              <td colSpan={5} className="px-5 py-10 text-center text-on-surface-subtle">
                                 Sin datos disponibles
                               </td>
                             </tr>
@@ -1151,7 +1125,7 @@ export default function AnalyticsPage() {
                                 return (
                                   <tr
                                     key={m.model}
-                                    className={`border-b border-[rgba(79,70,51,0.1)] hover:bg-[#25242b] transition-colors ${
+                                    className={`border-b border-outline-variant/60 hover:bg-surface-container transition-colors ${
                                       idx % 2 === 0 ? "bg-surface-container-low" : "bg-surface"
                                     }`}
                                   >
@@ -1160,7 +1134,7 @@ export default function AnalyticsPage() {
                                         <p className="text-on-surface font-medium">
                                           {m.model.split("/").pop() ?? m.model}
                                         </p>
-                                        <div className="w-28 h-1.5 bg-[#25242b] rounded-full overflow-hidden">
+                                        <div className="w-28 h-1.5 bg-surface-container rounded-full overflow-hidden">
                                           <div
                                             className="h-full bg-primary rounded-full"
                                             style={{ width: `${barPct}%` }}
@@ -1174,11 +1148,11 @@ export default function AnalyticsPage() {
                                     <td className="px-4 py-3 text-right text-on-surface font-mono">
                                       {m.total_tokens.toLocaleString()}
                                     </td>
-                                    <td className="px-4 py-3 text-right text-[#a09ba8] font-mono">
+                                    <td className="px-4 py-3 text-right text-on-surface-variant font-mono">
                                       {Math.round(m.avg_tokens_per_query).toLocaleString()}
                                     </td>
                                     <td className="px-5 py-3 text-right">
-                                      <span className="text-green-400 font-mono font-medium">
+                                      <span className="text-status-success font-mono font-medium">
                                         ${m.estimated_cost_usd.toFixed(4)}
                                       </span>
                                     </td>
@@ -1190,8 +1164,8 @@ export default function AnalyticsPage() {
                         </tbody>
                         {costs && costs.models.length > 0 && (
                           <tfoot>
-                            <tr className="border-t border-[rgba(79,70,51,0.2)] bg-surface">
-                              <td className="px-5 py-3 text-[#a09ba8] font-medium">
+                            <tr className="border-t border-outline-variant bg-surface">
+                              <td className="px-5 py-3 text-on-surface-variant font-medium">
                                 Total
                               </td>
                               <td className="px-4 py-3 text-right text-on-surface font-mono font-medium">
@@ -1217,7 +1191,7 @@ export default function AnalyticsPage() {
                     </div>
                   </div>
 
-                  <p className="text-center text-[11px] text-[#25242b] pb-2">
+                  <p className="text-center text-[11px] text-surface-container-high pb-2">
                     Costos estimados · Las tarifas reales pueden variar según el proveedor
                   </p>
                 </>
@@ -1227,32 +1201,32 @@ export default function AnalyticsPage() {
               {/* ── CONSULTAS FRECUENTES TAB ────────────────────────────── */}
               {activeTab === "frecuentes" && (
                 <>
-                  <div className="bg-surface-container-low border border-[rgba(79,70,51,0.15)] rounded-lg overflow-hidden">
-                    <div className="px-5 py-4 border-b border-[rgba(79,70,51,0.15)] bg-surface flex items-center justify-between">
+                  <div className="bg-surface-container-low border border-outline-variant rounded-lg overflow-hidden">
+                    <div className="px-5 py-4 border-b border-outline-variant bg-surface flex items-center justify-between">
                       <div>
                         <h2 className="font-['Newsreader'] text-base font-bold text-on-surface">
                           Patrones de consulta más frecuentes
                         </h2>
-                        <p className="text-xs text-[#7c7885]">
+                        <p className="text-xs text-on-surface-subtle">
                           Agrupados por los primeros 100 caracteres · Últimos {days} días
                         </p>
                       </div>
-                      <MessageSquare className="w-4 h-4 text-[#25242b]" />
+                      <MessageSquare className="w-4 h-4 text-surface-container-high" />
                     </div>
                     <div className="overflow-x-auto">
                       <table className="w-full min-w-[560px] text-xs">
                         <thead>
-                          <tr className="border-b border-[rgba(79,70,51,0.15)] bg-surface">
-                            <th className="text-left px-5 py-3 text-[#7c7885] font-medium uppercase tracking-wider">
+                          <tr className="border-b border-outline-variant bg-surface">
+                            <th className="text-left px-5 py-3 text-on-surface-subtle font-medium uppercase tracking-wider">
                               Vista previa
                             </th>
-                            <th className="text-right px-4 py-3 text-[#7c7885] font-medium uppercase tracking-wider">
+                            <th className="text-right px-4 py-3 text-on-surface-subtle font-medium uppercase tracking-wider">
                               Veces
                             </th>
-                            <th className="text-left px-4 py-3 text-[#7c7885] font-medium uppercase tracking-wider">
+                            <th className="text-left px-4 py-3 text-on-surface-subtle font-medium uppercase tracking-wider">
                               Áreas
                             </th>
-                            <th className="text-right px-5 py-3 text-[#7c7885] font-medium uppercase tracking-wider">
+                            <th className="text-right px-5 py-3 text-on-surface-subtle font-medium uppercase tracking-wider">
                               Última vez
                             </th>
                           </tr>
@@ -1262,7 +1236,7 @@ export default function AnalyticsPage() {
                             Array.from({ length: 8 }).map((_, i) => (
                               <tr
                                 key={i}
-                                className={`border-b border-[rgba(79,70,51,0.1)] ${
+                                className={`border-b border-outline-variant/60 ${
                                   i % 2 === 0 ? "bg-surface-container-low" : "bg-surface"
                                 }`}
                               >
@@ -1275,7 +1249,7 @@ export default function AnalyticsPage() {
                             ))
                           ) : !topQueries || topQueries.queries.length === 0 ? (
                             <tr>
-                              <td colSpan={4} className="px-5 py-10 text-center text-[#7c7885]">
+                              <td colSpan={4} className="px-5 py-10 text-center text-on-surface-subtle">
                                 Sin consultas registradas en este periodo
                               </td>
                             </tr>
@@ -1283,7 +1257,7 @@ export default function AnalyticsPage() {
                             topQueries.queries.map((q, idx) => (
                               <tr
                                 key={idx}
-                                className={`border-b border-[rgba(79,70,51,0.1)] hover:bg-[#25242b] transition-colors ${
+                                className={`border-b border-outline-variant/60 hover:bg-surface-container transition-colors ${
                                   idx % 2 === 0 ? "bg-surface-container-low" : "bg-surface"
                                 }`}
                               >
@@ -1307,11 +1281,11 @@ export default function AnalyticsPage() {
                                         <AreaBadge key={area} area={area} />
                                       ))
                                     ) : (
-                                      <span className="text-[#7c7885]">—</span>
+                                      <span className="text-on-surface-subtle">—</span>
                                     )}
                                   </div>
                                 </td>
-                                <td className="px-5 py-3 text-right text-[#7c7885] whitespace-nowrap">
+                                <td className="px-5 py-3 text-right text-on-surface-subtle whitespace-nowrap">
                                   {q.last_asked
                                     ? new Date(q.last_asked).toLocaleDateString("es-PE", {
                                         month: "short",
@@ -1327,7 +1301,7 @@ export default function AnalyticsPage() {
                     </div>
                   </div>
 
-                  <p className="text-center text-[11px] text-[#25242b] pb-2">
+                  <p className="text-center text-[11px] text-surface-container-high pb-2">
                     Patrones calculados sobre los primeros 100 caracteres normalizados de cada consulta
                   </p>
                 </>

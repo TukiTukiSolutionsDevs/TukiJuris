@@ -10,8 +10,11 @@ import {
   Building2,
   Key,
 } from "lucide-react";
+import { toast } from "sonner";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { AppLayout } from "@/components/AppLayout";
+import { InternalPageHeader } from "@/components/shell/InternalPageHeader";
+import { ShellUtilityActions } from "@/components/shell/ShellUtilityActions";
 import { OrgSwitcher } from "@/components/OrgSwitcher";
 import { TrialRetryBanner } from "./_components/TrialRetryBanner";
 import { InvoiceHistorySection } from "./_components/InvoiceHistorySection";
@@ -48,18 +51,18 @@ interface Plan {
   highlighted: boolean;
 }
 
+// Plan copy here mirrors apps/api/app/config/plans.py (single source of truth at /api/billing/plans).
+// If you update prices or limits, update them in plans.py FIRST and then this constant.
 const STATIC_PLANS: Plan[] = [
   {
     id: "free",
     name: "Gratuito",
     price: "S/ 0",
-    period: "/semana",
-    badge: "BETA",
+    period: "/mes",
     features: [
-      "10 consultas por semana",
-      "7 modelos incluidos (Gemini Flash, Groq, DeepSeek, Grok)",
-      "2 consultas premium/semana (Gemini Pro, Haiku)",
-      "Chat legal con 11 áreas del derecho",
+      "4 consultas normales + 1 consulta de razonamiento por día",
+      "Modelos incluidos (Gemini Flash, Groq, DeepSeek)",
+      "Chat legal con 29 áreas del derecho (1500+ documentos)",
       "Búsqueda normativa",
       "Historial 7 días",
     ],
@@ -71,20 +74,19 @@ const STATIC_PLANS: Plan[] = [
   {
     id: "pro",
     name: "Profesional",
-    price: "S/ 39",
+    price: "S/ 70",
     period: "/mes",
     features: [
-      "30 consultas por día",
-      "Todos los modelos básicos y estándar ilimitados",
-      "3 consultas premium/día (Sonnet, GPT-5.4, Gemini 3.1 Pro)",
-      "BYOK: traé tu API key para uso ilimitado",
+      "Consultas ilimitadas (normales y de razonamiento)",
+      "Todos los modelos disponibles",
+      "BYOK: trae tu API key para usar tu propio cupo",
       "Analytics avanzado",
       "Exportar PDF",
       "Carpetas, Etiquetas y Marcadores",
       "Historial ilimitado",
       "Soporte prioritario",
     ],
-    byok_note: "Todos los modelos incluidos. BYOK opcional para consultas ilimitadas.",
+    byok_note: "Todos los modelos incluidos. BYOK opcional para usar tu propio cupo de proveedor.",
     cta: "Actualizar a Profesional",
     cta_disabled: false,
     highlighted: true,
@@ -92,29 +94,27 @@ const STATIC_PLANS: Plan[] = [
   {
     id: "studio",
     name: "Estudio",
-    price: "S/ 99",
-    period: "/mes",
+    price: "Contactar",
+    period: undefined,
     features: [
-      "100 consultas por día",
-      "Todos los modelos incluidos sin restricción",
-      "15 premium/día + 3 ultra/día (Claude Opus)",
-      "BYOK: traé tu API key para uso ilimitado",
-      "Hasta 5 usuarios",
-      "API access + SDKs + Webhooks",
+      "Todo lo del plan Profesional",
+      "Hasta 5 usuarios incluidos",
       "Multi-organización",
+      "API access + SDKs + Webhooks",
       "Soporte dedicado",
+      "Onboarding personalizado",
     ],
-    byok_note: "Todos los modelos incluidos. BYOK opcional para consultas ilimitadas.",
-    cta: "Actualizar a Estudio",
+    byok_note: "Plan empresarial — cuota y términos personalizados.",
+    cta: "Contactar ventas",
     cta_disabled: false,
     highlighted: false,
   },
 ];
 
 const PLAN_COLORS: Record<string, string> = {
-  free: "bg-[#25242b] text-[#a09ba8]",
+  free: "bg-surface-container text-on-surface-variant",
   pro: "bg-primary/10 text-primary",
-  studio: "bg-purple-500/20 text-purple-400",
+  studio: "bg-status-info/15 text-status-info",
 };
 
 const PLAN_LABELS: Record<string, string> = {
@@ -147,14 +147,23 @@ export default function BillingPage() {
           const stored = localStorage.getItem("tk_selected_org_id");
           const isValid = stored !== null && list.some((o) => o.id === stored);
           setOrgId(isValid ? stored : list[0].id);
+        } else {
+          // No orgs → no billing data to load; release the loading state.
+          setLoading(false);
         }
       })
-      .catch(() => setError("No se pudo cargar la organización"));
+      .catch(() => {
+        setError("No se pudo cargar la organización");
+        setLoading(false);
+      });
   }, [authFetch]);
 
   // Fetch billing data whenever orgId resolves or changes
   const loadBillingData = useCallback(async () => {
-    if (!orgId) return;
+    if (!orgId) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setError("");
     try {
@@ -200,7 +209,7 @@ export default function BillingPage() {
     // Studio goes to mailto (contact sales)
     if (planId === "studio") {
       window.location.href =
-        "mailto:ventas@tukijuris.net.pe?subject=Plan%20Estudio%20TukiJuris";
+        "mailto:ventas@tukijuris.com.pe?subject=Plan%20Estudio%20TukiJuris";
       return;
     }
 
@@ -212,13 +221,13 @@ export default function BillingPage() {
       });
       if (!res.ok) {
         const err = await res.json().catch(() => null);
-        alert(err?.detail || "Error al procesar el pago");
+        toast.error(err?.detail || "Error al procesar el pago");
         return;
       }
       const { checkout_url } = await res.json();
       window.location.href = checkout_url;
     } catch {
-      alert("Error de conexión. Intentá de nuevo.");
+      toast.error("Error de conexión. Intenta de nuevo.");
     } finally {
       setCheckoutLoading(null);
     }
@@ -264,31 +273,35 @@ export default function BillingPage() {
   return (
     <AppLayout>
       <div className="flex min-h-full flex-col text-on-surface">
-        {/* Page header */}
-        <div className="border-b border-[rgba(79,70,51,0.15)] px-4 lg:px-6 py-4 flex items-center gap-3 sticky top-0 z-10 bg-[#0e0e12]">
-          <CreditCard className="w-5 h-5 text-primary" />
-          <h1 className="font-['Newsreader'] text-4xl font-bold text-on-surface leading-none">
-            Facturación y Planes
-          </h1>
-          {orgs.length > 1 && (
-            <OrgSwitcher
-              orgs={orgs}
-              selectedOrgId={orgId ?? orgs[0].id}
-              onChange={handleOrgChange}
-            />
-          )}
-          {!loading && (
-            <span
-              className={`ml-auto text-[10px] px-2 py-1 rounded-lg font-medium ${
-                paymentsEnabled
-                  ? "bg-green-500/20 text-green-400"
-                  : "bg-[#25242b] text-[#a09ba8]"
-              }`}
-            >
-              {paymentsEnabled ? "Pagos activos" : "Modo beta"}
-            </span>
-          )}
-        </div>
+        <InternalPageHeader
+          icon={<CreditCard className="h-5 w-5" strokeWidth={1.7} />}
+          eyebrow="Cuenta"
+          title="Facturación"
+          description="Tu plan, métodos de pago y comprobantes."
+          utilitySlot={<div className="hidden md:flex"><ShellUtilityActions /></div>}
+          actions={
+            <div className="flex items-center gap-2">
+              {orgs.length > 1 && (
+                <OrgSwitcher
+                  orgs={orgs}
+                  selectedOrgId={orgId ?? orgs[0].id}
+                  onChange={handleOrgChange}
+                />
+              )}
+              {!loading && (
+                <span
+                  className={`rounded-md px-2 py-1 text-[10px] font-bold uppercase tracking-[0.1em] ${
+                    paymentsEnabled
+                      ? "bg-[rgba(139,201,139,0.12)] text-status-success border border-[rgba(139,201,139,0.25)]"
+                      : "bg-surface-container text-on-surface-variant border border-outline-variant"
+                  }`}
+                >
+                  {paymentsEnabled ? "Pagos activos" : "Modo beta"}
+                </span>
+              )}
+            </div>
+          }
+        />
 
         <div className="max-w-5xl mx-auto px-4 lg:px-6 py-6 sm:py-8">
           {/* Beta Banner — only shown when payments not configured */}
@@ -307,7 +320,7 @@ export default function BillingPage() {
 
           {/* Error */}
           {error && (
-            <div className="flex items-center gap-3 bg-red-500/10 border border-red-500/30 text-red-400 rounded-lg px-4 py-3 mb-6 text-sm">
+            <div className="flex items-center gap-3 bg-status-danger/10 border border-status-danger/30 text-status-danger rounded-lg px-4 py-3 mb-6 text-sm">
               <AlertTriangle className="w-4 h-4 shrink-0" />
               <span>{error}</span>
             </div>
@@ -316,7 +329,7 @@ export default function BillingPage() {
           {loading ? (
             <div className="flex flex-col items-center justify-center py-24 gap-3">
               <Loader2 className="w-8 h-8 text-primary animate-spin" />
-              <p className="text-sm text-[#7c7885]">
+              <p className="text-sm text-on-surface-subtle">
                 Cargando información de facturación...
               </p>
             </div>
@@ -325,7 +338,7 @@ export default function BillingPage() {
               {/* Current Plan */}
               {orgId && (
                 <div className="mb-8 sm:mb-10">
-                  <div className="bg-surface-container-low border border-[rgba(79,70,51,0.15)] rounded-lg p-5 inline-flex flex-col gap-3 min-w-[200px]">
+                  <div className="bg-surface-container-low border border-outline-variant rounded-lg p-5 inline-flex flex-col gap-3 min-w-[200px]">
                     <div className="flex items-center gap-2">
                       <CreditCard className="w-4 h-4 text-primary" />
                       <h2 className="text-sm font-semibold text-on-surface">Plan actual</h2>
@@ -342,8 +355,8 @@ export default function BillingPage() {
                         <span
                           className={`text-xs capitalize ${
                             subscription.status === "past_due"
-                              ? "text-red-400"
-                              : "text-[#7c7885]"
+                              ? "text-status-danger"
+                              : "text-on-surface-subtle"
                           }`}
                         >
                           {subscription.status === "past_due"
@@ -353,18 +366,18 @@ export default function BillingPage() {
                       )}
                     </div>
                     {subscription?.current_period_start && (
-                      <p className="text-xs text-[#7c7885]">
+                      <p className="text-xs text-on-surface-subtle">
                         Activo desde{" "}
                         {new Date(subscription.current_period_start).toLocaleDateString("es-PE")}
                       </p>
                     )}
-                    <p className="text-xs text-[#7c7885]">
+                    <p className="text-xs text-on-surface-subtle">
                       Para cambiar o cancelar tu plan, contacta a{" "}
                       <a
-                        href="mailto:soporte@tukijuris.net.pe"
+                        href="mailto:soporte@tukijuris.com.pe"
                         className="text-primary hover:text-primary-container transition-colors"
                       >
-                        soporte@tukijuris.net.pe
+                        soporte@tukijuris.com.pe
                       </a>
                     </p>
                   </div>
@@ -413,7 +426,7 @@ export default function BillingPage() {
                       className={`relative flex flex-col p-6 rounded-lg ${
                         plan.highlighted
                           ? "bg-surface-container border-2 border-primary-container md:scale-105 shadow-2xl shadow-primary/5"
-                          : "bg-surface border border-[rgba(79,70,51,0.15)]"
+                          : "bg-surface border border-outline-variant"
                       }`}
                     >
                       {/* Popular badge */}
@@ -429,13 +442,13 @@ export default function BillingPage() {
                       <div className="mb-5">
                         <div className="flex items-center gap-2 mb-3">
                           {plan.id === "free" && (
-                            <CreditCard className="w-4 h-4 text-[#a09ba8]" />
+                            <CreditCard className="w-4 h-4 text-on-surface-variant" />
                           )}
                           {plan.id === "pro" && (
                             <Zap className="w-4 h-4 text-primary" />
                           )}
                           {plan.id === "studio" && (
-                            <Building2 className="w-4 h-4 text-purple-400" />
+                            <Building2 className="w-4 h-4 text-status-info" />
                           )}
                           <h3 className="font-['Newsreader'] text-xl font-bold text-on-surface">
                             {plan.name}
@@ -456,7 +469,7 @@ export default function BillingPage() {
                             {plan.price}
                           </span>
                           {plan.period && (
-                            <span className="text-sm text-[#7c7885] mb-1">{plan.period}</span>
+                            <span className="text-sm text-on-surface-subtle mb-1">{plan.period}</span>
                           )}
                         </div>
                       </div>
@@ -466,7 +479,7 @@ export default function BillingPage() {
                         {plan.features.map((feature) => (
                           <div key={feature} className="flex items-start gap-2">
                             <Check className="w-3.5 h-3.5 text-primary shrink-0 mt-0.5" />
-                            <span className="text-xs text-[#a09ba8]">{feature}</span>
+                            <span className="text-xs text-on-surface-variant">{feature}</span>
                           </div>
                         ))}
                       </div>
@@ -486,7 +499,7 @@ export default function BillingPage() {
                             ? "bg-primary/10 text-primary border border-primary/20 cursor-default"
                             : cta.action && !cta.disabled
                             ? "bg-gradient-to-br from-primary to-primary-container hover:opacity-90 text-on-primary cursor-pointer"
-                            : "border border-[rgba(79,70,51,0.15)] text-on-surface/40 cursor-not-allowed"
+                            : "border border-outline-variant text-on-surface/40 cursor-not-allowed"
                         }`}
                       >
                         {checkoutLoading === plan.id && (
@@ -501,12 +514,12 @@ export default function BillingPage() {
 
               {/* Payment methods */}
               <div className="mt-8 text-center">
-                <p className="text-xs text-[#7c7885] mb-3">Métodos de pago aceptados</p>
-                <div className="flex items-center justify-center gap-3 text-[#a09ba8]">
+                <p className="text-xs text-on-surface-subtle mb-3">Métodos de pago aceptados</p>
+                <div className="flex items-center justify-center gap-3 text-on-surface-variant">
                   {["Visa", "Mastercard", "Yape", "BCP"].map((method) => (
                     <span
                       key={method}
-                      className="text-xs border border-[rgba(79,70,51,0.15)] rounded-lg px-2 py-1 bg-surface-container-low"
+                      className="text-xs border border-outline-variant rounded-lg px-2 py-1 bg-surface-container-low"
                     >
                       {method}
                     </span>
@@ -519,14 +532,14 @@ export default function BillingPage() {
 
               {/* Danger zone — contact support */}
               {orgId && currentPlan !== "free" && (
-                <div className="mt-10 border border-[#ffb4ab]/20 rounded-lg p-6">
-                  <h3 className="text-sm font-semibold text-red-300 mb-1">Zona de peligro</h3>
-                  <p className="text-xs text-[#7c7885] mb-4">
+                <div className="mt-10 border border-status-danger/20 rounded-lg p-6">
+                  <h3 className="text-sm font-semibold text-status-danger mb-1">Zona de peligro</h3>
+                  <p className="text-xs text-on-surface-subtle mb-4">
                     Para cancelar o modificar tu suscripción contacta a soporte.
                   </p>
                   <a
-                    href="mailto:soporte@tukijuris.net.pe?subject=Cancelar%20suscripción"
-                    className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold text-red-300 border border-[#ffb4ab]/30 hover:bg-[#ffb4ab]/10 transition-colors"
+                    href="mailto:soporte@tukijuris.com.pe?subject=Cancelar%20suscripción"
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold text-status-danger border border-status-danger/30 hover:bg-status-danger/10 transition-colors"
                   >
                     Solicitar cancelación
                   </a>
@@ -534,10 +547,10 @@ export default function BillingPage() {
               )}
 
               {/* Footer note */}
-              <p className="text-center text-xs text-[#7c7885] mt-8">
+              <p className="text-center text-xs text-on-surface-subtle mt-8">
                 Los pagos son procesados de forma segura por MercadoPago y Culqi. Para consultas
                 sobre planes Enterprise, contactá a{" "}
-                <span className="text-[#a09ba8]">ventas@tukijuris.net.pe</span>
+                <span className="text-on-surface-variant">ventas@tukijuris.com.pe</span>
               </p>
             </>
           )}

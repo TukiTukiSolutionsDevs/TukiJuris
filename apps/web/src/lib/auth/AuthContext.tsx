@@ -94,6 +94,24 @@ interface AuthContextValue {
   permissions: string[];
   /** Returns true if the current user holds the given RBAC permission name. */
   hasPermission: (name: string) => boolean;
+  /**
+   * Daily quota snapshot for the current user.
+   * - `null` while loading or when the server failed to compute it.
+   * - `-1` on any *_limit / remaining_* field means unlimited (pro/studio).
+   * - The plan has TWO independent pools: normal queries and reasoning
+   *   queries. Free tier = 4 normal + 1 reasoning per day.
+   * Refreshed on every /me fetch (boot, login, completeOnboarding).
+   */
+  usage: {
+    plan: string;
+    used_today: number;
+    daily_limit: number;
+    remaining_today: number;
+    used_today_reasoning: number;
+    reasoning_limit: number;
+    remaining_reasoning: number;
+    reset_at: string;
+  } | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -109,12 +127,27 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [accessToken, setToken] = useState<string | null>(getAccessToken);
   const [isLoading, setIsLoading] = useState(true);
-  /** plan + entitlements + permissions + onboardingCompleted fetched from /me — null until fetched. */
+  /** plan + entitlements + permissions + onboardingCompleted + daily quota usage, fetched from /me. */
   const [meData, setMeData] = useState<{
     plan: PlanId | null;
     entitlements: string[];
     permissions: string[];
     onboardingCompleted: boolean;
+    /** Daily quota snapshot. null while loading or when the server failed to compute it. */
+    usage: {
+      plan: string;
+      used_today: number;
+      /** -1 = unlimited */
+      daily_limit: number;
+      /** -1 = unlimited */
+      remaining_today: number;
+      used_today_reasoning: number;
+      /** -1 = unlimited */
+      reasoning_limit: number;
+      /** -1 = unlimited */
+      remaining_reasoning: number;
+      reset_at: string;
+    } | null;
   } | null>(null);
 
   // Derive user from token + meData. No extra network call for identity —
@@ -150,6 +183,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         entitlements: Array.isArray(data.entitlements) ? data.entitlements : [],
         permissions: Array.isArray(permData.permissions) ? permData.permissions : [],
         onboardingCompleted: Boolean(data.onboarding_completed),
+        usage: data.usage ?? null,
       });
     } catch {
       // Fail silently — deny-by-default (empty entitlements/permissions).
@@ -157,23 +191,42 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    // 1. Boot refresh — try to get an access token from the httpOnly cookie
+    let disposed = false;
+    let cleanup: (() => void) | undefined;
+
+    // 1. Boot refresh — try to get an access token from the httpOnly cookie.
+    //    A 401 here is NORMAL for first-time visitors / logged-out users:
+    //    it just means "no session". It is NOT the same as "your session
+    //    expired while you were using the app".
     refresh()
       .then((token) => {
+        if (disposed) return;
         setToken(token);
         // 2. Fetch /me to get plan + entitlements after successful boot refresh.
         if (token) {
           fetchMe();
         }
       })
-      .finally(() => setIsLoading(false));
+      .finally(() => {
+        if (disposed) return;
+        setIsLoading(false);
 
-    // 3. When any refresh fails (session expired/revoked) → redirect to login
-    const cleanup = onRefreshFailure(() => {
-      setToken(null);
-      setMeData(null);
-      redirectToPublic("expired");
-    });
+        // 3. Install the refresh-failure listener AFTER the boot refresh
+        //    completes. Rationale: the boot refresh intentionally probes
+        //    the cookie and often 401s on public pages (landing, login).
+        //    Installing the listener before boot would fire an unwanted
+        //    redirect to /auth/login?reason=expired on every anonymous
+        //    visit — kicking guests out of the landing page.
+        //
+        //    After boot, the listener catches ONLY mid-session refresh
+        //    failures (token rotation failed, session revoked, reuse
+        //    detected), which genuinely warrant an "expired" redirect.
+        cleanup = onRefreshFailure(() => {
+          setToken(null);
+          setMeData(null);
+          redirectToPublic("expired");
+        });
+      });
 
     // 4. Cross-tab logout sync — clear state when another tab logs out
     const bc = getAuthChannel();
@@ -187,7 +240,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     bc?.addEventListener("message", handleBcMessage);
 
     return () => {
-      cleanup();
+      disposed = true;
+      cleanup?.();
       bc?.removeEventListener("message", handleBcMessage);
     };
   }, [fetchMe]);
@@ -257,6 +311,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       authFetch: clientAuthFetch,
       permissions,
       hasPermission,
+      usage: meData?.usage ?? null,
     }),
     [
       user,
@@ -270,6 +325,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       completeOnboarding,
       permissions,
       hasPermission,
+      meData,
     ]
   );
 

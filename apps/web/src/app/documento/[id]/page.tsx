@@ -5,8 +5,7 @@ import { ArrowLeft, Scale, BookOpen, Search } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { AppLayout } from "@/components/AppLayout";
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+import { useAuth } from "@/lib/auth/AuthContext";
 
 interface DocChunk {
   id: string;
@@ -30,6 +29,7 @@ interface DocData {
 
 export default function DocumentoPage() {
   const params = useParams();
+  const { authFetch } = useAuth();
   const [data, setData] = useState<DocData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -37,15 +37,33 @@ export default function DocumentoPage() {
 
   useEffect(() => {
     if (!params.id) return;
-    fetch(`${API_URL}/api/documents/${params.id}/chunks`)
+    let cancelled = false;
+    authFetch(`/api/documents/${params.id}/chunks`)
       .then((r) => {
-        if (!r.ok) throw new Error("Documento no encontrado");
+        if (!r.ok) {
+          if (r.status === 401 || r.status === 403) {
+            throw new Error("No tienes permiso para ver este documento");
+          }
+          if (r.status === 404) {
+            throw new Error("Documento no encontrado");
+          }
+          throw new Error(`Error ${r.status}`);
+        }
         return r.json();
       })
-      .then(setData)
-      .catch((e) => setError(e.message))
-      .finally(() => setLoading(false));
-  }, [params.id]);
+      .then((payload) => {
+        if (!cancelled) setData(payload);
+      })
+      .catch((e) => {
+        if (!cancelled) setError(e.message);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [params.id, authFetch]);
 
   if (loading) {
     return (

@@ -25,10 +25,30 @@ export function AppLayout({ children, sidebarContent, contentClassName, rightRai
 
   const { user, isLoading } = useAuth();
 
-  // While the boot refresh is in progress or the user is unauthenticated,
-  // render nothing. AuthContext fires redirectToPublic() automatically when
-  // the refresh fails, so no manual redirect is needed here.
-  if (isLoading || !user) return null;
+  // IMPORTANT: never return null here.
+  //
+  // Next.js App Router caches the RSC payload of a mounted page and replays
+  // it when the user hits the back button. If AppLayout returned null while
+  // the boot refresh was in-flight, Next cached an empty tree — pressing
+  // back later served that empty cache and the page rendered blank. Only a
+  // hard reload recovered.
+  //
+  // Instead render a lightweight loading shell while `isLoading` or `!user`.
+  // The shell is valid DOM, so Next's router cache always has something
+  // meaningful to restore. When AuthContext finishes the boot refresh and
+  // `user` populates, this component re-renders into the real WorkspaceShell.
+  if (isLoading || !user) {
+    return (
+      <div
+        role="status"
+        aria-live="polite"
+        aria-label="Cargando"
+        className="flex h-screen items-center justify-center bg-background"
+      >
+        <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary-container border-t-transparent" />
+      </div>
+    );
+  }
 
   return (
     <WorkspaceShell

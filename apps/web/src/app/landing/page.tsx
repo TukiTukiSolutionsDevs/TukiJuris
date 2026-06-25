@@ -149,7 +149,7 @@ const HOW_IT_WORKS = [
 ═══════════════════════════════════════════════ */
 
 export default function LandingPage() {
-  const [stats, setStats] = useState({ chunks: 138, documents: 21, areas: 11 });
+  const [stats, setStats] = useState({ chunks: 1806, documents: 1520, areas: 29 });
   const chunksCounter = useCounter(stats.chunks);
   const areasCounter = useCounter(stats.areas, 1200);
 
@@ -159,7 +159,7 @@ export default function LandingPage() {
       .then((data) => {
         if (data) {
           setStats({
-            chunks: data.total_chunks || 138,
+            chunks: data.total_chunks || 1806,
             documents: data.total_documents || 21,
             areas: data.chunks_by_area ? Object.keys(data.chunks_by_area).length : 11,
           });
@@ -209,19 +209,35 @@ export default function LandingPage() {
               respuestas citadas directamente desde fuentes oficiales.
             </p>
 
+            {/* Aviso de IA (transparencia + Indecopi/ANPD) */}
+            <p
+              className="animate-fade-in-up delay-200 text-xs text-on-surface/60 max-w-lg leading-relaxed"
+              role="note"
+            >
+              Las respuestas de TukiJuris son <strong className="text-on-surface/80">orientativas</strong> y
+              están generadas por inteligencia artificial. No constituyen asesoría legal vinculante ni
+              reemplazan la consulta con un abogado colegiado.
+            </p>
+
             {/* CTAs */}
             <div className="animate-fade-in-up delay-300 flex flex-col sm:flex-row gap-3">
               <Link
                 href="/auth/register"
                 className="inline-flex items-center justify-center gap-2 font-bold rounded-xl h-12 px-6 transition-all hover:opacity-90 text-on-primary gold-gradient animate-pulse-glow hover:shadow-xl hover:shadow-primary/25 hover:scale-[1.02]"
               >
-                Comenzar Gratis <ArrowRight className="w-4 h-4" />
+                Comenzar gratis <ArrowRight className="w-4 h-4" />
               </Link>
               <Link
-                href="/docs"
+                href="/buscar"
                 className="inline-flex items-center justify-center gap-2 rounded-xl h-12 px-6 transition-all text-on-surface hover:text-primary border border-ghost-border hover:border-primary/30 bg-surface-container-high/20 hover:bg-surface-container-high/40 hover:scale-[1.01]"
               >
-                Ver Documentación
+                Explorar corpus público
+              </Link>
+              <Link
+                href="/guia"
+                className="inline-flex items-center justify-center gap-2 rounded-xl h-12 px-6 transition-all text-on-surface/80 hover:text-primary"
+              >
+                Cómo funciona
               </Link>
             </div>
 
@@ -267,7 +283,7 @@ export default function LandingPage() {
                 <div className="bg-surface/90 backdrop-blur-md border border-ghost-border rounded-lg px-3 py-2 shadow-lg">
                   <div className="flex items-center gap-2">
                     <Scale className="w-3.5 h-3.5 text-primary" />
-                    <span className="text-[11px] font-medium text-on-surface">11 Áreas</span>
+                    <span className="text-[11px] font-medium text-on-surface">29 Áreas</span>
                   </div>
                 </div>
               </div>
@@ -310,7 +326,7 @@ export default function LandingPage() {
               ))}
               <span className="flex items-center gap-2 text-xs uppercase tracking-[0.15em] text-primary/50 font-medium">
                 <span className="w-1.5 h-1.5 rounded-full bg-primary/50" />
-                +6 áreas más
+                +24 áreas más
               </span>
             </div>
           </Reveal>
@@ -339,16 +355,16 @@ export default function LandingPage() {
           <Reveal>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-center mb-12">
               <div className="relative rounded-2xl overflow-hidden shadow-xl shadow-primary/5">
-                <Image src="/landing/feature-areas.png" alt="11 Áreas del Derecho" width={800} height={450} className="w-full h-auto" />
+                <Image src="/landing/feature-areas.png" alt="29 Áreas del Derecho" width={800} height={450} className="w-full h-auto" />
                 <div className="absolute inset-0 rounded-2xl ring-1 ring-inset ring-ghost-border" />
               </div>
               <div className="flex flex-col gap-4">
                 <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center icon-glow">
                   <Scale className="w-5 h-5 text-primary" />
                 </div>
-                <h3 className="font-headline font-bold text-on-surface text-xl sm:text-2xl">11 Áreas del Derecho Peruano</h3>
+                <h3 className="font-headline font-bold text-on-surface text-xl sm:text-2xl">29 Áreas del Derecho Peruano</h3>
                 <p className="text-sm sm:text-base text-on-surface-variant leading-relaxed">
-                  Agentes especializados en Civil, Penal, Laboral, Tributario, Constitucional y 6 áreas más. Cada uno entrenado con legislación, jurisprudencia y doctrina de su área.
+                  Cobertura del ordenamiento jurídico peruano vigente — del núcleo clásico (Civil, Familia, Penal, Procesal, Laboral, Tributario, Constitucional) a los regímenes sectoriales (Ambiental, Minero, Hidrocarburos, Telecom, Salud) y la nueva Ley de Contrataciones (Ley 32069). 1500+ documentos oficiales indexados de SUNAT, MINAM, OEFA, OSCE, INDECOPI, SBS, SMV, SUNARP y 10 reguladores más.
                 </p>
                 <Link
                   href="/caracteristicas"

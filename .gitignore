@@ -54,3 +54,13 @@ logs/
 
 # Database backups (keep latest locally, don't push to repo)
 backups/*.dump
+
+# Local persistent data (models, db-backups, corpus-cache) — see data/README.md
+data/
+
+# Local agent / tooling caches
+.atl/
+
+# Local-only material (pitch decks, design audit screenshots)
+_pitch/
+design-audit/

@@ -29,6 +29,16 @@ dependencies = [
     # Embeddings & Vector
     "tiktoken>=0.8.0",
     "google-generativeai>=0.8.0",
+    # Local embeddings (multilingual-e5-large, 1024-dim). Persisted in
+    # ./data/models/huggingface via docker-compose volume — see RUN_SUPERINGESTA.md.
+    #
+    # Two backends. The ingestion pipeline auto-detects whichever is available.
+    # On Apple Silicon emulating x86_64 (the dev setup) fastembed is dramatically
+    # faster to install (~30 s vs >30 min for torch wheels), so it is the
+    # preferred backend. sentence-transformers stays as a fallback for native
+    # x86_64 / GPU deployments.
+    "fastembed>=0.4.0",
+    "sentence-transformers>=3.0.0",
     # Monitoring
     "sentry-sdk[fastapi]>=2.0.0",
     # Config

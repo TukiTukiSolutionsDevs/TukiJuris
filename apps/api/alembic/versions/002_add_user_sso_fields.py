@@ -21,10 +21,22 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    op.add_column("users", sa.Column("auth_provider", sa.String(50), server_default="local", nullable=False))
-    op.add_column("users", sa.Column("auth_provider_id", sa.String(255), nullable=True))
-    op.add_column("users", sa.Column("avatar_url", sa.Text(), nullable=True))
-    op.add_column("users", sa.Column("preferences", postgresql.JSONB(), server_default="{}", nullable=True))
+    # Idempotent: the legacy `infrastructure/sql/migration_004_sso.sql` may
+    # have already added these columns when pgdata was first initialised.
+    # Using IF NOT EXISTS keeps this revision safe to apply on either a
+    # fresh DB (no SQL bootstrap) or a legacy DB (SQL bootstrap already ran).
+    op.execute(
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS auth_provider VARCHAR(50) NOT NULL DEFAULT 'local'"
+    )
+    op.execute(
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS auth_provider_id VARCHAR(255)"
+    )
+    op.execute(
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url TEXT"
+    )
+    op.execute(
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS preferences JSONB DEFAULT '{}'::jsonb"
+    )
 
 
 def downgrade() -> None:

@@ -33,10 +33,10 @@ export default function GlobalError({
           Ocurrio un error inesperado. Podes intentar de nuevo o volver al inicio.
           Si el problema persiste, contactanos a{" "}
           <a
-            href="mailto:soporte@tukijuris.net.pe"
+            href="mailto:soporte@tukijuris.com.pe"
             className="text-primary hover:underline"
           >
-            soporte@tukijuris.net.pe
+            soporte@tukijuris.com.pe
           </a>
         </p>
 

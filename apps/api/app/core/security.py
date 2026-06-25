@@ -173,32 +173,55 @@ def compute_refresh_expires_at(
 # ---------------------------------------------------------------------------
 
 
-async def check_login_attempts(ip: str) -> bool:
-    """Check if an IP has exceeded the login attempt limit.
+LOGIN_RATE_LIMIT_WINDOW_SECONDS: int = 900  # 15 minutes
 
-    Uses the shared Redis rate limiter with a 15-minute sliding window.
-    Each call to this function counts as one attempt — call it before
-    verifying credentials so that even invalid-email attempts are counted.
+
+async def check_login_attempts(ip: str) -> bool:
+    """Check if an IP has exceeded the failed login attempt limit.
+
+    This function ONLY inspects the current count — it does NOT record a
+    new attempt. Call ``record_failed_login_attempt`` explicitly after a
+    credentials-invalid response so that successful logins leave the bucket
+    untouched. Previous implementation incremented on every call, which
+    rate-limited legitimate users during normal use (dev hot-reload,
+    multi-tab sessions, automated tests).
 
     Returns:
         True  — request is allowed (under the limit or Redis is down).
         False — request must be blocked (limit exceeded).
 
-    Resilience: if Redis is unavailable the function returns True (fail-open)
-    to avoid locking users out during infrastructure outages.
+    Fail-open on Redis errors so an infra outage never locks users out.
     """
     try:
         from app.core.rate_limiter import rate_limiter
 
-        result = await rate_limiter.check_rate_limit(
+        result = await rate_limiter.peek_rate_limit(
             f"login:{ip}",
             max_requests=settings.max_login_attempts,
-            window_seconds=900,  # 15 minutes
+            window_seconds=LOGIN_RATE_LIMIT_WINDOW_SECONDS,
         )
         return result["allowed"]
     except Exception as exc:
         logger.warning("Login rate limiter error (allowing request): %s", exc)
         return True
+
+
+async def record_failed_login_attempt(ip: str) -> None:
+    """Increment the failed-login counter for an IP.
+
+    Called from the login route AFTER credentials come back invalid. Keeps
+    a successful login from consuming quota so the limit is an actual abuse
+    signal rather than background activity.
+    """
+    try:
+        from app.core.rate_limiter import rate_limiter
+
+        await rate_limiter.record_hit(
+            f"login:{ip}",
+            window_seconds=LOGIN_RATE_LIMIT_WINDOW_SECONDS,
+        )
+    except Exception as exc:
+        logger.warning("record_failed_login_attempt error (swallowing): %s", exc)
 
 
 # ---------------------------------------------------------------------------

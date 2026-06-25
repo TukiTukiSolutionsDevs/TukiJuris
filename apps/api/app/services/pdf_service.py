@@ -172,7 +172,7 @@ class PDFService:
         story.append(Spacer(1, 0.2 * cm))
         story.append(
             Paragraph(
-                f"Generado por TukiJuris (tukijuris.net.pe) \u2014 "
+                f"Generado por TukiJuris (tukijuris.com.pe) \u2014 "
                 f"{datetime.now(UTC).strftime('%d/%m/%Y %H:%M UTC')}",
                 styles["footer"],
             )

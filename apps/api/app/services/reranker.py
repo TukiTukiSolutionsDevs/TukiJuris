@@ -150,8 +150,12 @@ class RerankerService:
     async def is_available(self) -> bool:
         """
         Returns True if LLM reranking is available.
-        Checks for google_api_key (primary) or any other provider key.
-        Result is cached for 5 minutes.
+
+        Checks for ANY provider key — first in `platform_llm_keys` (operator
+        managed) and then in legacy settings/.env (typically empty in modern
+        deployments). Result is cached for 5 minutes; the cache lifetime is
+        intentionally short so a freshly added key in /admin?tab=claves takes
+        effect within minutes without a restart.
         """
         now = time.monotonic()
         if (
@@ -160,11 +164,14 @@ class RerankerService:
         ):
             return self._llm_available
 
-        available = bool(
-            settings.google_api_key
-            or settings.openai_api_key
-            or settings.anthropic_api_key
-        )
+        # Lazy-import to avoid circular import at module load.
+        from app.services.rag import _resolve_provider_key
+
+        google_key = await _resolve_provider_key("google")
+        openai_key = await _resolve_provider_key("openai")
+        anthropic_key = await _resolve_provider_key("anthropic")
+
+        available = bool(google_key or openai_key or anthropic_key)
         self._llm_available = available
         self._llm_checked_at = now
         return available
@@ -267,11 +274,16 @@ class RerankerService:
             logger.warning(f"RAG Reranker: litellm call failed: {exc}")
 
         # ── google-generativeai (fallback) ─────────────────────────────────────
-        if settings.google_api_key:
+        # Resolve the platform Google key from DB (operator-managed) with
+        # legacy env fallback (typically empty).
+        from app.services.rag import _resolve_provider_key
+
+        google_key_resolved = await _resolve_provider_key("google")
+        if google_key_resolved:
             try:
                 import google.generativeai as genai  # type: ignore
 
-                genai.configure(api_key=settings.google_api_key)
+                genai.configure(api_key=google_key_resolved)
                 model = genai.GenerativeModel("gemini-2.0-flash")
 
                 loop = asyncio.get_event_loop()

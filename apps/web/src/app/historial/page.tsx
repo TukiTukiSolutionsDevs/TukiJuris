@@ -32,8 +32,9 @@ import { InternalPageHeader } from "@/components/shell/InternalPageHeader";
 import { ShellUtilityActions } from "@/components/shell/ShellUtilityActions";
 
 import { toast } from "sonner";
+import { AREA_LABELS } from "@/app/chat/constants";
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://tukijuris.net.pe";
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://tukijuris.com.pe";
 
 type ConversationStatus = "active" | "pinned" | "archived";
 type SortKey = "date_desc" | "date_asc" | "area" | "messages";
@@ -67,20 +68,6 @@ interface ConversationItem {
   created_at: string;
   updated_at: string;
 }
-
-const AREA_LABELS: Record<string, string> = {
-  civil: "Civil",
-  penal: "Penal",
-  laboral: "Laboral",
-  tributario: "Tributario",
-  constitucional: "Constitucional",
-  administrativo: "Administrativo",
-  corporativo: "Corporativo",
-  registral: "Registral",
-  competencia: "Competencia",
-  compliance: "Compliance",
-  comercio_exterior: "Comercio Ext.",
-};
 
 const TAG_COLOR_PRESETS = [
   "#3b82f6",
@@ -570,7 +557,7 @@ export default function HistorialPage() {
                               }
                               if (!folderRenameSaving) handleRenameFolder();
                             }}
-                            className="w-full bg-[#35343a] border border-transparent rounded px-2 py-0.5 text-xs text-on-surface focus:outline-none focus:border-primary transition-colors disabled:opacity-50"
+                            className="w-full bg-surface-container border border-transparent rounded px-2 py-0.5 text-xs text-on-surface focus:outline-none focus:border-primary transition-colors disabled:opacity-50"
                           />
                         </div>
                       ) : (
@@ -617,7 +604,7 @@ export default function HistorialPage() {
                           <button
                             onClick={() => handleDeleteFolder(folder.id)}
                             disabled={folderActionLoading === folder.id}
-                            className="opacity-0 group-hover:opacity-100 p-1 rounded text-on-surface/30 hover:text-[#ffb4ab] transition-all"
+                            className="opacity-0 group-hover:opacity-100 p-1 rounded text-on-surface/30 hover:text-status-danger transition-all"
                           >
                             {folderActionLoading === folder.id ? (
                               <Loader2 className="w-3 h-3 animate-spin" />
@@ -642,7 +629,7 @@ export default function HistorialPage() {
                           if (e.key === "Escape") setShowNewFolderForm(false);
                         }}
                         placeholder="Nombre de carpeta"
-                        className="w-full bg-[#35343a] border border-transparent rounded-lg px-2 py-1 text-xs text-on-surface placeholder-on-surface/30 focus:outline-none focus:border-primary transition-colors"
+                        className="w-full bg-surface-container border border-transparent rounded-lg px-2 py-1 text-xs text-on-surface placeholder-on-surface/30 focus:outline-none focus:border-primary transition-colors"
                       />
                       <div className="flex gap-1.5">
                         <button
@@ -718,7 +705,7 @@ export default function HistorialPage() {
                             if (e.key === "Enter") handleUpdateTag(editingTag);
                             if (e.key === "Escape") setEditingTag(null);
                           }}
-                          className="w-full bg-[#35343a] border border-transparent rounded px-2 py-0.5 text-xs text-on-surface focus:outline-none focus:border-primary transition-colors"
+                          className="w-full bg-surface-container border border-transparent rounded px-2 py-0.5 text-xs text-on-surface focus:outline-none focus:border-primary transition-colors"
                         />
                         <div className="flex gap-1 flex-wrap">
                           {TAG_COLOR_PRESETS.map((c) => (
@@ -779,7 +766,7 @@ export default function HistorialPage() {
                         <button
                           onClick={() => handleDeleteTag(t.id)}
                           disabled={tagActionLoading === t.id}
-                          className="opacity-0 group-hover:opacity-100 p-1 rounded text-on-surface/30 hover:text-[#ffb4ab] transition-all"
+                          className="opacity-0 group-hover:opacity-100 p-1 rounded text-on-surface/30 hover:text-status-danger transition-all"
                         >
                           {tagActionLoading === t.id ? (
                             <Loader2 className="w-3 h-3 animate-spin" />
@@ -803,7 +790,7 @@ export default function HistorialPage() {
                           if (e.key === "Escape") setShowNewTagForm(false);
                         }}
                         placeholder="Nombre de etiqueta"
-                        className="w-full bg-[#35343a] border border-transparent rounded-lg px-2 py-1 text-xs text-on-surface placeholder-on-surface/30 focus:outline-none focus:border-primary transition-colors"
+                        className="w-full bg-surface-container border border-transparent rounded-lg px-2 py-1 text-xs text-on-surface placeholder-on-surface/30 focus:outline-none focus:border-primary transition-colors"
                       />
                       <div className="flex gap-1.5 flex-wrap">
                         {TAG_COLOR_PRESETS.map((c) => (
@@ -862,14 +849,14 @@ export default function HistorialPage() {
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="Buscar conversaciones..."
-                  className="w-full bg-surface-container-low border border-[rgba(79,70,51,0.15)] rounded-lg pl-9 pr-4 py-2.5 text-sm text-on-surface placeholder-on-surface/30 focus:outline-none focus:border-primary transition-colors"
+                  className="w-full bg-surface-container-low border border-outline-variant rounded-lg pl-9 pr-4 py-2.5 text-sm text-on-surface placeholder-on-surface/30 focus:outline-none focus:border-primary transition-colors"
                 />
               </div>
               <div className="relative">
                 <select
                   value={sortKey}
                   onChange={(e) => setSortKey(e.target.value as SortKey)}
-                  className="appearance-none bg-surface-container-low border border-[rgba(79,70,51,0.15)] rounded-lg px-3 py-2.5 pr-8 text-sm text-on-surface focus:outline-none focus:border-primary cursor-pointer transition-colors"
+                  className="appearance-none bg-surface-container-low border border-outline-variant rounded-lg px-3 py-2.5 pr-8 text-sm text-on-surface focus:outline-none focus:border-primary cursor-pointer transition-colors"
                 >
                   <option value="date_desc">Mas recientes</option>
                   <option value="date_asc">Mas antiguas</option>
@@ -886,7 +873,7 @@ export default function HistorialPage() {
                 <span>Filtrando por:</span>
                 {activeTagFilter && (
                   <span
-                    className="flex items-center gap-1 px-2 py-0.5 rounded-lg bg-surface-container-low border border-[rgba(79,70,51,0.15)] cursor-pointer hover:bg-surface-container transition-colors"
+                    className="flex items-center gap-1 px-2 py-0.5 rounded-lg bg-surface-container-low border border-outline-variant cursor-pointer hover:bg-surface-container transition-colors"
                     onClick={() => setActiveTagFilter(null)}
                   >
                     <span
@@ -901,7 +888,7 @@ export default function HistorialPage() {
                 )}
                 {activeFolderFilter && (
                   <span
-                    className="flex items-center gap-1 px-2 py-0.5 rounded-lg bg-surface-container-low border border-[rgba(79,70,51,0.15)] cursor-pointer hover:bg-surface-container transition-colors"
+                    className="flex items-center gap-1 px-2 py-0.5 rounded-lg bg-surface-container-low border border-outline-variant cursor-pointer hover:bg-surface-container transition-colors"
                     onClick={() => setActiveFolderFilter(null)}
                   >
                     <Folder className="w-3 h-3" />
@@ -913,7 +900,7 @@ export default function HistorialPage() {
             )}
 
             {/* Tabs */}
-            <div className="flex gap-0 border-b border-[rgba(79,70,51,0.15)]">
+            <div className="flex gap-0 border-b border-outline-variant">
               {tabItems.map(({ key, label }) => (
                 <button
                   key={key}
@@ -945,7 +932,7 @@ export default function HistorialPage() {
                 </button>
 
                 {selected.size > 0 && (
-                  <div className="flex items-center gap-2 ml-2 px-3 py-1.5 bg-surface-container-low border border-[rgba(79,70,51,0.15)] rounded-lg">
+                  <div className="flex items-center gap-2 ml-2 px-3 py-1.5 bg-surface-container-low border border-outline-variant rounded-lg">
                     <button
                       onClick={() => bulkAction("archive")}
                       disabled={bulkLoading}
@@ -961,7 +948,7 @@ export default function HistorialPage() {
                     <button
                       onClick={() => bulkAction("delete")}
                       disabled={bulkLoading}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#ffb4ab]/30 text-[#ffb4ab] hover:bg-[#93000a]/20 transition-colors disabled:opacity-50"
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-status-danger/30 text-status-danger hover:bg-status-danger/15 transition-colors disabled:opacity-50"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                       Eliminar
@@ -1019,7 +1006,7 @@ export default function HistorialPage() {
                           ? "bg-primary/5"
                           : idx % 2 === 0 ? "bg-surface" : "bg-surface-container-low"
                       } hover:bg-surface-container`}
-                      onClick={() => router.push(`/?conversation=${conv.id}`)}
+                      onClick={() => router.push(`/analizar?conversation=${conv.id}`)}
                     >
                       {/* Checkbox */}
                       <button
@@ -1104,14 +1091,14 @@ export default function HistorialPage() {
                                           tagDropdownConv === conv.id ? null : conv.id
                                         );
                                       }}
-                                      className="flex items-center gap-0.5 px-1.5 py-0.5 rounded text-xs text-on-surface/30 border border-[rgba(79,70,51,0.15)] hover:text-on-surface/60 hover:border-primary/20 transition-colors opacity-0 group-hover:opacity-100"
+                                      className="flex items-center gap-0.5 px-1.5 py-0.5 rounded text-xs text-on-surface/30 border border-outline-variant hover:text-on-surface/60 hover:border-primary/20 transition-colors opacity-0 group-hover:opacity-100"
                                     >
                                       <Tag className="w-2.5 h-2.5" />
                                       <Plus className="w-2.5 h-2.5" />
                                     </button>
                                     {tagDropdownConv === conv.id && (
                                       <div
-                                        className="absolute left-0 top-6 z-20 bg-surface-container-low border border-[rgba(79,70,51,0.15)] rounded-lg shadow-lg shadow-black/40 min-w-[140px] py-1"
+                                        className="absolute left-0 top-6 z-20 bg-surface-container-low border border-outline-variant rounded-lg shadow-lg shadow-black/40 min-w-[140px] py-1"
                                         onClick={(e) => e.stopPropagation()}
                                       >
                                         {unassignedTags.map((t) => (
@@ -1167,7 +1154,7 @@ export default function HistorialPage() {
                               />
                               {folderMenuConv === conv.id && (
                                 <div
-                                  className="absolute right-0 top-7 z-20 bg-surface-container-low border border-[rgba(79,70,51,0.15)] rounded-lg shadow-lg shadow-black/40 min-w-[160px] py-1"
+                                  className="absolute right-0 top-7 z-20 bg-surface-container-low border border-outline-variant rounded-lg shadow-lg shadow-black/40 min-w-[160px] py-1"
                                   onClick={(e) => e.stopPropagation()}
                                 >
                                   <p className="px-3 py-1 text-xs text-on-surface/30 font-medium">
@@ -1214,7 +1201,7 @@ export default function HistorialPage() {
                               onClick={() => handleShare(conv.id)}
                               icon={
                                 copiedId === conv.id ? (
-                                  <Check className="w-3.5 h-3.5 text-[#6ee7b7]" />
+                                  <Check className="w-3.5 h-3.5 text-status-success" />
                                 ) : (
                                   <Share2 className="w-3.5 h-3.5" />
                                 )
@@ -1224,7 +1211,7 @@ export default function HistorialPage() {
                               title="Eliminar"
                               loading={actionLoading === conv.id + ""}
                               onClick={() => handleDelete(conv.id)}
-                              icon={<Trash2 className="w-3.5 h-3.5 text-[#ffb4ab]" />}
+                              icon={<Trash2 className="w-3.5 h-3.5 text-status-danger" />}
                               danger
                             />
                           </div>
@@ -1258,8 +1245,8 @@ function ActionButton({ title, loading, onClick, icon, danger }: ActionButtonPro
       disabled={loading}
       className={`p-1.5 rounded-lg transition-colors disabled:opacity-50 ${
         danger
-          ? "hover:bg-[#93000a]/20 text-on-surface/30 hover:text-[#ffb4ab]"
-          : "hover:bg-[#35343a] text-on-surface/30 hover:text-on-surface"
+          ? "hover:bg-status-danger/15 text-on-surface/30 hover:text-status-danger"
+          : "hover:bg-surface-container text-on-surface/30 hover:text-on-surface"
       }`}
     >
       {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : icon}

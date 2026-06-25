@@ -85,6 +85,7 @@ class UsageRecord(Base):
     )
     day: Mapped[_date] = mapped_column(Date, nullable=False, index=True)
     query_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    reasoning_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     token_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False

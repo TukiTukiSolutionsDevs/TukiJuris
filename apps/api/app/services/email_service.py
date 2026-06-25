@@ -177,7 +177,7 @@ PAYMENT_CONFIRMATION_TEMPLATE = """
   </div>
   <p style="color: #d1d5db; line-height: 1.7; margin: 0 0 24px 0;">
     Ya podes disfrutar de todas las funcionalidades de tu plan. Si tenes
-    alguna consulta, escribinos a soporte@tukijuris.net.pe.
+    alguna consulta, escribinos a soporte@tukijuris.com.pe.
   </p>
   {footer}
 </div>

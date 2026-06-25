@@ -14,6 +14,8 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { AppLayout } from "@/components/AppLayout";
+import { InternalPageHeader } from "@/components/shell/InternalPageHeader";
+import { ShellUtilityActions } from "@/components/shell/ShellUtilityActions";
 import {
   deleteNotification,
   getUnreadCount,
@@ -58,15 +60,15 @@ function timeAgo(isoString: string): string {
 function typeIcon(type: NotificationType) {
   switch (type) {
     case "usage_alert":
-      return <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />;
+      return <AlertTriangle className="w-4 h-4 text-status-warning shrink-0" />;
     case "invite":
       return <UserPlus className="w-4 h-4 text-blue-400 shrink-0" />;
     case "billing":
-      return <CreditCard className="w-4 h-4 text-green-400 shrink-0" />;
+      return <CreditCard className="w-4 h-4 text-status-success shrink-0" />;
     case "welcome":
-      return <Bell className="w-4 h-4 text-amber-400 shrink-0" />;
+      return <Bell className="w-4 h-4 text-status-warning shrink-0" />;
     default:
-      return <Info className="w-4 h-4 text-[#9CA3AF] shrink-0" />;
+      return <Info className="w-4 h-4 text-on-surface-variant shrink-0" />;
   }
 }
 
@@ -247,28 +249,33 @@ export default function NotificacionesPage() {
           </div>
         )}
 
-        {/* Page header */}
-        <div className="flex items-center justify-between px-6 py-5 border-b border-[rgba(79,70,51,0.12)]">
-          <h1 className="text-xl font-semibold text-on-surface">Notificaciones</h1>
-          <button
-            onClick={() => void handleMarkAllRead()}
-            className="flex items-center gap-1.5 text-sm text-amber-400 hover:text-amber-300 transition-colors"
-            aria-label="Marcar todas como leídas"
-          >
-            <CheckCheck className="w-4 h-4" />
-            Marcar todas como leídas
-          </button>
-        </div>
+        <InternalPageHeader
+          icon={<Bell className="h-5 w-5" strokeWidth={1.7} />}
+          eyebrow="Bandeja"
+          title="Notificaciones"
+          description="Eventos, invitaciones y avisos de uso de tu cuenta."
+          utilitySlot={<div className="hidden md:flex"><ShellUtilityActions /></div>}
+          actions={
+            <button
+              onClick={() => void handleMarkAllRead()}
+              className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-outline-variant bg-surface px-3.5 text-[12.5px] font-semibold text-on-surface-strong transition-colors hover:border-outline"
+              aria-label="Marcar todas como leídas"
+            >
+              <CheckCheck className="h-4 w-4 text-status-success" strokeWidth={2} />
+              Marcar todas leídas
+            </button>
+          }
+        />
 
         {/* Filters row */}
-        <div className="flex flex-wrap items-center gap-2 px-6 py-3 border-b border-[rgba(79,70,51,0.08)]">
+        <div className="flex flex-wrap items-center gap-2 px-6 py-3 border-b border-outline-variant/40">
           {/* Unread toggle */}
           <button
             onClick={handleUnreadToggle}
             className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
               unreadOnly
-                ? "bg-amber-500/20 border-amber-500/40 text-amber-300"
-                : "border-[rgba(79,70,51,0.2)] text-on-surface/60 hover:text-on-surface hover:border-on-surface/30"
+                ? "bg-status-warning/20 border-status-warning/40 text-status-warning"
+                : "border-outline-variant text-on-surface/60 hover:text-on-surface hover:border-on-surface/30"
             }`}
             aria-pressed={unreadOnly}
           >
@@ -284,7 +291,7 @@ export default function NotificacionesPage() {
               className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
                 activeChips.has(type)
                   ? "bg-primary/20 border-primary/40 text-primary"
-                  : "border-[rgba(79,70,51,0.2)] text-on-surface/60 hover:text-on-surface hover:border-on-surface/30"
+                  : "border-outline-variant text-on-surface/60 hover:text-on-surface hover:border-on-surface/30"
               }`}
               aria-pressed={activeChips.has(type)}
             >
@@ -304,7 +311,7 @@ export default function NotificacionesPage() {
 
           {/* Error */}
           {!loading && error && (
-            <div className="px-6 py-8 text-center text-sm text-red-400">{error}</div>
+            <div className="px-6 py-8 text-center text-sm text-status-danger">{error}</div>
           )}
 
           {/* All-empty state (NF-17) */}
@@ -342,7 +349,7 @@ export default function NotificacionesPage() {
               {filteredList.map((n) => (
                 <li
                   key={n.id}
-                  className={`flex gap-3 px-6 py-4 border-b border-[rgba(79,70,51,0.08)] transition-colors hover:bg-surface-container-low/40 ${
+                  className={`flex gap-3 px-6 py-4 border-b border-outline-variant/40 transition-colors hover:bg-surface-container-low/40 ${
                     !n.is_read ? "bg-surface-container-low/20" : ""
                   }`}
                 >
@@ -383,7 +390,7 @@ export default function NotificacionesPage() {
                         {!n.is_read && (
                           <span
                             aria-label="No leída"
-                            className="w-2 h-2 rounded-full bg-amber-500 shrink-0"
+                            className="w-2 h-2 rounded-full bg-status-warning shrink-0"
                           />
                         )}
                       </div>
@@ -394,7 +401,7 @@ export default function NotificacionesPage() {
                       {!n.is_read && (
                         <button
                           onClick={() => void handleMarkRead(n.id)}
-                          className="text-[11px] text-amber-400 hover:text-amber-300 transition-colors"
+                          className="text-[11px] text-status-warning hover:text-status-warning transition-colors"
                           aria-label="Marcar leída"
                         >
                           Marcar leída
@@ -402,7 +409,7 @@ export default function NotificacionesPage() {
                       )}
                       <button
                         onClick={() => void handleDelete(n.id)}
-                        className="text-[11px] text-on-surface/30 hover:text-red-400 transition-colors flex items-center gap-0.5"
+                        className="text-[11px] text-on-surface/30 hover:text-status-danger transition-colors flex items-center gap-0.5"
                         aria-label="Eliminar notificación"
                       >
                         <Trash2 className="w-3 h-3" />
@@ -418,11 +425,11 @@ export default function NotificacionesPage() {
 
         {/* Pagination (NF-8) */}
         {!loading && !isAllEmpty && (
-          <div className="flex items-center justify-center gap-4 px-6 py-4 border-t border-[rgba(79,70,51,0.12)]">
+          <div className="flex items-center justify-center gap-4 px-6 py-4 border-t border-outline-variant">
             <button
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               disabled={page <= 1}
-              className="text-sm px-3 py-1.5 rounded-lg border border-[rgba(79,70,51,0.2)] text-on-surface/60 hover:text-on-surface hover:border-on-surface/30 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+              className="text-sm px-3 py-1.5 rounded-lg border border-outline-variant text-on-surface/60 hover:text-on-surface hover:border-on-surface/30 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
               aria-label="Página anterior"
             >
               Anterior
@@ -435,7 +442,7 @@ export default function NotificacionesPage() {
             <button
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
               disabled={page >= totalPages}
-              className="text-sm px-3 py-1.5 rounded-lg border border-[rgba(79,70,51,0.2)] text-on-surface/60 hover:text-on-surface hover:border-on-surface/30 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+              className="text-sm px-3 py-1.5 rounded-lg border border-outline-variant text-on-surface/60 hover:text-on-surface hover:border-on-surface/30 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
               aria-label="Página siguiente"
             >
               Siguiente

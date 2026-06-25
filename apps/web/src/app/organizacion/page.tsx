@@ -46,9 +46,9 @@ interface UsageStats {
 }
 
 const PLAN_COLORS: Record<string, string> = {
-  free: "bg-[#25242b] text-[#a09ba8]",
+  free: "bg-surface-container text-on-surface-variant",
   pro: "bg-primary/10 text-primary",
-  studio: "bg-purple-500/20 text-purple-400",
+  studio: "bg-status-info/15 text-status-info",
 };
 
 const PLAN_LABELS: Record<string, string> = {
@@ -68,7 +68,7 @@ function RoleBadge({ role }: { role: string }) {
   const styles: Record<string, string> = {
     owner: "bg-primary/10 text-primary",
     admin: "bg-secondary-container text-secondary",
-    member: "bg-surface-container-low border border-[rgba(79,70,51,0.15)] text-on-surface/60",
+    member: "bg-surface-container-low border border-outline-variant text-on-surface/60",
   };
   return (
     <span
@@ -245,13 +245,13 @@ export default function OrganizacionPage() {
         <div className="w-full px-4 py-6 sm:py-8 lg:px-6 xl:px-8">
           {/* Alerts */}
           {error && (
-            <div className="flex items-center gap-3 bg-red-500/10 border border-red-500/30 text-red-400 rounded-lg px-4 py-3 mb-6 text-sm">
+            <div className="flex items-center gap-3 bg-status-danger/10 border border-status-danger/30 text-status-danger rounded-lg px-4 py-3 mb-6 text-sm">
               <AlertTriangle className="w-4 h-4 shrink-0" />
               <span>{error}</span>
             </div>
           )}
           {successMsg && (
-            <div className="flex items-center gap-3 bg-green-500/10 border border-green-500/30 text-green-400 rounded-lg px-4 py-3 mb-6 text-sm">
+            <div className="flex items-center gap-3 bg-status-success/10 border border-status-success/30 text-status-success rounded-lg px-4 py-3 mb-6 text-sm">
               <CheckCircle2 className="w-4 h-4 shrink-0" />
               <span>{successMsg}</span>
             </div>
@@ -260,19 +260,19 @@ export default function OrganizacionPage() {
           {loading ? (
             <div className="flex flex-col items-center justify-center py-24 gap-3">
               <Loader2 className="w-8 h-8 text-primary animate-spin" />
-              <p className="text-sm text-[#7c7885]">Cargando organización...</p>
+              <p className="text-sm text-on-surface-subtle">Cargando organización...</p>
             </div>
           ) : org === null ? (
             /* CREATE ORG FORM */
               <div className="max-w-lg mx-auto">
                 <div className="text-center mb-8">
                   <div className="panel-base mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl">
-                    <Building2 className="w-8 h-8 text-[#7c7885]" />
+                    <Building2 className="w-8 h-8 text-on-surface-subtle" />
                   </div>
                 <h2 className="font-['Newsreader'] text-3xl font-bold text-on-surface mb-2">
                   Sin organización
                 </h2>
-                <p className="text-sm text-[#a09ba8]">
+                <p className="text-sm text-on-surface-variant">
                   Crea una organización para gestionar miembros, permisos y uso compartido de la plataforma.
                 </p>
               </div>
@@ -282,7 +282,7 @@ export default function OrganizacionPage() {
                 className="panel-raised rounded-2xl p-6 space-y-4"
               >
                 <div>
-                  <label className="block text-xs font-medium text-[#a09ba8] mb-1.5">
+                  <label className="block text-xs font-medium text-on-surface-variant mb-1.5">
                     Nombre de la organización
                   </label>
                   <input
@@ -303,7 +303,7 @@ export default function OrganizacionPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-[#a09ba8] mb-1.5">
+                  <label className="block text-xs font-medium text-on-surface-variant mb-1.5">
                     Identificador (slug)
                   </label>
                   <input
@@ -316,7 +316,7 @@ export default function OrganizacionPage() {
                      className="control-surface w-full rounded-xl px-3 py-2.5 text-sm text-on-surface placeholder-[#55535d] focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/15 transition-colors"
                     required
                   />
-                  <p className="text-[10px] text-[#55535d] mt-1">
+                  <p className="text-[10px] text-on-surface-faint mt-1">
                     Solo letras minúsculas, números y guiones
                   </p>
                 </div>
@@ -348,7 +348,7 @@ export default function OrganizacionPage() {
                       <h2 className="font-['Newsreader'] text-xl font-bold text-on-surface">
                         {org.name}
                       </h2>
-                      <p className="text-sm text-[#7c7885]">/{org.slug}</p>
+                      <p className="text-sm text-on-surface-subtle">/{org.slug}</p>
                     </div>
                   </div>
                   <span
@@ -364,31 +364,31 @@ export default function OrganizacionPage() {
               <div className="grid lg:grid-cols-3 gap-4 sm:gap-6">
                 {/* Members Table */}
                  <div className="panel-base lg:col-span-2 rounded-xl">
-                  <div className="p-4 sm:p-5 border-b border-[rgba(79,70,51,0.15)] bg-surface rounded-t-lg flex items-center gap-2">
+                  <div className="p-4 sm:p-5 border-b border-outline-variant bg-surface rounded-t-lg flex items-center gap-2">
                     <Users className="w-4 h-4 text-primary" />
                     <h3 className="font-semibold text-sm text-on-surface">Miembros</h3>
-                    <span className="ml-auto text-xs text-[#7c7885]">
+                    <span className="ml-auto text-xs text-on-surface-subtle">
                       {members.length} miembro{members.length !== 1 ? "s" : ""}
                     </span>
                   </div>
 
                   {members.length === 0 ? (
-                    <div className="py-10 text-center text-sm text-[#7c7885]">
-                      <Users className="w-8 h-8 mx-auto mb-2 text-[#25242b]" />
+                    <div className="py-10 text-center text-sm text-on-surface-subtle">
+                      <Users className="w-8 h-8 mx-auto mb-2 text-surface-container-high" />
                       No hay miembros en esta organización
                     </div>
                   ) : (
                     <div className="overflow-x-auto">
                       <table className="w-full min-w-[500px] text-sm">
                         <thead>
-                          <tr className="border-b border-[rgba(79,70,51,0.15)] bg-surface">
-                            <th className="text-left text-[10px] uppercase tracking-wider text-[#7c7885] px-5 py-3">
+                          <tr className="border-b border-outline-variant bg-surface">
+                            <th className="text-left text-[10px] uppercase tracking-wider text-on-surface-subtle px-5 py-3">
                               Miembro
                             </th>
-                            <th className="text-left text-[10px] uppercase tracking-wider text-[#7c7885] px-5 py-3 hidden sm:table-cell">
+                            <th className="text-left text-[10px] uppercase tracking-wider text-on-surface-subtle px-5 py-3 hidden sm:table-cell">
                               Rol
                             </th>
-                            <th className="text-left text-[10px] uppercase tracking-wider text-[#7c7885] px-5 py-3 hidden md:table-cell">
+                            <th className="text-left text-[10px] uppercase tracking-wider text-on-surface-subtle px-5 py-3 hidden md:table-cell">
                               Ingreso
                             </th>
                             <th className="px-5 py-3" />
@@ -398,7 +398,7 @@ export default function OrganizacionPage() {
                           {members.map((member, idx) => (
                             <tr
                               key={member.user_id}
-                              className={`hover:bg-[#25242b] transition-colors ${
+                              className={`hover:bg-surface-container transition-colors ${
                                 idx % 2 === 0 ? "bg-surface-container-low" : "bg-surface"
                               }`}
                             >
@@ -407,13 +407,13 @@ export default function OrganizacionPage() {
                                   <p className="font-medium text-on-surface">
                                     {member.name || "—"}
                                   </p>
-                                  <p className="text-xs text-[#7c7885]">{member.email}</p>
+                                  <p className="text-xs text-on-surface-subtle">{member.email}</p>
                                 </div>
                               </td>
                               <td className="px-5 py-3 hidden sm:table-cell">
                                 <RoleBadge role={member.role} />
                               </td>
-                              <td className="px-5 py-3 text-xs text-[#7c7885] hidden md:table-cell">
+                              <td className="px-5 py-3 text-xs text-on-surface-subtle hidden md:table-cell">
                                 {member.joined_at
                                   ? new Date(member.joined_at).toLocaleDateString("es-PE")
                                   : "—"}
@@ -423,7 +423,7 @@ export default function OrganizacionPage() {
                                   <button
                                     onClick={() => handleRemoveMember(member.user_id)}
                                     disabled={removingId === member.user_id}
-                                    className="p-1.5 rounded-lg text-[#7c7885] hover:text-red-400 hover:bg-red-400/10 transition-colors disabled:opacity-50"
+                                    className="p-1.5 rounded-lg text-on-surface-subtle hover:text-status-danger hover:bg-red-400/10 transition-colors disabled:opacity-50"
                                     title="Eliminar miembro"
                                   >
                                     {removingId === member.user_id ? (
@@ -442,26 +442,26 @@ export default function OrganizacionPage() {
                   )}
 
                   {/* Invite Form */}
-                  <div className="p-4 sm:p-5 border-t border-[rgba(79,70,51,0.15)]">
-                    <h4 className="text-xs font-semibold text-[#a09ba8] uppercase tracking-wider mb-3">
+                  <div className="p-4 sm:p-5 border-t border-outline-variant">
+                    <h4 className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-3">
                       Invitar miembro
                     </h4>
                     <form onSubmit={handleInvite} className="flex flex-col gap-2">
                       <div className="flex-1 relative">
-                        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#7c7885]" />
+                        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-on-surface-subtle" />
                         <input
                           type="email"
                           value={inviteEmail}
                           onChange={(e) => setInviteEmail(e.target.value)}
                           placeholder="correo@ejemplo.com"
-                          className="w-full bg-surface border border-[rgba(79,70,51,0.2)] rounded-lg pl-9 pr-3 py-2 text-sm text-on-surface placeholder-[#55535d] focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/15 transition-colors"
+                          className="w-full bg-surface border border-outline-variant rounded-lg pl-9 pr-3 py-2 text-sm text-on-surface placeholder-[#55535d] focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/15 transition-colors"
                           required
                         />
                       </div>
                       <select
                         value={inviteRole}
                         onChange={(e) => setInviteRole(e.target.value)}
-                        className="bg-surface border border-[rgba(79,70,51,0.2)] rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none focus:border-primary/50 transition-colors"
+                        className="bg-surface border border-outline-variant rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none focus:border-primary/50 transition-colors"
                       >
                         <option value="member">Miembro</option>
                         <option value="admin">Administrador</option>
@@ -483,8 +483,8 @@ export default function OrganizacionPage() {
                 </div>
 
                 {/* Usage Stats */}
-                <div className="bg-surface-container-low border border-[rgba(79,70,51,0.15)] rounded-lg">
-                  <div className="p-5 border-b border-[rgba(79,70,51,0.15)] bg-surface rounded-t-lg flex items-center gap-2">
+                <div className="bg-surface-container-low border border-outline-variant rounded-lg">
+                  <div className="p-5 border-b border-outline-variant bg-surface rounded-t-lg flex items-center gap-2">
                     <BarChart3 className="w-4 h-4 text-primary" />
                     <h3 className="font-semibold text-sm text-on-surface">Uso del Plan</h3>
                   </div>
@@ -493,10 +493,10 @@ export default function OrganizacionPage() {
                       <div className="space-y-4">
                         <div>
                           <div className="flex justify-between items-end mb-2">
-                            <span className="text-xs text-[#a09ba8]">Consultas este mes</span>
+                            <span className="text-xs text-on-surface-variant">Consultas este mes</span>
                             <span className="text-xs font-semibold text-on-surface">
                               {usage.queries_used.toLocaleString("es-PE")}{" "}
-                              <span className="text-[#7c7885]">
+                              <span className="text-on-surface-subtle">
                                 /{" "}
                                 {usage.queries_limit === -1
                                   ? "Ilimitado"
@@ -505,29 +505,29 @@ export default function OrganizacionPage() {
                             </span>
                           </div>
                           {usage.queries_limit !== -1 && (
-                            <div className="w-full bg-[#25242b] rounded-full h-2">
+                            <div className="w-full bg-surface-container rounded-full h-2">
                               <div
                                 className={`h-2 rounded-full transition-all ${
                                   usagePercent >= 90
                                     ? "bg-red-500"
                                     : usagePercent >= 70
                                     ? "bg-primary"
-                                    : "bg-green-500"
+                                    : "bg-status-success"
                                 }`}
                                 style={{ width: `${usagePercent}%` }}
                               />
                             </div>
                           )}
                           {usage.queries_limit !== -1 && (
-                            <p className="text-[10px] text-[#7c7885] mt-1.5 text-right">
+                            <p className="text-[10px] text-on-surface-subtle mt-1.5 text-right">
                               {usagePercent}% utilizado
                             </p>
                           )}
                         </div>
 
-                        <div className="pt-4 border-t border-[rgba(79,70,51,0.15)]">
+                        <div className="pt-4 border-t border-outline-variant">
                           <div className="flex items-center justify-between">
-                            <span className="text-xs text-[#7c7885]">Plan actual</span>
+                            <span className="text-xs text-on-surface-subtle">Plan actual</span>
                             <span
                               className={`text-xs font-semibold px-2 py-0.5 rounded-lg ${
                                 PLAN_COLORS[org.plan] || PLAN_COLORS.free
@@ -546,8 +546,8 @@ export default function OrganizacionPage() {
                         </Link>
                       </div>
                     ) : (
-                      <div className="py-6 text-center text-sm text-[#7c7885]">
-                        <BarChart3 className="w-6 h-6 mx-auto mb-2 text-[#25242b]" />
+                      <div className="py-6 text-center text-sm text-on-surface-subtle">
+                        <BarChart3 className="w-6 h-6 mx-auto mb-2 text-surface-container-high" />
                         Sin datos de uso disponibles
                       </div>
                     )}

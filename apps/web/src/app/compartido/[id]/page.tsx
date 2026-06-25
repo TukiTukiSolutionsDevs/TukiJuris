@@ -2,9 +2,10 @@ import { Metadata } from "next";
 import { Scale, Bot, User, ArrowRight, AlertTriangle } from "lucide-react";
 import Link from "next/link";
 import { renderMarkdown } from "@/lib/markdown";
+import { AREA_FULL_LABELS as AREA_LABELS } from "@/app/chat/constants";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://tukijuris.net.pe";
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://tukijuris.com.pe";
 
 interface SharedMessage {
   role: "user" | "assistant";
@@ -18,20 +19,6 @@ interface SharedConversation {
   legal_area: string | null;
   messages: SharedMessage[];
 }
-
-const AREA_LABELS: Record<string, string> = {
-  civil: "Derecho Civil",
-  penal: "Derecho Penal",
-  laboral: "Derecho Laboral",
-  tributario: "Derecho Tributario",
-  constitucional: "Derecho Constitucional",
-  administrativo: "Derecho Administrativo",
-  corporativo: "Derecho Corporativo",
-  registral: "Derecho Registral",
-  competencia: "Competencia y PI",
-  compliance: "Compliance",
-  comercio_exterior: "Comercio Exterior",
-};
 
 async function fetchSharedConversation(
   shareId: string

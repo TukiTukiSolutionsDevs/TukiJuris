@@ -38,6 +38,26 @@ import { UsersPagination } from "./_components/UsersPagination";
 import { UserRolesPanel } from "./_components/UserRolesPanel";
 import { AuditLogTab } from "./_components/AuditLogTab";
 import { AdminInvoicesTab } from "./_components/AdminInvoicesTab";
+import { PlatformKeysPanel } from "./_components/PlatformKeysPanel";
+import { ComingSoonTab } from "./_components/ComingSoonTab";
+import { findTab } from "./_lib/admin-nav";
+import { ModelosTab } from "./_components/ModelosTab";
+import { PlanesTab } from "./_components/PlanesTab";
+import { FuncionalidadesTab } from "./_components/FuncionalidadesTab";
+import { LimitesTab } from "./_components/LimitesTab";
+import { OAuthTab, PagosTab, SeguridadTab, ObservabilidadTab } from "./_components/StatusTabs";
+import {
+  UsuariosTab,
+  OrganizacionesTab,
+  TrialsTab,
+  ConocimientoTab,
+  BYOKOverviewTab,
+  RolesTab,
+  SaludTab,
+  SuscripcionesTab,
+  NotificacionesTab,
+  AnalyticsTab,
+} from "./_components/DataTabs";
 
 interface SystemStats {
   total_users: number;
@@ -242,15 +262,32 @@ export default function AdminPage() {
       }
 
       if (kbHealthRes.status === "fulfilled" && kbHealthRes.value.ok) {
-        // Defensive mapping: normalize optional fields so renders never crash (B4)
-        const raw = await kbHealthRes.value.json() as Partial<KBHealthData>;
+        // Defensive mapping: normalize optional fields so renders never crash (B4).
+        //
+        // /api/admin/knowledge returns `embedding_coverage` as an object
+        //   { total_chunks, embedded_chunks, coverage_pct }
+        // /api/health/knowledge returns `embedding_coverage` as a flat number.
+        // We collapse both shapes into a single number for rendering.
+        const raw = await kbHealthRes.value.json() as Record<string, unknown>;
+        const rawCoverage = raw.embedding_coverage;
+        const coverageNum: number =
+          typeof rawCoverage === "number"
+            ? rawCoverage
+            : typeof rawCoverage === "object" && rawCoverage !== null
+              ? Number((rawCoverage as { coverage_pct?: number }).coverage_pct ?? 0)
+              : 0;
+        // When the admin endpoint is used, total_chunks / embedded_chunks live
+        // INSIDE embedding_coverage. Prefer top-level fields, fall back to nested.
+        const nested = (typeof rawCoverage === "object" && rawCoverage !== null
+          ? (rawCoverage as { total_chunks?: number; embedded_chunks?: number })
+          : {}) as { total_chunks?: number; embedded_chunks?: number };
         const kbd: KBHealthData = {
-          status: raw.status ?? "ok",
-          total_documents: raw.total_documents ?? 0,
-          total_chunks: raw.total_chunks ?? 0,
-          embedded_chunks: raw.embedded_chunks ?? 0,
-          embedding_coverage: raw.embedding_coverage ?? 0,
-          chunks_by_area: raw.chunks_by_area ?? {},
+          status: (raw.status as string) ?? "ok",
+          total_documents: (raw.total_documents as number) ?? 0,
+          total_chunks: (raw.total_chunks as number) ?? nested.total_chunks ?? 0,
+          embedded_chunks: (raw.embedded_chunks as number) ?? nested.embedded_chunks ?? 0,
+          embedding_coverage: coverageNum,
+          chunks_by_area: (raw.chunks_by_area as Record<string, number>) ?? {},
         };
         setKbHealth(kbd);
         // Also populate kbStats from this more complete endpoint
@@ -362,6 +399,37 @@ export default function AdminPage() {
                 </div>
               )}
             </div>
+
+            {/* Claves tab — gated by platform_keys:write (operator-managed LLM keys) */}
+            <div className="relative group">
+              <button
+                role="tab"
+                aria-selected={tab === "claves"}
+                disabled={!hasPermission("platform_keys:write")}
+                onClick={() => {
+                  if (!hasPermission("platform_keys:write")) return;
+                  const params = new URLSearchParams(searchParams.toString());
+                  params.set("tab", "claves");
+                  router.replace(`${pathname}?${params.toString()}`);
+                }}
+                data-testid="claves-tab-btn"
+                className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
+                  tab === "claves"
+                    ? "border-primary text-primary"
+                    : "border-transparent text-on-surface/50 hover:text-on-surface"
+                } disabled:opacity-40 disabled:cursor-not-allowed`}
+              >
+                Claves
+              </button>
+              {!hasPermission("platform_keys:write") && (
+                <div
+                  className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block bg-surface-container-low border border-on-surface/20 text-on-surface/70 text-[10px] px-2 py-1 rounded-lg whitespace-nowrap shadow-lg pointer-events-none z-30"
+                  data-testid="claves-tab-tooltip"
+                >
+                  Requiere permiso platform_keys:write
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
@@ -376,6 +444,13 @@ export default function AdminPage() {
         {tab === "facturas" && hasPermission("billing:update") && (
           <div className="w-full px-4 py-6 sm:py-8 lg:px-6 xl:px-8">
             <AdminInvoicesTab />
+          </div>
+        )}
+
+        {/* ── Claves tab — operator-managed LLM provider keys ────────── */}
+        {tab === "claves" && hasPermission("platform_keys:write") && (
+          <div className="w-full px-4 py-6 sm:py-8 lg:px-6 xl:px-8">
+            <PlatformKeysPanel />
           </div>
         )}
 
@@ -981,6 +1056,45 @@ export default function AdminPage() {
           )}
         </div>
         )}
+
+        {/* ── Phase-2 tabs — full implementations ─────────────────── */}
+        {tab === "modelos" && <ModelosTab />}
+        {tab === "planes" && <PlanesTab />}
+        {tab === "funcionalidades" && <FuncionalidadesTab />}
+        {tab === "limites" && <LimitesTab />}
+        {tab === "usuarios" && hasPermission("users:read") && <UsuariosTab />}
+        {tab === "organizaciones" && <OrganizacionesTab />}
+        {tab === "trials" && <TrialsTab />}
+        {tab === "conocimiento" && <ConocimientoTab />}
+        {tab === "byok" && <BYOKOverviewTab />}
+        {tab === "roles" && hasPermission("roles:read") && <RolesTab />}
+        {tab === "salud" && <SaludTab />}
+        {tab === "suscripciones" && <SuscripcionesTab />}
+        {tab === "oauth" && <OAuthTab />}
+        {tab === "notificaciones" && <NotificacionesTab />}
+        {tab === "analytics" && <AnalyticsTab />}
+        {tab === "pagos" && <PagosTab />}
+        {tab === "seguridad" && <SeguridadTab />}
+        {tab === "observabilidad" && <ObservabilidadTab />}
+
+        {/* ── Fallback: permission denied ─────────────────────────── */}
+        {(() => {
+          const meta = findTab(tab);
+          if (!meta) return null;
+          if (meta.requiresPermission && !hasPermission(meta.requiresPermission)) {
+            return (
+              <div className="w-full px-4 py-6 sm:py-8 lg:px-6 xl:px-8">
+                <div className="bg-red-500/5 border border-red-400/20 text-red-300 rounded-xl px-4 py-3 text-sm">
+                  No tienes permiso para ver esta sección ({meta.requiresPermission}).
+                </div>
+              </div>
+            );
+          }
+          if (meta.comingSoon) {
+            return <ComingSoonTab title={meta.label} description={meta.description} icon={meta.icon} />;
+          }
+          return null;
+        })()}
       </div>
     </AdminLayout>
   );

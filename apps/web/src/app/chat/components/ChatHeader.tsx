@@ -1,24 +1,55 @@
 "use client";
 
-import { Bot, Brain, CheckCircle2, Download, Loader2 } from "lucide-react";
+import Link from "next/link";
+import { MessageSquare, Brain, CheckCircle2, Download, Loader2, Sparkles } from "lucide-react";
 import { ShellUtilityActions } from "@/components/shell/ShellUtilityActions";
+import { AreaChip } from "./AreaChip";
 import { LEGAL_AREAS } from "../constants";
+
+// ---------------------------------------------------------------------------
+// ChatHeader — top bar of the chat screen, Notion-editorial (.c-topbar).
+// Preserves all existing props/callbacks.
+// ---------------------------------------------------------------------------
 
 interface ChatHeaderProps {
   conversationTitle: string | null;
   selectedArea: string | null;
   currentConversationId: string | null;
-  /** Current orchestrator phase — drives the mini-button visibility */
+  /** Orchestrator phase — drives the "ver razonamiento" button visibility. */
   orchPhase: string;
-  /** Latest status text shown inside the mini-button */
+  /** Latest status line from the orchestrator (mobile pill). */
   orchStatusText: string;
   onShowOrchPanel: () => void;
-  /** Whether the current conversation has at least one message */
+  /** True when the conversation has at least one user message. */
   hasMessages: boolean;
-  /** True while the export request is in-flight */
+  /** True while the PDF export is in-flight. */
   isExportingConversation: boolean;
-  /** Called when the user clicks "Exportar conversación" */
   onExportConversation: () => void;
+}
+
+function StatusChip({ phase }: { phase: string }) {
+  if (phase === "idle") {
+    return (
+      <span className="c-chip c-chip--neutral" role="status">
+        <span className="c-chip__dot c-chip__dot--neutral" aria-hidden="true" />
+        Sin actividad
+      </span>
+    );
+  }
+  if (phase === "done") {
+    return (
+      <span className="c-chip" role="status">
+        <span className="c-chip__dot" aria-hidden="true" />
+        Completado
+      </span>
+    );
+  }
+  return (
+    <span className="c-chip" role="status">
+      <span className="c-chip__dot" aria-hidden="true" />
+      En curso
+    </span>
+  );
 }
 
 export function ChatHeader({
@@ -32,91 +63,88 @@ export function ChatHeader({
   isExportingConversation,
   onExportConversation,
 }: ChatHeaderProps) {
-  const selectedAreaMeta = selectedArea
-    ? LEGAL_AREAS.find((a) => a.id === selectedArea)
-    : null;
+  const title = conversationTitle || "Nueva consulta";
+  const areaMeta = selectedArea ? LEGAL_AREAS.find((a) => a.id === selectedArea) : null;
+  const showOrchButton = orchPhase !== "idle";
 
   return (
-    <header className="border-b border-outline-variant/30 bg-surface px-4 py-3 lg:px-6 shrink-0">
-      <div className="flex items-center justify-between gap-4">
-        {/* Left: icon + title + area badge */}
-        <div className="min-w-0 flex-1 flex items-center gap-2.5">
-          <Bot className="w-5 h-5 text-primary shrink-0" aria-hidden="true" />
-          <h1 className="truncate text-base font-medium tracking-[-0.02em] text-on-surface lg:text-lg">
-            {conversationTitle || "Nueva consulta"}
-          </h1>
-          <span className="hidden sm:inline-flex shrink-0 items-center rounded-full border border-outline-variant/30 bg-surface-container-low px-2.5 py-1 text-[10px] uppercase tracking-[0.18em] text-on-surface/45">
-            {selectedAreaMeta ? selectedAreaMeta.name : "General"}
-          </span>
+    <header className="c-topbar" role="banner">
+      <div className="c-topbar__left">
+        <div className="c-crumbs">
+          <MessageSquare size={14} strokeWidth={1.6} aria-hidden="true" />
+          <span className="c-crumbs__path">Chat</span>
+          <span className="c-crumbs__sep" aria-hidden="true">/</span>
+          <span className="c-crumbs__current" title={title}>{title}</span>
         </div>
+        <StatusChip phase={orchPhase} />
+        {areaMeta && selectedArea && (
+          <AreaChip area={selectedArea} dot={false} />
+        )}
+      </div>
 
-        {/* Right: export button + orchestrator mini-button (mobile) + conv ID + utility actions */}
-        <div className="flex items-center gap-2 shrink-0">
-          {/* Export conversation button — only shown when there are messages */}
-          {hasMessages && (
-            <button
-              type="button"
-              onClick={onExportConversation}
-              disabled={isExportingConversation || !currentConversationId}
-              aria-busy={isExportingConversation}
-              aria-label={
-                isExportingConversation
-                  ? "Exportando conversación..."
-                  : "Exportar conversación"
-              }
-              className="flex items-center gap-1.5 text-xs font-medium text-on-surface/60 hover:text-on-surface border border-outline-variant/30 hover:border-primary/30 rounded-lg px-3 py-1.5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              title="Exportar conversación a PDF"
-            >
-              {isExportingConversation ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              ) : (
-                <Download className="w-3.5 h-3.5" />
-              )}
-              {isExportingConversation ? "Exportando..." : "Exportar conversación"}
-            </button>
-          )}
-
-          {orchPhase !== "idle" && (
-            <button
-              type="button"
-              onClick={onShowOrchPanel}
-              className="xl:hidden group flex items-center gap-2 rounded-[1.25rem] border border-primary/15 bg-[radial-gradient(circle_at_left,rgba(201,169,97,0.12),transparent_38%),linear-gradient(180deg,rgba(255,255,255,0.02),rgba(255,255,255,0))] px-3 py-2 shadow-[0_12px_28px_rgba(0,0,0,0.08)] transition hover:border-primary/25 hover:bg-primary/5"
-              aria-label="Abrir razonamiento del análisis"
-            >
-              <div
-                className={`relative flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${
-                  orchPhase === "done" ? "bg-emerald-400/12 text-emerald-500" : "bg-primary/12 text-primary"
-                }`}
-              >
-                <span
-                  className={`absolute inset-0 rounded-full animate-ping ${
-                    orchPhase === "done" ? "bg-emerald-400/10" : "bg-primary/10"
-                  }`}
-                />
-                {orchPhase === "done" ? (
-                  <CheckCircle2 className="relative h-4 w-4" />
-                ) : (
-                  <Brain className="relative h-4 w-4" />
-                )}
-              </div>
-              <div className="min-w-0 hidden sm:block">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-primary/80">
-                  Mirá el razonamiento
-                </p>
-                <p className="mt-0.5 truncate text-[10px] text-on-surface/58 max-w-[130px]">
-                  {orchStatusText || "Analizando..."}
-                </p>
-              </div>
-            </button>
-          )}
-
-          {currentConversationId && (
-            <span className="hidden md:inline-flex rounded-lg border border-outline-variant/30 bg-surface-container-low px-2 py-1 text-[10px] text-on-surface/35">
-              #{currentConversationId.slice(0, 8)}
+      <div className="c-topbar__right">
+        {showOrchButton && (
+          <button
+            type="button"
+            className="c-btn c-btn--ghost"
+            onClick={onShowOrchPanel}
+            title="Ver razonamiento del análisis"
+            aria-label="Abrir panel de razonamiento"
+          >
+            {orchPhase === "done" ? (
+              <CheckCircle2 size={14} strokeWidth={1.6} />
+            ) : (
+              <Brain size={14} strokeWidth={1.6} />
+            )}
+            <span className="hidden sm:inline">
+              {orchPhase === "done" ? "Razonamiento" : orchStatusText || "Analizando…"}
             </span>
-          )}
-          <ShellUtilityActions />
-        </div>
+          </button>
+        )}
+
+        {hasMessages && (
+          <button
+            type="button"
+            className="c-btn c-btn--ghost"
+            onClick={onExportConversation}
+            disabled={isExportingConversation || !currentConversationId}
+            aria-busy={isExportingConversation}
+            title="Exportar conversación a PDF"
+          >
+            {isExportingConversation ? (
+              <Loader2 size={14} strokeWidth={1.6} className="animate-spin" />
+            ) : (
+              <Download size={14} strokeWidth={1.6} />
+            )}
+            <span className="hidden sm:inline">
+              {isExportingConversation ? "Exportando…" : "Exportar"}
+            </span>
+          </button>
+        )}
+
+        <span className="c-divider" aria-hidden="true" />
+
+        <Link href="/analizar" className="c-btn c-btn--primary" aria-label="Analizar documento">
+          <Sparkles size={14} strokeWidth={1.6} />
+          <span className="hidden sm:inline">Analizar</span>
+        </Link>
+
+        {currentConversationId && (
+          <span
+            className="c-btn c-btn--ghost"
+            style={{
+              fontFamily: "ui-monospace, Menlo, monospace",
+              fontSize: 11,
+              pointerEvents: "none",
+              opacity: 0.6,
+            }}
+            aria-label={`Conversación ${currentConversationId.slice(0, 8)}`}
+          >
+            #{currentConversationId.slice(0, 8)}
+          </span>
+        )}
+
+        <ShellUtilityActions compact />
       </div>
     </header>
   );

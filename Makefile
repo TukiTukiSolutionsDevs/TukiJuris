@@ -54,8 +54,13 @@ migrate-current:        ## Show current migration version
 	cd apps/api && alembic current
 
 # === Database ===
+# Container names are fixed by docker-compose (tukijuris-db, tukijuris-api).
+# DB credentials are read from environment so the same target works in dev and prod.
+DB_USER ?= postgres
+DB_NAME ?= agente_derecho
+
 db-shell:               ## Open psql shell
-	docker exec -it agente-derecho-db-1 psql -U postgres -d agente_derecho
+	docker exec -it tukijuris-db-1 psql -U $(DB_USER) -d $(DB_NAME)
 
 db-stats:               ## Show knowledge base stats
 	@curl -s http://localhost:8000/api/health/knowledge | python3 -m json.tool
@@ -63,7 +68,7 @@ db-stats:               ## Show knowledge base stats
 db-backup:              ## Backup full DB to backups/ (schema + data + embeddings, ~1.6MB)
 	@mkdir -p backups
 	@echo "Dumping database..."
-	@docker exec agente-derecho-db-1 pg_dump -U postgres --format=custom --compress=9 agente_derecho > backups/tukijuris_$(shell date +%Y%m%d_%H%M%S).dump
+	@docker exec tukijuris-db-1 pg_dump -U $(DB_USER) --format=custom --compress=9 $(DB_NAME) > backups/tukijuris_$(shell date +%Y%m%d_%H%M%S).dump
 	@echo "✅ Backup saved to backups/"
 	@ls -lh backups/*.dump | tail -1
 
@@ -71,10 +76,10 @@ db-restore:             ## Restore DB from backup (usage: make db-restore FILE=b
 	@test -n "$(FILE)" || (echo "❌ Usage: make db-restore FILE=backups/tukijuris_xxx.dump" && exit 1)
 	@test -f "$(FILE)" || (echo "❌ File not found: $(FILE)" && exit 1)
 	@echo "⚠️  Restoring $(FILE) — this REPLACES all data..."
-	@docker exec agente-derecho-db-1 psql -U postgres -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname='agente_derecho' AND pid <> pg_backend_pid();" > /dev/null 2>&1 || true
-	@docker exec agente-derecho-db-1 dropdb -U postgres --if-exists agente_derecho
-	@docker exec agente-derecho-db-1 createdb -U postgres agente_derecho
-	@cat $(FILE) | docker exec -i agente-derecho-db-1 pg_restore -U postgres -d agente_derecho --no-owner --no-privileges
+	@docker exec tukijuris-db-1 psql -U $(DB_USER) -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname='$(DB_NAME)' AND pid <> pg_backend_pid();" > /dev/null 2>&1 || true
+	@docker exec tukijuris-db-1 dropdb -U $(DB_USER) --if-exists $(DB_NAME)
+	@docker exec tukijuris-db-1 createdb -U $(DB_USER) $(DB_NAME)
+	@cat $(FILE) | docker exec -i tukijuris-db-1 pg_restore -U $(DB_USER) -d $(DB_NAME) --no-owner --no-privileges
 	@echo "✅ Restored. Restarting API to reconnect..."
 	@docker compose restart api > /dev/null 2>&1
 	@sleep 3
@@ -82,16 +87,16 @@ db-restore:             ## Restore DB from backup (usage: make db-restore FILE=b
 
 db-seed-full:           ## Full pipeline: ingest + embeddings + scrapers (populates empty DB)
 	@echo "=== Step 1/3: Ingesting seeder documents ==="
-	@docker exec agente-derecho-api-1 python -m services.ingestion.ingest
+	@docker exec tukijuris-api-1 python -m services.ingestion.ingest
 	@echo ""
 	@echo "=== Step 2/3: Generating embeddings (this takes ~4 min) ==="
-	@docker exec agente-derecho-api-1 python -m services.ingestion.generate_embeddings
+	@docker exec tukijuris-api-1 python -m services.ingestion.generate_embeddings
 	@echo ""
 	@echo "=== Step 3/3: Running scrapers (El Peruano, TC, INDECOPI) ==="
-	@docker exec agente-derecho-api-1 python -m services.ingestion.scrapers.scheduler
+	@docker exec tukijuris-api-1 python -m services.ingestion.scrapers.scheduler
 	@echo ""
 	@echo "=== Generating embeddings for scraped data ==="
-	@docker exec agente-derecho-api-1 python -m services.ingestion.generate_embeddings
+	@docker exec tukijuris-api-1 python -m services.ingestion.generate_embeddings
 	@echo ""
 	@echo "✅ Full seed complete. Knowledge base status:"
 	@curl -s http://localhost:8000/api/health/knowledge | python3 -m json.tool
@@ -100,7 +105,7 @@ db-seed-full:           ## Full pipeline: ingest + embeddings + scrapers (popula
 seed:                   ## Run all data seeders
 	@echo "Seeding legal documents..."
 	@for f in services/ingestion/seeders/*.py; do \
-		docker cp "$$f" agente-derecho-api-1:/tmp/$$(basename $$f); \
+		docker cp "$$f" tukijuris-api-1:/tmp/$$(basename $$f); \
 	done
 	@echo "Files copied. Run ingestion manually or use API."
 
@@ -128,6 +133,9 @@ test-cov:               ## Run test suite with coverage report
 	    --cov=app \
 	    --cov-report=term-missing \
 	    --cov-report=json:/tmp/coverage.json
+
+test-unit:              ## Run unit tests only (no DB required)
+	docker exec tukijuris-api-1 pytest tests/unit/ -v --tb=short
 
 query:                  ## Test a legal query (usage: make query Q="tu pregunta")
 	@curl -s -X POST http://localhost:8000/api/chat/query \
@@ -161,25 +169,35 @@ scrape-indecopi:        ## Scrape INDECOPI only
 	python -m services.ingestion.scrapers.indecopi_scraper
 
 # === Production ===
-.PHONY: prod-up prod-down prod-logs prod-build prod-migrate
+.PHONY: prod-up prod-down prod-logs prod-build prod-migrate prod-status prod-shell
+# All prod targets read variables from .env.production (DB_PASSWORD, REDIS_PASSWORD,
+# NEXT_PUBLIC_API_URL, etc.). Without --env-file Docker Compose only reads `.env` —
+# which is the dev one — silently leaking dev creds into prod containers.
+COMPOSE_PROD = docker compose --env-file .env.production -f docker-compose.prod.yml
 
-prod-up:                ## Start production stack
-	docker compose -f docker-compose.prod.yml up -d
+prod-up:                ## Start production stack (reads .env.production)
+	$(COMPOSE_PROD) up -d
 
 prod-down:              ## Stop production stack
-	docker compose -f docker-compose.prod.yml down
+	$(COMPOSE_PROD) down
 
 prod-logs:              ## Show production logs (last 100 lines, follow)
-	docker compose -f docker-compose.prod.yml logs -f --tail 100
+	$(COMPOSE_PROD) logs -f --tail 100
 
-prod-build:             ## Build production images
-	docker compose -f docker-compose.prod.yml build
+prod-build:             ## Build production images (passes NEXT_PUBLIC_* as build-args)
+	$(COMPOSE_PROD) build
 
 prod-migrate:           ## Run Alembic migrations in production
-	docker compose -f docker-compose.prod.yml exec api alembic upgrade head
+	$(COMPOSE_PROD) exec api alembic upgrade head
+
+prod-current:           ## Show current Alembic revision in production
+	$(COMPOSE_PROD) exec api alembic current
 
 prod-status:            ## Show production container status
-	docker compose -f docker-compose.prod.yml ps
+	$(COMPOSE_PROD) ps
+
+prod-shell:             ## Shell into the prod API container
+	$(COMPOSE_PROD) exec api bash
 
 # === CI ===
 lint:                   ## Run linter (ruff)

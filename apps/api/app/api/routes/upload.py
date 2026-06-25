@@ -1,9 +1,10 @@
 """Upload route — document upload for chat context analysis."""
 
 import logging
+import os
 import uuid
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -16,6 +17,11 @@ from app.services import upload_service
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/upload", tags=["upload"])
+
+# 10 MiB hard cap on a single upload — protects API memory and disk.
+# Override via MAX_UPLOAD_BYTES env if the product needs larger files
+# (and remember to raise client_max_body_size at the gateway too).
+MAX_UPLOAD_BYTES: int = int(os.environ.get("MAX_UPLOAD_BYTES", str(10 * 1024 * 1024)))
 
 
 # ---------------------------------------------------------------------------
@@ -72,6 +78,7 @@ async def list_uploaded_documents(
 
 @router.post("/")
 async def upload_document(
+    request: Request,
     file: UploadFile = File(...),
     conversation_id: str | None = None,
     current_user: User = Depends(get_current_user),
@@ -82,7 +89,21 @@ async def upload_document(
     if not file.filename:
         raise HTTPException(400, "No se proporcionó un archivo")
 
+    # Fast-fail on declared Content-Length before pulling the body into memory.
+    # Streaming clients can lie or omit this, so we re-check below after reading.
+    declared = request.headers.get("content-length")
+    if declared and declared.isdigit() and int(declared) > MAX_UPLOAD_BYTES:
+        raise HTTPException(
+            status_code=413,
+            detail=f"Archivo demasiado grande (máximo {MAX_UPLOAD_BYTES // (1024 * 1024)} MB)",
+        )
+
     content = await file.read()
+    if len(content) > MAX_UPLOAD_BYTES:
+        raise HTTPException(
+            status_code=413,
+            detail=f"Archivo demasiado grande (máximo {MAX_UPLOAD_BYTES // (1024 * 1024)} MB)",
+        )
 
     try:
         storage_path, file_type = await upload_service.save_file(

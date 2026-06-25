@@ -26,17 +26,23 @@ export const MODEL_CATALOG: ModelDef[] = [
   { id: "gemini/gemini-3.1-pro-preview",        name: "Gemini 3.1 Pro",          provider: "google",    tier: "pro",      description: "$2/M, flagship de Google",           supportsThinking: true },
 
   // ─── Groq (ultra rápido — sin thinking mode) ──────────────
-  { id: "groq/llama-3.3-70b-versatile",   name: "Llama 3.3 70B — Groq",   provider: "groq",      tier: "free",     description: "280 t/s, versátil" },
-  { id: "groq/llama-3.1-8b-instant",      name: "Llama 3.1 8B — Groq",    provider: "groq",      tier: "free",     description: "560 t/s, instantáneo" },
-  { id: "groq/qwen/qwen3-32b",           name: "Qwen3 32B — Groq",       provider: "groq",      tier: "standard", description: "400 t/s, razonamiento" },
-  { id: "groq/openai/gpt-oss-120b",      name: "GPT-OSS 120B — Groq",    provider: "groq",      tier: "pro",      description: "500 t/s, open-weight potente" },
+  { id: "groq/llama-3.3-70b-versatile",                       name: "Llama 3.3 70B — Groq",          provider: "groq", tier: "free",     description: "280 t/s, versátil" },
+  { id: "groq/llama-3.1-8b-instant",                          name: "Llama 3.1 8B — Groq",           provider: "groq", tier: "free",     description: "560 t/s, instantáneo" },
+  { id: "groq/meta-llama/llama-4-scout-17b-16e-instruct",     name: "Llama 4 Scout 17B — Groq",      provider: "groq", tier: "standard", description: "MoE 17B/16 expertos, último Llama 4" },
+  { id: "groq/qwen/qwen3-32b",                                name: "Qwen3 32B — Groq",              provider: "groq", tier: "standard", description: "400 t/s, razonamiento" },
+  { id: "groq/qwen/qwen3.6-27b",                              name: "Qwen 3.6 27B — Groq",           provider: "groq", tier: "standard", description: "Qwen 3.6, fuerte en español" },
+  { id: "groq/openai/gpt-oss-20b",                            name: "GPT-OSS 20B — Groq",            provider: "groq", tier: "pro",      description: "Open-weight 20B (Apache 2.0), balance costo/calidad" },
+  { id: "groq/openai/gpt-oss-120b",                           name: "GPT-OSS 120B — Groq",           provider: "groq", tier: "pro",      description: "500 t/s, open-weight potente (Apache 2.0)" },
 
   // ─── DeepSeek ────────────────────────────────────────────
   { id: "deepseek/deepseek-chat",         name: "DeepSeek V3.2",           provider: "deepseek",  tier: "free",     description: "$0.28/M, 128K contexto" },
   { id: "deepseek/deepseek-reasoner",     name: "DeepSeek Reasoner",       provider: "deepseek",  tier: "standard", description: "Thinking mode, análisis profundo",   supportsThinking: true },
 
   // ─── OpenAI (prefix: openai/) ────────────────────────────
-  { id: "openai/gpt-5.4-nano",           name: "GPT-5.4 Nano",           provider: "openai",    tier: "standard", description: "$0.20/M, tareas simples" },
+  // NOTE: only models actually served by the codex-proxy (verified 2026-06-25).
+  // nano variants return HTTP 502. Keep this list in sync with
+  // apps/api/app/services/llm_adapter.py:MODEL_CATALOG.
+  { id: "openai/gpt-5.5",                name: "GPT-5.5",                provider: "openai",    tier: "standard", description: "~4s/call · más rápido del catálogo OpenAI" },
   { id: "openai/gpt-5.4-mini",           name: "GPT-5.4 Mini",           provider: "openai",    tier: "pro",      description: "$0.75/M, 400K contexto",             supportsThinking: true },
   { id: "openai/gpt-5.4",                name: "GPT-5.4",                provider: "openai",    tier: "pro",      description: "$2.50/M, flagship 1M ctx",            supportsThinking: true },
 

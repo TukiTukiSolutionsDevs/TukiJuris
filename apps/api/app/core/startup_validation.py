@@ -13,14 +13,15 @@ Why this lives in its own module:
 - Single source of truth — when a new prod-only invariant is needed,
   add it here and add a test in `tests/test_startup_validation.py`.
 
-Two tiers of enforcement:
-  1. beta_mode=False → webhook secrets MANDATORY (StartupConfigurationError).
-  2. app_env=production → JWT strength, provider secret coupling (RuntimeError).
+Production posture is gated by `app_debug=False` (not by env name), because
+the env name can be typo'd (`prod`, `staging`, missing) without anyone
+noticing — but APP_DEBUG=false is an explicit, auditable decision.
 """
 
 from __future__ import annotations
 
 import logging
+import os
 
 from app.config import Settings
 
@@ -43,40 +44,47 @@ _JWT_PLACEHOLDER_MARKERS: tuple[str, ...] = (
     "change",
     "placeholder",
     "example",
+    "your-secret",
+    "secret-here",
 )
 
 
 def _jwt_secret_is_placeholder(secret: str) -> bool:
-    """Return True if `secret` looks like the shipped default, not a real key."""
+    """Return True if `secret` looks like the shipped default, not a real one."""
     lowered = secret.lower()
     return any(marker in lowered for marker in _JWT_PLACEHOLDER_MARKERS)
+
+
+def _is_production_posture(settings: Settings) -> bool:
+    """Production posture = explicit non-debug. Env name is informational only.
+
+    APP_DEBUG=false is the contract: anything that defaults to true (or is left
+    unset) is treated as dev/staging and validation relaxes accordingly.
+    """
+    return settings.app_debug is False
 
 
 def validate_production_config(settings: Settings) -> None:
     """
     Enforce production-grade configuration.
 
-    Two-tier validation:
+    Two tiers:
 
     Tier 1 — webhook secret strict mode (ANY environment):
-      If beta_mode is False, BOTH webhook secrets are MANDATORY.
-      If beta_mode is True and secrets are missing, log WARNING (dev ergonomics).
+      If beta_mode=False, BOTH webhook secrets are MANDATORY.
+      In beta mode, missing secrets log WARNING (dev ergonomics).
 
-    Tier 2 — production-only checks (app_env == "production"):
-      JWT secret strength, provider secret coupling.
+    Tier 2 — production-posture checks (app_debug=False):
+      JWT strength, BYOK key, provider secret coupling, CORS hardening,
+      explicit BETA_MODE decision.
 
     Raises:
         StartupConfigurationError: when beta_mode=False and webhook secrets missing.
-        RuntimeError: for production-only invariants (JWT, etc.).
+        RuntimeError: for production-only invariants.
     """
-    # ── Tier 1: Webhook strict mode — based on beta_mode, not app_env ─────
-    # This runs in every environment so that a misconfigured staging/dev box
-    # with BETA_MODE=false is also caught early rather than serving unsigned
-    # webhooks silently.
+    # ── Tier 1: Webhook strict mode — based on beta_mode, not posture ─────
     if settings.beta_mode is False:
         missing: list[str] = []
-        if not settings.mp_webhook_secret:
-            missing.append("MP_WEBHOOK_SECRET")
         if not settings.culqi_webhook_secret:
             missing.append("CULQI_WEBHOOK_SECRET")
         if missing:
@@ -87,43 +95,39 @@ def validate_production_config(settings: Settings) -> None:
                 f"to allow permissive dev mode."
             )
     else:
-        # beta_mode=True: warn but allow startup (dev/staging ergonomics)
-        if not settings.mp_webhook_secret:
-            logger.warning(
-                "MP_WEBHOOK_SECRET is empty — signature verification is permissive "
-                "(BETA_MODE=true). Set MP_WEBHOOK_SECRET before going to production."
-            )
         if not settings.culqi_webhook_secret:
             logger.warning(
                 "CULQI_WEBHOOK_SECRET is empty — signature verification is permissive "
                 "(BETA_MODE=true). Set CULQI_WEBHOOK_SECRET before going to production."
             )
 
-    # ── Tier 2: Production-only invariants ────────────────────────────────
-    if settings.app_env != "production":
+    # ── Tier 2: Production posture invariants (app_debug=False) ───────────
+    if not _is_production_posture(settings):
         return
 
-    # ── 1) JWT secret must be a real, high-entropy value ──────────────────
+    # 1) JWT secret must be a real, high-entropy value
     if _jwt_secret_is_placeholder(settings.jwt_secret):
         raise RuntimeError(
-            "FATAL: JWT_SECRET is still a development placeholder. "
+            "FATAL: JWT_SECRET is still a placeholder. "
             "Set a strong random secret in .env.production before starting "
-            "(e.g. `python -c \"import secrets; print(secrets.token_urlsafe(48))\"`)."
+            "(e.g. `python3 -c \"import secrets; print(secrets.token_urlsafe(64))\"`)."
         )
-
-    # ── 2) If MercadoPago is configured, its webhook secret is MANDATORY ──
-    # Without it, payment_service.MercadoPagoProvider.verify_webhook silently
-    # falls back to "DEV MODE" and accepts unsigned webhooks → anyone could
-    # forge a webhook to activate a paid plan without paying.
-    if settings.mp_access_token and not settings.mp_webhook_secret:
+    if len(settings.jwt_secret) < 32:
         raise RuntimeError(
-            "FATAL: MercadoPago is configured (mp_access_token set) but "
-            "MP_WEBHOOK_SECRET is empty. Webhook HMAC verification would be "
-            "SKIPPED, allowing forged webhooks to activate paid plans. "
-            "Set MP_WEBHOOK_SECRET in .env.production."
+            "FATAL: JWT_SECRET is too short (< 32 chars). Use a 64-char random "
+            "secret in production."
         )
 
-    # ── 3) Same rule for Culqi ────────────────────────────────────────────
+    # 2) BYOK_ENCRYPTION_KEY mandatory in production
+    if not (settings.byok_encryption_key or "").strip():
+        raise RuntimeError(
+            "FATAL: BYOK_ENCRYPTION_KEY is unset. BYOK LLM keys would be encrypted "
+            "with a JWT_SECRET-derived fallback that breaks on JWT rotation. "
+            "Generate with: python3 -c 'from cryptography.fernet import Fernet; "
+            "print(Fernet.generate_key().decode())'"
+        )
+
+    # 3) Culqi configured ⇒ webhook secret REQUIRED (forged webhooks → free upgrades)
     if settings.culqi_secret_key and not settings.culqi_webhook_secret:
         raise RuntimeError(
             "FATAL: Culqi is configured (culqi_secret_key set) but "
@@ -132,13 +136,28 @@ def validate_production_config(settings: Settings) -> None:
             "Set CULQI_WEBHOOK_SECRET in .env.production."
         )
 
-    # ── 4) BETA_MODE must be an explicit decision in production ───────────
-    # pydantic-settings provides a default of True, so settings.beta_mode
-    # always has a value. We check os.environ raw to detect "no explicit
-    # decision" — an implicit default in prod is dangerous (silently grants
-    # all features to all users).
-    import os
+    # 4) MercadoPago coupling (kept defensive even though MP is deprecated in PE deploy)
+    if settings.mp_access_token and not settings.mp_webhook_secret:
+        raise RuntimeError(
+            "FATAL: MercadoPago is configured (mp_access_token set) but "
+            "MP_WEBHOOK_SECRET is empty. Webhook verification would be skipped. "
+            "Either unset MP_ACCESS_TOKEN or set MP_WEBHOOK_SECRET."
+        )
 
+    # 5) CORS origins must NOT include http:// in production posture
+    bad_origins = [
+        origin for origin in settings.cors_origins
+        if origin.startswith("http://") and "localhost" not in origin and "127.0.0.1" not in origin
+    ]
+    if bad_origins:
+        raise RuntimeError(
+            f"FATAL: CORS_ORIGINS contains insecure http:// entries in production: "
+            f"{bad_origins}. Use https:// only."
+        )
+
+    # 6) BETA_MODE must be an explicit env-var decision in production
+    # pydantic-settings provides a default of True; we check os.environ raw to detect
+    # "no explicit decision" — an implicit default in prod is dangerous.
     if "BETA_MODE" not in os.environ:
         raise RuntimeError(
             "FATAL: BETA_MODE is not set in production. Refusing to start. "

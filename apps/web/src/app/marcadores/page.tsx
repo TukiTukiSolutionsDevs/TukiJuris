@@ -21,6 +21,8 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { AppLayout } from "@/components/AppLayout";
+import { InternalPageHeader } from "@/components/shell/InternalPageHeader";
+import { ShellUtilityActions } from "@/components/shell/ShellUtilityActions";
 import { renderMarkdown } from "@/lib/markdown";
 
 interface BookmarkedMessage {
@@ -37,16 +39,16 @@ interface BookmarkedMessage {
 
 const AREA_META: Record<string, { label: string; icon: React.ElementType; color: string }> = {
   civil: { label: "Civil", icon: BookOpen, color: "text-blue-400" },
-  penal: { label: "Penal", icon: Shield, color: "text-red-400" },
-  laboral: { label: "Laboral", icon: Briefcase, color: "text-green-400" },
-  tributario: { label: "Tributario", icon: Landmark, color: "text-yellow-400" },
-  constitucional: { label: "Constitucional", icon: Gavel, color: "text-purple-400" },
+  penal: { label: "Penal", icon: Shield, color: "text-status-danger" },
+  laboral: { label: "Laboral", icon: Briefcase, color: "text-status-success" },
+  tributario: { label: "Tributario", icon: Landmark, color: "text-status-warning" },
+  constitucional: { label: "Constitucional", icon: Gavel, color: "text-status-info" },
   administrativo: { label: "Administrativo", icon: Building2, color: "text-orange-400" },
   corporativo: { label: "Corporativo", icon: ScrollText, color: "text-cyan-400" },
   registral: { label: "Registral", icon: FileCheck, color: "text-pink-400" },
   comercio_exterior: { label: "Comercio Ext.", icon: Globe, color: "text-teal-400" },
   compliance: { label: "Compliance", icon: Lock, color: "text-indigo-400" },
-  competencia: { label: "Competencia/PI", icon: BadgeCheck, color: "text-amber-400" },
+  competencia: { label: "Competencia/PI", icon: BadgeCheck, color: "text-status-warning" },
 };
 
 function formatDate(iso: string): string {
@@ -133,13 +135,13 @@ export default function MarcadoresPage() {
   return (
     <AppLayout>
       <div className="flex min-h-full flex-col text-on-surface">
-        {/* Header */}
-        <div className="border-b border-[rgba(79,70,51,0.15)] px-4 sm:px-6 py-5 flex items-center gap-3 sticky top-0 z-10 bg-[#0e0e14]">
-          <Bookmark className="w-4 h-4 text-primary" fill="currentColor" />
-          <span className="text-primary text-xs uppercase tracking-[0.2em] font-bold">Guardados</span>
-          <span className="text-on-surface/20 mx-1">·</span>
-          <h1 className="font-['Newsreader'] text-xl font-bold text-on-surface">Marcadores</h1>
-        </div>
+        <InternalPageHeader
+          icon={<Bookmark className="h-5 w-5" strokeWidth={1.7} />}
+          eyebrow="Guardados"
+          title="Marcadores"
+          description="Tus respuestas más útiles, agrupadas por área del derecho."
+          utilitySlot={<div className="hidden md:flex"><ShellUtilityActions /></div>}
+        />
 
         <main className="max-w-4xl mx-auto px-4 sm:px-6 py-8">
           {isLoading && (
@@ -150,8 +152,8 @@ export default function MarcadoresPage() {
           )}
 
           {error && (
-            <div className="bg-[#93000a]/20 border border-[#ffb4ab]/30 rounded-lg p-6 text-center">
-              <p className="text-[#ffb4ab] text-sm">{error}</p>
+            <div className="bg-status-danger/15 border border-status-danger/30 rounded-lg p-6 text-center">
+              <p className="text-status-danger text-sm">{error}</p>
               <a
                 href="/auth/login"
                 className="mt-3 inline-block text-primary hover:text-primary-container text-sm transition-colors"
@@ -186,19 +188,15 @@ export default function MarcadoresPage() {
 
           {!isLoading && !error && bookmarks.length > 0 && (
             <div className="space-y-6">
-              {/* Header + search */}
+              {/* Count + search */}
               <div className="flex flex-col sm:flex-row sm:items-center gap-3">
                 <div className="flex-1">
-                  <p className="text-primary text-xs uppercase tracking-[0.2em] font-bold mb-1">Guardados</p>
-                  <h1 className="font-['Newsreader'] text-3xl font-bold text-on-surface">
-                    Mis marcadores
-                    <span className="ml-3 text-base font-normal text-on-surface/40">
-                      {bookmarks.length} {bookmarks.length === 1 ? "guardado" : "guardados"}
-                    </span>
-                  </h1>
+                  <span className="font-mono text-[11.5px] font-semibold text-on-surface-subtle">
+                    {bookmarks.length} {bookmarks.length === 1 ? "marcador guardado" : "marcadores guardados"}
+                  </span>
                 </div>
                 <div className="relative w-full sm:w-64">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-on-surface/30" />
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-on-surface-subtle" />
                   <input
                     value={searchFilter}
                     onChange={(e) => {
@@ -206,7 +204,7 @@ export default function MarcadoresPage() {
                       setCurrentPage(1);
                     }}
                     placeholder="Filtrar marcadores..."
-                    className="w-full pl-9 pr-3 h-11 bg-surface-container-low border border-[rgba(79,70,51,0.15)] rounded-lg text-sm text-on-surface placeholder-on-surface/30 focus:outline-none focus:border-primary transition-colors"
+                    className="h-10 w-full rounded-lg border border-outline-variant bg-surface pl-9 pr-3 text-[13px] text-on-surface placeholder-on-surface/30 focus:border-primary focus:outline-none"
                   />
                 </div>
               </div>
@@ -274,7 +272,7 @@ export default function MarcadoresPage() {
                               <button
                                 onClick={() => handleRemove(bm.id)}
                                 disabled={removingId === bm.id}
-                                className="p-1 rounded text-on-surface/30 hover:text-[#ffb4ab] hover:bg-[#93000a]/20 transition-colors"
+                                className="p-1 rounded text-on-surface/30 hover:text-status-danger hover:bg-status-danger/15 transition-colors"
                                 title="Quitar marcador"
                               >
                                 {removingId === bm.id ? (
@@ -296,7 +294,7 @@ export default function MarcadoresPage() {
                           />
 
                           {/* Footer link */}
-                          <div className="mt-3 pt-2 border-t border-[rgba(79,70,51,0.08)]">
+                          <div className="mt-3 pt-2 border-t border-outline-variant/40">
                             <a
                               href={`/?conversation=${bm.conversation_id}`}
                               className="text-xs text-primary hover:text-primary-container transition-colors"
@@ -317,7 +315,7 @@ export default function MarcadoresPage() {
                   <button
                     onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                     disabled={currentPage === 1}
-                    className="px-4 py-2 text-sm rounded-lg bg-surface-container-low border border-[rgba(79,70,51,0.15)] text-on-surface/60 hover:bg-surface-container hover:text-on-surface disabled:opacity-30 transition-colors"
+                    className="px-4 py-2 text-sm rounded-lg bg-surface-container-low border border-outline-variant text-on-surface/60 hover:bg-surface-container hover:text-on-surface disabled:opacity-30 transition-colors"
                   >
                     Anterior
                   </button>
@@ -327,7 +325,7 @@ export default function MarcadoresPage() {
                   <button
                     onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
                     disabled={currentPage === totalPages}
-                    className="px-4 py-2 text-sm rounded-lg bg-surface-container-low border border-[rgba(79,70,51,0.15)] text-on-surface/60 hover:bg-surface-container hover:text-on-surface disabled:opacity-30 transition-colors"
+                    className="px-4 py-2 text-sm rounded-lg bg-surface-container-low border border-outline-variant text-on-surface/60 hover:bg-surface-container hover:text-on-surface disabled:opacity-30 transition-colors"
                   >
                     Siguiente
                   </button>

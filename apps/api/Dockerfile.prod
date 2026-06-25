@@ -41,10 +41,15 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
     CMD curl -f http://localhost:8000/api/health || exit 1
 
-# Uvicorn production server (2 workers for 2 CPU cores)
-CMD ["uvicorn", "app.main:app", \
-     "--host", "0.0.0.0", \
-     "--port", "8000", \
-     "--workers", "2", \
-     "--timeout-keep-alive", "120", \
-     "--access-log"]
+# Bootstrap orchestrator runs `alembic upgrade head` + schema verification,
+# then exec()s into uvicorn so signals reach it directly.
+#
+# Production-only uvicorn flags are read from environment by bootstrap.py:
+#   UVICORN_WORKERS       (default 2)
+#   UVICORN_PROXY_HEADERS (default true)
+#   UVICORN_RELOAD        (default false in production)
+#
+# --proxy-headers honours X-Forwarded-* headers from the reverse proxy.
+# --forwarded-allow-ips "*" is safe inside the docker-compose network where
+# only the trusted gateway can reach this port.
+CMD ["python", "scripts/bootstrap.py"]

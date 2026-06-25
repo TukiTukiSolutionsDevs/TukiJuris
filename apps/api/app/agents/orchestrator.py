@@ -10,9 +10,11 @@ This is the brain of Agente Derecho. It:
 6. Returns the final integrated response
 """
 
+import contextvars
 import json
 import logging
 import re
+from collections.abc import Awaitable, Callable
 from typing import Any as _Any
 
 
@@ -91,14 +93,49 @@ from typing import Any, TypedDict
 from langgraph.graph import END, StateGraph
 
 from app.agents.domain_agents import AGENT_REGISTRY, get_agent
+from app.agents.intake_templates import (
+    INTAKE_MAX_TOKENS,
+    INVESTIGATE_MAX_TOKENS,
+    MAX_INVESTIGATION_TURNS,
+    get_template,
+    user_signaled_analysis,
+)
 from app.config import settings
 from app.services.llm_adapter import llm_service
 from app.services.rag import rag_service
 
 logger = logging.getLogger(__name__)
 
-# Legal areas the orchestrator can route to
+
+EmitCallback = Callable[[str, dict], Awaitable[None]]
+
+_emit_event: contextvars.ContextVar[EmitCallback | None] = contextvars.ContextVar(
+    "orchestrator_emit_event", default=None
+)
+
+
+async def _emit(event_type: str, data: dict) -> None:
+    """Forward a progress event to the active SSE callback, if any.
+
+    Streaming routes set this ContextVar before invoking the orchestrator so
+    each graph node + case-phase step can publish progress without changing
+    function signatures. When no callback is set (e.g. /api/chat/query), this
+    is a no-op.
+    """
+    cb = _emit_event.get()
+    if cb is None:
+        return
+    try:
+        await cb(event_type, data)
+    except Exception as exc:  # never let observability break the pipeline
+        logger.warning("emit_event(%s) failed: %s", event_type, exc)
+
+
+# Legal areas the orchestrator can route to.
+# Keep in sync with apps/api/app/core/validators.py:_VALID_LEGAL_AREAS
+# and apps/web/src/app/chat/constants.ts:LEGAL_AREAS.
 LEGAL_AREAS = [
+    # Núcleo heredado
     "civil",
     "penal",
     "laboral",
@@ -110,6 +147,28 @@ LEGAL_AREAS = [
     "competencia",
     "compliance",
     "comercio_exterior",
+    # Privado/procesal extendido
+    "procesal",
+    "familia",
+    "comercial",
+    "notarial",
+    "seguridad_social",
+    # Económico-regulatorio
+    "consumidor",
+    "propiedad_intelectual",
+    "datos_personales",
+    "financiero",
+    "mercado_valores",
+    "seguros",
+    # Sectoriales
+    "ambiental",
+    "minero",
+    "hidrocarburos",
+    "telecom",
+    "transporte",
+    "salud",
+    # Estado
+    "contrataciones_estado",
 ]
 
 
@@ -156,6 +215,22 @@ class OrchestratorState(TypedDict):
     # Legacy keys for process_query compatibility
     final_response: str
 
+    # ── Case-analysis state (new in 2026-06-25) ─────────────────────────
+    # Carried across turns by the API caller. The orchestrator reads `case_phase`
+    # to decide whether to run intake / investigation / full analysis.
+    #
+    #   intake         → first turn of a new conversation; agent introduces
+    #                    the legal area + asks 4-6 targeted intake questions.
+    #   investigation  → turns 2..N; agent ack's user response, fills slots
+    #                    in `case_facts`, asks remaining `case_pending`.
+    #   analysis       → final turn; full multi-agent pipeline runs using the
+    #                    accumulated `case_facts` as context.
+    case_phase: str               # "intake" | "investigation" | "analysis"
+    case_facts: list[dict]        # [{slot, value, source}] accumulated facts
+    case_pending: list[str]       # questions the agent still wants answered
+    case_turn_count: int          # 0 = intake turn, 1+ = investigation turns
+    case_area_hint: str           # area inferred during intake (for routing)
+
 
 # --- Keyword-based fallback classifier ---
 
@@ -191,6 +266,109 @@ KEYWORD_MAP = {
         "zona franca", "régimen aduanero", "dua", "declaración aduanera",
         "dumping", "salvaguardias", "certificado de origen",
     ],
+    # === Procesal y privado extendido ===
+    "procesal": [
+        "proceso judicial", "juzgado", "demanda", "contestación", "recurso de apelación",
+        "casación", "ejecución de sentencia", "medida cautelar", "tutela cautelar",
+        "código procesal civil", "cpp", "nueva ley procesal del trabajo", "ncpp",
+        "audiencia única", "saneamiento procesal",
+    ],
+    "familia": [
+        "divorcio", "alimentos", "tenencia", "régimen de visitas", "patria potestad",
+        "filiación", "adopción", "matrimonio", "régimen patrimonial", "violencia familiar",
+        "ley 30364", "niños y adolescentes", "código de niños", "demarcación filial",
+    ],
+    "comercial": [
+        "título valor", "letra de cambio", "pagaré", "cheque", "factura negociable",
+        "contrato mercantil", "comercio interno", "agencia comercial", "franquicia",
+        "ley 27287",
+    ],
+    "notarial": [
+        "notario", "escritura pública", "minuta", "protocolización", "fe pública",
+        "acta notarial", "carta notarial", "constatación notarial", "dl 1049",
+        "ley del notariado",
+    ],
+    "seguridad_social": [
+        "essalud", "onp", "afp", "sistema nacional de pensiones", "sistema privado de pensiones",
+        "jubilación", "invalidez", "sobrevivencia", "aporte previsional",
+        "ley 26790", "dl 19990", "dl 25897", "bono de reconocimiento",
+    ],
+    # === Económico-regulatorio ===
+    "consumidor": [
+        "consumidor", "código de consumo", "ley 29571", "idoneidad",
+        "información del producto", "publicidad engañosa", "garantía del producto",
+        "libro de reclamaciones", "cláusulas abusivas", "indecopi protección consumidor",
+        "métodos comerciales agresivos",
+    ],
+    "propiedad_intelectual": [
+        "marca", "patente", "diseño industrial", "modelo de utilidad", "signo distintivo",
+        "derecho de autor", "obra protegida", "dl 822", "dl 1075", "decisión 486",
+        "decisión 351", "registro de marca", "indecopi marcas", "ompi",
+    ],
+    "datos_personales": [
+        "datos personales", "anpdp", "anpd", "ley 29733", "tratamiento de datos",
+        "consentimiento informado", "banco de datos personales", "transferencia internacional de datos",
+        "habeas data datos", "principio de finalidad", "rgpd peruano",
+    ],
+    "financiero": [
+        "sbs", "banco", "sistema financiero", "ley 26702", "intermediación financiera",
+        "tasa de interés", "tea", "crédito de consumo", "tarjeta de crédito",
+        "ley general del sistema financiero", "fondos de inversión", "fondo de garantía",
+    ],
+    "mercado_valores": [
+        "smv", "mercado de valores", "ley del mercado de valores", "dl 861",
+        "oferta pública", "emisión de valores", "bolsa de valores", "fondos mutuos",
+        "información privilegiada", "manipulación del mercado", "ds 093-2002-ef",
+    ],
+    "seguros": [
+        "póliza de seguro", "ley 29946", "contrato de seguro", "contratante",
+        "asegurado", "beneficiario", "siniestro", "prima del seguro",
+        "deducible", "infraseguro", "buena fe contractual seguro",
+    ],
+    # === Sectoriales ===
+    "ambiental": [
+        "ambiental", "minam", "oefa", "ley 28611", "ley general del ambiente",
+        "estudio de impacto ambiental", "eia", "ley 27446", "seia", "anla peruana",
+        "recursos hídricos", "ley 29338", "ana", "ley forestal", "ley 29763",
+        "residuos sólidos", "dl 1278", "contaminación", "ana resolución",
+    ],
+    "minero": [
+        "minero", "minería", "concesión minera", "ds 014-92-em", "tuo lgm",
+        "petitorio minero", "minam minería", "mape", "minería artesanal",
+        "ley 28090", "cierre de minas", "pasivos ambientales mineros",
+        "minería ilegal", "dl 1100",
+    ],
+    "hidrocarburos": [
+        "hidrocarburos", "ley orgánica de hidrocarburos", "ley 26221", "perupetro",
+        "concesión gasífera", "gas natural", "petróleo", "ley 27133",
+        "concesiones eléctricas", "dl 25844", "osinergmin", "energía eléctrica",
+    ],
+    "telecom": [
+        "telecomunicaciones", "osiptel", "ds 013-93-tcc", "tuo ley de telecomunicaciones",
+        "operador móvil", "espectro radioeléctrico", "concesión telecomunicaciones",
+        "ley 28295", "compartición de infraestructura", "ley 29904", "banda ancha",
+        "telefónica", "claro", "entel", "bitel",
+    ],
+    "transporte": [
+        "transporte", "tránsito", "ley 27181", "código de tránsito", "ds 016-2009-mtc",
+        "licencia de conducir", "papeleta", "infracción de tránsito", "sutran",
+        "atu", "permiso de operación", "carga pesada", "vehículo automotor",
+        "reglamento nacional de vehículos",
+    ],
+    "salud": [
+        "ley 26842", "ley general de salud", "minsa", "digemid", "susalud",
+        "producto farmacéutico", "ley 29459", "dispositivos médicos",
+        "atención médica", "historia clínica", "ley 30024",
+        "derechos del paciente", "ley 29414", "essalud cobertura",
+    ],
+    # === Estado ===
+    "contrataciones_estado": [
+        "contrataciones del estado", "ley 32069", "ley 30225", "osce", "oece",
+        "licitación pública", "concurso público", "adjudicación simplificada",
+        "selección de consultores", "comparación de precios", "subasta inversa",
+        "tribunal de contrataciones", "perú compras", "obra pública",
+        "consultoría de obra", "supervisor de obra",
+    ],
 }
 
 
@@ -215,6 +393,7 @@ async def classify_query(state: OrchestratorState) -> dict[str, Any]:
     Node 1: Classify the legal domain of the user's query.
     Uses conversation history to understand context for better classification.
     """
+    await _emit("step", {"node": "classify", "status": "start", "phase": "analysis"})
     # If user provided a hint, use it as primary
     if state.get("legal_area_hint") and state["legal_area_hint"] in LEGAL_AREAS:
         return {
@@ -245,17 +424,35 @@ async def classify_query(state: OrchestratorState) -> dict[str, Any]:
     classification_prompt = f"""Eres un clasificador experto en derecho peruano. Clasifica la consulta en el ÁREA PRINCIPAL que corresponde.
 
 {history_section}ÁREAS Y SUS TEMAS:
-- penal: delitos, penas, robo, hurto, estafa, homicidio, violación, faltas, Código Penal, fiscalía, prisión, denuncia penal, sentencia penal, proceso penal
-- laboral: trabajo, despido, CTS, gratificaciones, vacaciones, remuneración, empleador, trabajador, contrato de trabajo, SUNAFIL, beneficios sociales
-- civil: contratos civiles, propiedad, herencia, sucesiones, familia, divorcio, obligaciones, responsabilidad civil, prescripción civil, Código Civil
-- tributario: impuestos, SUNAT, IGV, renta, UIT, tributos, declaración jurada, multa tributaria, RUC, factura, Código Tributario
-- constitucional: derechos fundamentales, amparo, habeas corpus, Tribunal Constitucional, inconstitucionalidad, Constitución
-- administrativo: trámite, procedimiento administrativo, silencio administrativo, TUPA, funcionario público, contrataciones del Estado, OSCE
-- corporativo: empresa, sociedad, accionistas, directorio, junta general, fusión, escisión, Ley General de Sociedades
-- registral: SUNARP, registros públicos, inscripción, partida registral, propiedad registral
-- competencia: INDECOPI, marcas, patentes, consumidor, competencia desleal, propiedad intelectual
-- compliance: datos personales, lavado de activos, anticorrupción, programa de cumplimiento
-- comercio_exterior: aduanas, importación, exportación, TLC, aranceles, MINCETUR
+- penal: delitos, penas, robo, hurto, estafa, homicidio, violación, lavado de activos, crimen organizado, Código Penal (DL 635), NCPP (DL 957), fiscalía
+- procesal: proceso judicial, demanda, contestación, casación, apelación, medidas cautelares, NLPT (Ley 29497), CPC
+- civil: contratos civiles, propiedad, obligaciones, responsabilidad civil, prescripción civil, Código Civil (DL 295)
+- familia: divorcio, alimentos, tenencia, patria potestad, filiación, violencia familiar (Ley 30364), Código de Niños y Adolescentes
+- laboral: trabajo, despido, CTS, gratificaciones, vacaciones, remuneración, contrato de trabajo (DS 003-97-TR), SUNAFIL, SST (Ley 29783)
+- seguridad_social: ONP, AFP, EsSalud, jubilación, pensiones, DL 19990, DL 25897, Ley 26790
+- tributario: impuestos, SUNAT, IGV, renta, UIT, tributos, declaración jurada, RUC, Código Tributario (DS 133-2013-EF)
+- constitucional: derechos fundamentales, amparo, habeas corpus, habeas data, Tribunal Constitucional, Constitución 1993, Código Procesal Constitucional (Ley 31307)
+- administrativo: procedimiento administrativo, silencio administrativo, TUPA, LPAG (TUO DS 004-2019-JUS), contencioso administrativo, transparencia (Ley 27806)
+- corporativo: sociedad, accionistas, directorio, junta general, fusión, escisión, LGS (Ley 26887), EIRL
+- comercial: títulos valores (letra, cheque, pagaré, Ley 27287), arbitraje (DL 1071), contratos mercantiles, sistema concursal (Ley 27809)
+- registral: SUNARP, registros públicos, inscripción, partida registral, predios (Ley 27755), Reglamento General (Res. 126-2012-SUNARP)
+- notarial: notario, escritura pública, minuta, fe pública, DL 1049, asuntos no contenciosos (Ley 26662)
+- competencia: libre competencia, INDECOPI, conductas anticompetitivas (DL 1034 / TUO DS 030-2019-PCM), competencia desleal (DL 1044), control de fusiones (Ley 31112)
+- consumidor: protección al consumidor, Código de Consumo (Ley 29571), idoneidad, libro de reclamaciones, INDECOPI consumo, cláusulas abusivas
+- propiedad_intelectual: marca, patente, derecho de autor (DL 822), propiedad industrial (DL 1075), Decisión 486, Decisión 351, INDECOPI marcas
+- datos_personales: ANPDP, Ley 29733, DS 003-2013-JUS, tratamiento de datos, consentimiento, transferencia internacional, habeas data
+- compliance: anticorrupción, lavado de activos, programa de cumplimiento, Ley 30424, UIF (Ley 27693), DL 1106, beneficiario final (DL 1372)
+- comercio_exterior: aduanas, importación, exportación, TLC, aranceles, drawback, Ley General de Aduanas (DL 1053), MINCETUR
+- financiero: SBS, sistema financiero, Ley 26702, bancos, créditos, intermediación financiera, tasas de interés
+- mercado_valores: SMV, oferta pública, emisión de valores, bolsa, fondos mutuos, DL 861, TUO DS 093-2002-EF, información privilegiada
+- seguros: contrato de seguro, póliza, prima, siniestro, beneficiario, Ley 29946
+- ambiental: MINAM, OEFA, EIA, SEIA (Ley 27446), Ley General del Ambiente (28611), recursos hídricos (Ley 29338), forestal (Ley 29763), residuos sólidos (DL 1278)
+- minero: concesión minera, TUO LGM (DS 014-92-EM), cierre de minas (Ley 28090), pasivos ambientales mineros (Ley 28271), MAPE, minería ilegal (DL 1100)
+- hidrocarburos: gas natural, petróleo, Ley Orgánica de Hidrocarburos (Ley 26221 / TUO DS 042-2005-EM), concesiones eléctricas (DL 25844), OSINERGMIN
+- telecom: telecomunicaciones, OSIPTEL, espectro radioeléctrico, TUO Ley de Telecomunicaciones (DS 013-93-TCC), banda ancha (Ley 29904)
+- transporte: tránsito, transporte terrestre (Ley 27181), código de tránsito (DS 016-2009-MTC), MTC, ATU, SUTRAN, licencia de conducir
+- salud: MINSA, DIGEMID, SUSALUD, Ley General de Salud (26842), productos farmacéuticos (Ley 29459), historia clínica electrónica (Ley 30024), derechos del paciente (Ley 29414)
+- contrataciones_estado: nueva LCE Ley 32069 (vigente 22-abr-2025), Ley 30225 (derogada — procesos en curso), OSCE/OECE, Tribunal de Contrataciones, licitación pública, obra pública
 
 EJEMPLOS:
 - "me robaron mi celular" → PRINCIPAL: penal
@@ -357,6 +554,7 @@ async def retrieve_context(state: OrchestratorState) -> dict[str, Any]:
     When multiple sub-areas exist, retrieves from each and merges, deduplicating
     by content prefix to avoid repeating the same fragment.
     """
+    await _emit("step", {"node": "retrieve", "status": "start", "phase": "analysis", "area": state.get("primary_area", "")})
     area = state.get("primary_area", "civil")
 
     # Determine which sub-areas to query via the agent's RAG filter
@@ -418,6 +616,7 @@ async def execute_primary_agent(state: OrchestratorState) -> dict[str, Any]:
     user_context is injected HERE (agent level), not at classification.
     This keeps the classifier working on the clean query only.
     """
+    await _emit("step", {"node": "primary_agent", "status": "start", "phase": "analysis", "area": state.get("primary_area", "")})
     # Build agent query: prepend user memory context if present
     agent_query = state["query"]
     if state.get("user_context"):
@@ -469,6 +668,7 @@ async def evaluate_response(state: OrchestratorState) -> dict[str, Any]:
     This is the deliberative loop step that makes the orchestrator a true "general":
     it evaluates the primary specialist's output and decides if another perspective is needed.
     """
+    await _emit("step", {"node": "evaluate", "status": "start", "phase": "analysis"})
     query = state["query"]
     primary_response = state.get("primary_response", {})
     primary_text = primary_response.get("response", "") if isinstance(primary_response, dict) else str(primary_response)
@@ -570,6 +770,7 @@ async def enrich_with_secondary(state: OrchestratorState) -> dict[str, Any]:
     2. The PRIMARY agent's response (so they can COMPLEMENT, not repeat)
     3. RAG context for their specific area
     """
+    await _emit("step", {"node": "enrich", "status": "start", "phase": "analysis", "secondary_areas": state.get("secondary_areas", [])})
     secondary_responses = []
     primary = state.get("primary_response", {})
     primary_text = primary.get("response", "") if isinstance(primary, dict) else str(primary)
@@ -620,6 +821,7 @@ async def synthesize_response(state: OrchestratorState) -> dict[str, Any]:
     Acts as the 'general' making the final decision after consulting all specialists.
     Used when needs_enrichment=True (multi-area responses).
     """
+    await _emit("step", {"node": "synthesize", "status": "start", "phase": "analysis"})
     primary = state.get("primary_response", {})
     primary_text = primary.get("response", "") if isinstance(primary, dict) else str(primary)
     primary_area = state.get("primary_area", "")
@@ -701,6 +903,7 @@ async def format_simple_response(state: OrchestratorState) -> dict[str, Any]:
     Node 6b: For single-agent responses that don't need synthesis.
     Used when needs_enrichment=False.
     """
+    await _emit("step", {"node": "format_simple", "status": "start", "phase": "analysis"})
     primary = state.get("primary_response", {})
     primary_text = primary.get("response", "") if isinstance(primary, dict) else ""
 
@@ -767,6 +970,364 @@ def build_orchestrator_graph() -> StateGraph:
     return workflow
 
 
+# ──────────────────────────────────────────────────────────────────────────
+# Case-analysis phases — intake + investigation (run OUTSIDE the LangGraph
+# analysis pipeline). These are simple LLM calls that produce structured
+# output; the full multi-agent LangGraph is reserved for the analysis phase.
+# ──────────────────────────────────────────────────────────────────────────
+
+
+def _extract_first_json_obj(text: str) -> dict | None:
+    """Return the first balanced {…} parsed as JSON from `text`, else None.
+
+    Lighter alternative to `_extract_json_robust` for intake/investigation,
+    where we don't require the `needs_more` discriminator.
+    """
+    if not text:
+        return None
+    try:
+        return json.loads(text.strip())
+    except (json.JSONDecodeError, ValueError):
+        pass
+    fence = re.search(r"```(?:json)?\s*\n?(.*?)\n?```", text, re.DOTALL)
+    if fence:
+        try:
+            return json.loads(fence.group(1).strip())
+        except (json.JSONDecodeError, ValueError):
+            pass
+    # Brace balancing scan
+    depth = 0
+    start = None
+    for i, ch in enumerate(text):
+        if ch == "{":
+            if depth == 0:
+                start = i
+            depth += 1
+        elif ch == "}":
+            depth -= 1
+            if depth == 0 and start is not None:
+                try:
+                    return json.loads(text[start : i + 1])
+                except (json.JSONDecodeError, ValueError):
+                    start = None
+    return None
+
+
+async def _quick_classify(
+    query: str,
+    model: str | None,
+    user_api_key: str | None,
+) -> str:
+    """One-shot light classifier used by the intake step.
+
+    Reuses the same prompt structure as `classify_query` but trims the
+    secondary-areas/confidence parsing for speed. Falls back to keyword match
+    on LLM failure.
+    """
+    prompt = (
+        "Clasifica la siguiente consulta legal peruana en UNA sola área. "
+        "Responde solo con el slug del área en minúsculas (ej: laboral, "
+        "familia, penal, civil, tributario, consumidor, ambiental, contrataciones_estado).\n"
+        f"Áreas válidas: {', '.join(LEGAL_AREAS)}.\n\n"
+        f"Consulta: {query}\n\n"
+        "Solo el slug, nada más:"
+    )
+    try:
+        result = await llm_service.completion(
+            messages=[{"role": "user", "content": prompt}],
+            model=model or settings.default_llm_model,
+            temperature=0.0,
+            max_tokens=20,
+            user_api_key=user_api_key,
+        )
+        raw = (result.get("content") or "").strip().lower()
+        raw = raw.strip("*. ").splitlines()[0] if raw else ""
+        if raw in LEGAL_AREAS:
+            return raw
+    except Exception as exc:
+        logger.warning(f"_quick_classify LLM failed, falling back to keywords: {exc}")
+    return _keyword_classify(query)
+
+
+async def run_intake_turn(
+    query: str,
+    model: str | None,
+    legal_area_hint: str | None,
+    user_api_key: str | None,
+) -> dict:
+    """
+    Generate the first response of a case-analysis conversation.
+
+    Output shape:
+    {
+      "response":      str,              # markdown to show the user
+      "case_state": {
+        "case_phase":      "investigation",
+        "case_facts":      [],           # nothing filled yet
+        "case_pending":    list[str],    # questions still pending
+        "case_turn_count": 1,
+        "case_area_hint":  str,
+      },
+      "legal_area":  str,
+      "agent_used":  "Intake",
+    }
+    """
+    await _emit("step", {"node": "intake_classify", "status": "start", "phase": "intake"})
+    area = legal_area_hint if legal_area_hint in LEGAL_AREAS else None
+    if not area:
+        area = await _quick_classify(query, model, user_api_key)
+    await _emit("step", {"node": "intake_classify", "status": "done", "phase": "intake", "area": area})
+
+    template = get_template(area)
+    await _emit("step", {"node": "intake_template", "status": "done", "phase": "intake", "area": area})
+    await _emit("step", {"node": "intake_llm", "status": "start", "phase": "intake", "area": area})
+
+    intake_prompt = f"""Eres el agente de INTAKE de TukiJuris — un abogado peruano que recibe a un cliente nuevo. Tu trabajo en este turno NO es responder la consulta, sino: (1) confirmar la rama del derecho que aplica, (2) recoger información puntual que vas a necesitar antes de analizar el caso.
+
+CONSULTA INICIAL DEL CLIENTE:
+{query}
+
+CONTEXTO NORMATIVO (úsalo como punto de partida):
+{template['framing']}
+
+PREGUNTAS BASE PARA ESTA ÁREA (puedes adaptarlas, omitir las que el cliente ya respondió en su narrativa, y agregar máximo 1 pregunta extra si el caso lo amerita):
+{chr(10).join(f"- {q}" for q in template['questions'])}
+
+DOCUMENTOS ÚTILES (menciona al final que el cliente puede subir): {template['uploads_hint']}
+
+INSTRUCCIONES DE RESPUESTA:
+1. Empieza con un párrafo corto (3-5 líneas) que sitúe el caso en la normativa peruana específica del área "{area}". Cita 1-2 leyes/DL/decretos clave.
+2. Luego "Para armar el análisis necesito:" seguido de 4-6 preguntas numeradas, claras y concretas. Una pregunta = una idea.
+3. Cierra invitando a subir los documentos sugeridos.
+4. NO des un análisis ni una recomendación final aún. Eso viene después de que el cliente responda.
+5. Tono: profesional, cercano, empático. Como un abogado senior que toma notas.
+6. Idioma: español peruano.
+
+Al final, en un BLOQUE SEPARADO al final del mensaje, devuelve un JSON con la lista exacta de preguntas que hiciste (idéntica al texto que mostraste al cliente). Ese JSON va en una sola línea, sin markdown:
+{{"pending_questions": ["pregunta 1", "pregunta 2", ...]}}
+"""
+
+    try:
+        result = await llm_service.completion(
+            messages=[{"role": "user", "content": intake_prompt}],
+            model=model or settings.default_llm_model,
+            temperature=0.4,
+            max_tokens=INTAKE_MAX_TOKENS,
+            user_api_key=user_api_key,
+        )
+        content = result.get("content") or ""
+    except Exception as exc:
+        logger.warning(f"Intake LLM call failed: {exc}")
+        # Fallback to a deterministic intake using the template directly
+        questions = "\n".join(f"{i+1}. {q}" for i, q in enumerate(template["questions"]))
+        content = (
+            f"{template['framing']}\n\n"
+            f"**Para armar el análisis necesito:**\n{questions}\n\n"
+            f"Si tienes a la mano: {template['uploads_hint']}, súbelos."
+        )
+
+    # Parse the pending_questions JSON; if absent, fall back to the template list.
+    pending: list[str] = []
+    json_obj = _extract_first_json_obj(content)
+    if json_obj and isinstance(json_obj.get("pending_questions"), list):
+        pending = [str(q) for q in json_obj["pending_questions"] if q]
+    if not pending:
+        pending = list(template["questions"])
+
+    # Strip the trailing JSON block from the visible response — the client
+    # should only see the markdown narrative.
+    cleaned_response = re.sub(
+        r"\n*\{\s*\"pending_questions\".*?\}\s*$",
+        "",
+        content,
+        flags=re.DOTALL,
+    ).rstrip()
+
+    return {
+        "response": cleaned_response,
+        "case_state": {
+            "case_phase": "investigation",
+            "case_facts": [],
+            "case_pending": pending,
+            "case_turn_count": 1,
+            "case_area_hint": area,
+        },
+        "legal_area": area,
+        "agent_used": "Intake",
+        "model_used": (result.get("model") if "result" in locals() else "") or "",
+        "tokens_used": (result.get("tokens_used") if "result" in locals() else None),
+    }
+
+
+async def run_investigation_turn(
+    query: str,
+    model: str | None,
+    case_state: dict,
+    user_api_key: str | None,
+) -> dict:
+    """
+    Process a user response during the investigation phase.
+
+    The LLM is asked to:
+      1. Extract structured facts from the user's reply → updates case_facts.
+      2. Decide which of the pending questions remain unanswered.
+      3. Determine `case_ready` — whether enough is known to move to analysis.
+      4. Write a short acknowledgement + the next 2-3 follow-up questions
+         (or a brief "ok, paso al análisis" if case_ready=true).
+
+    The phase transitions to "analysis" when either:
+      - The LLM reports case_ready=true, OR
+      - `case_turn_count + 1 >= MAX_INVESTIGATION_TURNS`.
+
+    The actual analysis (full multi-agent pipeline) is NOT executed here —
+    the caller (`process_query`) inspects the returned `case_phase` and runs
+    the analysis graph in the SAME turn if the phase flipped.
+    """
+    area = case_state.get("case_area_hint") or _keyword_classify(query)
+    pending = list(case_state.get("case_pending") or [])
+    facts = list(case_state.get("case_facts") or [])
+    turn_count = int(case_state.get("case_turn_count") or 1)
+    await _emit("step", {"node": "investigation_extract", "status": "start", "phase": "investigation", "area": area, "turn": turn_count + 1})
+
+    investigation_prompt = f"""Eres el agente de INVESTIGACIÓN de TukiJuris — un abogado peruano construyendo el caso turno a turno con el cliente.
+
+ÁREA DEL CASO: {area}
+TURNO DE INVESTIGACIÓN ACTUAL: {turn_count + 1} (máximo {MAX_INVESTIGATION_TURNS} antes de pasar al análisis final).
+
+HECHOS YA RECOGIDOS (JSON):
+{json.dumps(facts, ensure_ascii=False)}
+
+PREGUNTAS PENDIENTES QUE HABÍAS HECHO:
+{chr(10).join(f"- {q}" for q in pending) if pending else "(ninguna pendiente)"}
+
+NUEVA RESPUESTA DEL CLIENTE:
+{query}
+
+TAREAS:
+1. Extrae los hechos NUEVOS que aporta esta respuesta. Cada hecho es un {{"slot": "<tema>", "value": "<dato>"}}.
+2. Marca qué preguntas de las pendientes quedaron respondidas y cuáles siguen abiertas.
+3. Si crees que ya hay información SUFICIENTE para dar un análisis sólido (no exhaustivo, sólido), marca `case_ready=true`.
+4. Independientemente de case_ready, escribe un mensaje corto al cliente con:
+   - Un párrafo de ACUSE: qué información concreta interpretaste, qué encaje legal preliminar ves, y si su posición probatoria es fuerte o débil (cita 1-2 normas relevantes).
+   - Si case_ready=true: cierra con "Voy a preparar tu análisis ahora." y NADA más.
+   - Si case_ready=false: 2-3 preguntas finales en bullets, las MÁS IMPORTANTES que faltan. Una pregunta por bullet, concretas.
+
+REGLAS DE BREVEDAD para mantener el JSON parseable:
+- "response": máximo 6 frases. Sé directo. No repitas datos ya recopilados.
+- "new_facts": valores cortos, frases nominales. Sin oraciones largas.
+- "remaining_pending": máximo 3 preguntas.
+
+Devuelve un único objeto JSON puro. Sin markdown, sin texto adicional fuera del JSON:
+{{
+  "response": "<mensaje markdown corto>",
+  "new_facts": [{{"slot": "string", "value": "string"}}, ...],
+  "remaining_pending": ["pregunta 1", "pregunta 2", ...],
+  "case_ready": true|false
+}}
+"""
+
+    response_text = ""
+    new_facts: list[dict] = []
+    remaining: list[str] = pending
+    case_ready = False
+
+    try:
+        result = await llm_service.completion(
+            messages=[{"role": "user", "content": investigation_prompt}],
+            model=model or settings.default_llm_model,
+            temperature=0.3,
+            max_tokens=INVESTIGATE_MAX_TOKENS,
+            user_api_key=user_api_key,
+        )
+        raw = result.get("content") or ""
+        parsed = _extract_first_json_obj(raw)
+        if not parsed:
+            logger.warning(
+                "Investigation JSON parse failed — falling back to free-text. "
+                "Raw head: %r",
+                raw[:200],
+            )
+        if parsed:
+            response_text = str(parsed.get("response") or "").strip()
+            nf = parsed.get("new_facts") or []
+            if isinstance(nf, list):
+                new_facts = [
+                    {"slot": str(x.get("slot", "")), "value": str(x.get("value", ""))}
+                    for x in nf
+                    if isinstance(x, dict) and x.get("value")
+                ]
+            rp = parsed.get("remaining_pending") or []
+            if isinstance(rp, list):
+                remaining = [str(q) for q in rp if q]
+            case_ready = bool(parsed.get("case_ready"))
+        else:
+            # If parsing failed, just echo the raw content and assume we still
+            # need more info.
+            response_text = raw.strip()
+            new_facts = [{"slot": "free_text", "value": query}]
+    except Exception as exc:
+        logger.warning(f"Investigation LLM call failed: {exc}")
+        response_text = (
+            "Gracias por la información. Necesito un par de detalles más antes de "
+            "darte el análisis. ¿Podrías precisar fechas y testigos?"
+        )
+        new_facts = [{"slot": "free_text", "value": query}]
+
+    # Merge accumulated state
+    updated_facts = facts + new_facts
+    next_turn_count = turn_count + 1
+
+    # Force analysis if we hit the cap OR the user explicitly asks for it
+    forced_by_signal = user_signaled_analysis(query)
+    forced_by_cap = next_turn_count >= MAX_INVESTIGATION_TURNS
+    final_ready = case_ready or forced_by_signal or forced_by_cap
+
+    next_phase = "analysis" if final_ready else "investigation"
+
+    return {
+        "response": response_text,
+        "case_state": {
+            "case_phase": next_phase,
+            "case_facts": updated_facts,
+            "case_pending": [] if final_ready else remaining,
+            "case_turn_count": next_turn_count,
+            "case_area_hint": area,
+        },
+        "legal_area": area,
+        "agent_used": "Investigación" if not final_ready else "Investigación (cierre)",
+        "model_used": (result.get("model") if "result" in locals() else "") or "",
+        "tokens_used": (result.get("tokens_used") if "result" in locals() else None),
+        # Signal to the caller whether analysis must be triggered next.
+        "_run_analysis_next": final_ready,
+    }
+
+
+def _build_case_context_block(case_state: dict, current_message: str) -> str:
+    """
+    Build the rich query that gets fed to the analysis pipeline when an
+    investigation flips to analysis. We collapse the recorded facts into a
+    structured brief so the multi-agent flow has everything in one place.
+    """
+    facts = case_state.get("case_facts") or []
+    area = case_state.get("case_area_hint") or ""
+    lines = [f"CASO EN ANÁLISIS — área detectada: {area}.", "", "HECHOS RECOPILADOS:"]
+    if facts:
+        for f in facts:
+            slot = f.get("slot", "dato")
+            value = f.get("value", "")
+            lines.append(f"- {slot}: {value}")
+    else:
+        lines.append("- (ningún hecho estructurado registrado)")
+    lines += [
+        "",
+        "ÚLTIMO MENSAJE DEL CLIENTE EN LA CONVERSACIÓN:",
+        current_message,
+        "",
+        "Da el análisis final del caso siguiendo el formato profesional habitual.",
+    ]
+    return "\n".join(lines)
+
+
 # --- Orchestrator Interface ---
 
 
@@ -785,31 +1346,98 @@ class LegalOrchestrator:
         conversation_history: list[dict] | None = None,
         user_context: str | None = None,
         user_api_key: str | None = None,
+        case_state: dict | None = None,
     ) -> dict:
         """
-        Process a legal query through the full deliberative orchestration pipeline.
+        Process a legal query through the case-analysis pipeline.
+
+        Flow depends on `case_state["case_phase"]`:
+        - None or "intake" → run `run_intake_turn`. No analysis yet.
+        - "investigation"  → run `run_investigation_turn`. If the LLM (or the
+                             turn cap) flips the phase to "analysis", we ALSO
+                             run the full multi-agent pipeline in the same turn
+                             so the user gets the final analysis right away.
+        - "analysis"       → caller already has the brief; jump straight to the
+                             multi-agent LangGraph pipeline.
 
         Args:
-            query: The user's legal question (clean — no memory prepended)
+            query: The user's message (clean — no memory prepended)
             model: Optional model override
-            legal_area_hint: Optional hint for legal area routing
-            conversation_history: Prior messages for context continuity
-            user_context: User memory context — injected at agent level only,
-                          NOT at classification
-            user_api_key: BYOK — the user's own LLM provider key.
-                Internal operations (classification, evaluation) use platform keys.
-                Only agent responses use this key.
+            legal_area_hint: Optional area hint (used during intake)
+            conversation_history: Prior messages for continuity
+            user_context: User memory context — injected at agent level only
+            user_api_key: BYOK — user's own LLM provider key
+            case_state: Persistent case-analysis state across turns. Pass back
+                        the `case_state` from the previous response unchanged.
 
         Returns:
-            dict with response, agent_used, legal_area, citations, model_used, is_multi_area
+            dict with response, agent_used, legal_area, citations, model_used,
+            is_multi_area, AND `case_state` (carry to next turn).
         """
+        phase = (case_state or {}).get("case_phase") or "intake"
+        await _emit("phase_start", {"phase": phase})
+
+        # ── INTAKE — first turn of a brand-new case ────────────────────────
+        if phase == "intake":
+            intake = await run_intake_turn(
+                query=query,
+                model=model,
+                legal_area_hint=legal_area_hint,
+                user_api_key=user_api_key,
+            )
+            return {
+                "response": intake["response"],
+                "agent_used": intake["agent_used"],
+                "legal_area": intake["legal_area"],
+                "citations": [],
+                "model_used": intake.get("model_used", ""),
+                "tokens_used": intake.get("tokens_used"),
+                "is_multi_area": False,
+                "case_state": intake["case_state"],
+            }
+
+        # ── INVESTIGATION — turns 2..N ─────────────────────────────────────
+        if phase == "investigation":
+            inv = await run_investigation_turn(
+                query=query,
+                model=model,
+                case_state=case_state or {},
+                user_api_key=user_api_key,
+            )
+            # If the investigation step flipped the phase to "analysis", we
+            # continue right into the multi-agent pipeline so the user sees
+            # the final answer in the same turn.
+            if not inv.get("_run_analysis_next"):
+                return {
+                    "response": inv["response"],
+                    "agent_used": inv["agent_used"],
+                    "legal_area": inv["legal_area"],
+                    "citations": [],
+                    "model_used": inv.get("model_used", ""),
+                    "tokens_used": inv.get("tokens_used"),
+                    "is_multi_area": False,
+                    "case_state": inv["case_state"],
+                }
+            # Fall through to analysis using the enriched case_state
+            case_state = inv["case_state"]
+            legal_area_hint = inv["legal_area"]
+            await _emit("phase_start", {"phase": "analysis", "auto_transition": True})
+
+        # ── ANALYSIS — full multi-agent LangGraph pipeline ────────────────
+        # Build a rich query that bakes the recorded case facts into the
+        # prompt so every downstream agent has the same view.
+        enriched_query = (
+            _build_case_context_block(case_state or {}, query)
+            if case_state else query
+        )
+
         initial_state: OrchestratorState = {
-            "query": query,
+            "query": enriched_query,
             "model": model,
-            "legal_area_hint": legal_area_hint,
+            "legal_area_hint": legal_area_hint or (case_state or {}).get("case_area_hint"),
             "conversation_history": conversation_history or [],
             "user_context": user_context or "",
-            "user_api_key": user_api_key,  # BYOK
+            "user_api_key": user_api_key,
             "primary_area": "",
             "secondary_areas": [],
             "classification_confidence": 0.0,
@@ -828,9 +1456,21 @@ class LegalOrchestrator:
             "tokens_used": None,
             "is_multi_area": False,
             "final_response": "",
+            "case_phase": "analysis",
+            "case_facts": (case_state or {}).get("case_facts") or [],
+            "case_pending": [],
+            "case_turn_count": (case_state or {}).get("case_turn_count") or 0,
+            "case_area_hint": (case_state or {}).get("case_area_hint") or "",
         }
 
         result = await self.app.ainvoke(initial_state)
+
+        # After analysis, the case is "complete" — caller may discard or keep
+        # for audit. We mark phase as such.
+        final_case_state = {
+            **(case_state or {}),
+            "case_phase": "complete",
+        }
 
         return {
             "response": result.get("response", result.get("final_response", "")),
@@ -840,6 +1480,7 @@ class LegalOrchestrator:
             "model_used": result.get("model_used", ""),
             "tokens_used": result.get("tokens_used"),
             "is_multi_area": result.get("is_multi_area", False),
+            "case_state": final_case_state,
         }
 
 

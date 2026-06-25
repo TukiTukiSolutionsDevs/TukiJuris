@@ -2,13 +2,15 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { AuthProvider } from "@/lib/auth/AuthContext";
+import { BFCacheGuard } from "@/components/BFCacheGuard";
+import { CookieBanner } from "@/components/CookieBanner";
 import { Toaster } from "sonner";
 
 export const metadata: Metadata = {
-  title: "TukiJuris | Plataforma Juridica Inteligente",
+  title: "TukiJuris | Plataforma Jurídica Inteligente",
   description:
-    "Plataforma juridica inteligente especializada en derecho peruano. Consulta normativa, jurisprudencia y orientacion legal con agentes de IA especializados.",
-  metadataBase: new URL("https://tukijuris.net.pe"),
+    "Plataforma jurídica inteligente especializada en derecho peruano. Consulta normativa, jurisprudencia y orientación legal con agentes de IA especializados.",
+  metadataBase: new URL("https://tukijuris.com.pe"),
   icons: {
     icon: "/brand/logo-full.png",
     shortcut: "/brand/logo-full.png",
@@ -17,17 +19,17 @@ export const metadata: Metadata = {
   openGraph: {
     title: "TukiJuris — Asistente Legal IA para Derecho Peruano",
     description:
-      "Consulta normativa, jurisprudencia y recibe orientacion legal con 11 agentes especializados.",
-    url: "https://tukijuris.net.pe",
+      "Consulta normativa, jurisprudencia y recibe orientación legal con 11 agentes especializados.",
+    url: "https://tukijuris.com.pe",
     siteName: "TukiJuris",
     locale: "es_PE",
     type: "website",
-    images: [{ url: "/brand/logo-full.png", width: 512, height: 512, alt: "TukiJuris Abogados" }],
+    images: [{ url: "/brand/logo-full.png", width: 512, height: 512, alt: "TukiJuris" }],
   },
   twitter: {
     card: "summary_large_image",
     title: "TukiJuris — Asistente Legal IA",
-    description: "Plataforma juridica inteligente para derecho peruano",
+    description: "Plataforma jurídica inteligente para derecho peruano",
     images: ["/brand/logo-full.png"],
   },
   robots: {
@@ -62,14 +64,16 @@ export default function RootLayout({
   return (
     <html lang="es" className="h-full antialiased" suppressHydrationWarning>
       <head>
-        <meta name="theme-color" content="#0C0E14" />
+        <meta name="theme-color" content="#191918" />
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
       <body className="min-h-full flex flex-col">
+        <BFCacheGuard />
         <ThemeProvider>
           <AuthProvider>
             {children}
           </AuthProvider>
+          <CookieBanner />
           <Toaster richColors position="top-right" />
         </ThemeProvider>
       </body>

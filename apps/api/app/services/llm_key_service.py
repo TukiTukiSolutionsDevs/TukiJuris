@@ -210,11 +210,11 @@ def get_available_providers() -> list[dict]:
         {
             "id": "openai",
             "name": "OpenAI",
-            "models": ["gpt-5.4-nano", "gpt-5.4-mini", "gpt-5.4"],
+            "models": ["gpt-5.5", "gpt-5.4-mini", "gpt-5.4"],
             "key_prefix": "sk-",
             "docs_url": "https://platform.openai.com/api-keys",
             "setup_guide": "Registrate en platform.openai.com, cargá créditos y creá tu API key.",
-            "pricing_note": "Desde $0.20/M (Nano). Flagship GPT-5.4 con 1M contexto.",
+            "pricing_note": "GPT-5.5 (más rápido) · GPT-5.4 Mini ($0.75/M) · GPT-5.4 flagship 1M ctx.",
         },
         {
             "id": "anthropic",

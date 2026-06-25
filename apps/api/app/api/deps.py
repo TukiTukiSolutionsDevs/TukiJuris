@@ -10,6 +10,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.access_revocation import user_revoked_after
 from app.core.database import get_db
 from app.core.rate_limiter import READ_LIMIT_PER_MIN, RateLimitBucket, get_write_limit_for_plan
 from app.core.security import decode_access_token
@@ -70,6 +71,22 @@ async def get_current_user(
         )
 
     user_id = uuid.UUID(payload["sub"])
+
+    # User-level revoke check: if the user logged out everywhere or changed
+    # their password, every access token with iat ≤ the revoke marker is dead.
+    # Fail-open on Redis errors (handled inside user_revoked_after).
+    revoked_after = await user_revoked_after(user_id)
+    if revoked_after is not None:
+        try:
+            token_iat = int(float(payload.get("iat", 0)))
+        except (TypeError, ValueError):
+            token_iat = 0
+        if token_iat <= revoked_after:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail={"code": "revoked_session", "message": "La sesión fue revocada — vuelve a iniciar sesión."},
+            )
+
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
 

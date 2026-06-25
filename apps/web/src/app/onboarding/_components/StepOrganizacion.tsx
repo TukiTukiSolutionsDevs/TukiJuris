@@ -91,7 +91,7 @@ export function StepOrganizacion({ state, onChange, onNext, onBack }: StepProps)
             />
             {state.orgSlug && (
               <p className="text-[11px] text-on-surface-variant/50 mt-1">
-                URL: <span className="font-medium text-on-surface-variant">{state.orgSlug}.tukijuris.net.pe</span>
+                URL: <span className="font-medium text-on-surface-variant">{state.orgSlug}.tukijuris.com.pe</span>
               </p>
             )}
           </div>

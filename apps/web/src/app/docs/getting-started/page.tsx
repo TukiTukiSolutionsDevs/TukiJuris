@@ -19,9 +19,9 @@ export default function GettingStartedPage() {
       {/* Quick stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-12">
         {[
-          { label: "Áreas de derecho", value: "11", icon: Sparkles },
+          { label: "Áreas de derecho", value: "29", icon: Sparkles },
           { label: "Tiempo de setup", value: "~2 min", icon: Clock },
-          { label: "Documentos indexados", value: "5,000+", icon: Terminal },
+          { label: "Documentos indexados", value: "1,500+", icon: Terminal },
           { label: "Uptime", value: "99.9%", icon: Zap },
         ].map((stat) => (
           <div
@@ -71,7 +71,7 @@ export default function GettingStartedPage() {
           </div>
           <CodeBlock
             lang="bash"
-            code={`curl -X POST https://api.tukijuris.net.pe/api/auth/register \\
+            code={`curl -X POST https://api.tukijuris.com.pe/api/auth/register \\
   -H "Content-Type: application/json" \\
   -d '{
     "email": "dev@lawfirm.com",
@@ -104,7 +104,7 @@ export default function GettingStartedPage() {
           </div>
           <CodeBlock
             lang="bash"
-            code={`curl -X POST https://api.tukijuris.net.pe/api/keys/ \\
+            code={`curl -X POST https://api.tukijuris.com.pe/api/keys/ \\
   -H "Authorization: Bearer eyJ..." \\
   -H "Content-Type: application/json" \\
   -d '{

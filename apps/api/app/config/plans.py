@@ -46,7 +46,8 @@ class PlanConfig:
     id: PlanId
     display_name: str                   # localized display name (es-PE)
     features: dict[FeatureKey, bool]    # authoritative feature matrix
-    queries_day: int                    # daily query cap; -1 = unlimited
+    queries_day: int                    # daily NORMAL query cap; -1 = unlimited
+    reasoning_queries_day: int          # daily REASONING query cap; -1 = unlimited
     byok_enabled: bool
     base_price_cents: int               # 0 for free; PEN cents
     seat_price_cents: int = 0           # per-seat overage (studio only)
@@ -69,7 +70,8 @@ PLANS: dict[PlanId, PlanConfig] = {
             "team_seats": False,
             "priority_support": False,
         },
-        queries_day=10,
+        queries_day=4,
+        reasoning_queries_day=1,
         byok_enabled=False,
         base_price_cents=0,
     ),
@@ -80,12 +82,14 @@ PLANS: dict[PlanId, PlanConfig] = {
             "chat": True,
             "pdf_export": True,
             "file_upload": True,
-            "byok_enabled": True,
+            # BYOK no es self-service — solo plan Empresarial (contacto comercial).
+            "byok_enabled": False,
             "team_seats": False,
             "priority_support": True,
         },
         queries_day=-1,
-        byok_enabled=True,
+        reasoning_queries_day=-1,
+        byok_enabled=False,
         base_price_cents=7000,   # S/ 70.00
     ),
     "studio": PlanConfig(
@@ -95,12 +99,14 @@ PLANS: dict[PlanId, PlanConfig] = {
             "chat": True,
             "pdf_export": True,
             "file_upload": True,
-            "byok_enabled": True,
+            # BYOK no es self-service — solo plan Empresarial (contacto comercial).
+            "byok_enabled": False,
             "team_seats": True,
             "priority_support": True,
         },
         queries_day=-1,
-        byok_enabled=True,
+        reasoning_queries_day=-1,
+        byok_enabled=False,
         base_price_cents=29900,  # S/ 299.00
         seat_price_cents=4000,   # S/ 40.00 per extra seat
         base_seats_included=5,
@@ -112,8 +118,10 @@ PLANS: dict[PlanId, PlanConfig] = {
 # ---------------------------------------------------------------------------
 
 BETA_HARD_LIMITS: dict[str, object] = {
-    # Free tier daily query cap is always enforced — even in beta.
-    "free_queries_day": 10,
+    # Free tier daily caps are always enforced — even in beta.
+    # 4 normal + 1 reasoning = 5 total queries/day.
+    "free_queries_day": 4,
+    "free_reasoning_queries_day": 1,
     # BYOK remains restricted to paid plans — even in beta.
     "byok_paid_only": True,
 }

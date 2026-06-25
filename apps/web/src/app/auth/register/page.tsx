@@ -6,8 +6,9 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/lib/auth/AuthContext";
+import { resolvePostLoginDestination } from "@/lib/auth/redirects";
 import { useTheme } from "@/components/ThemeProvider";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
@@ -31,11 +32,35 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(false);
   const [ssoLoading, setSsoLoading] = useState<"google" | "microsoft" | null>(null);
   const router = useRouter();
-  const { user, isLoading, register } = useAuth();
+  const searchParams = useSearchParams();
+  const { user, isLoading, register, onboardingCompleted } = useAuth();
 
+  // Post-authentication redirect.
+  //
+  // This runs in TWO situations:
+  //  1. An already-logged-in user landed on /auth/register → bounce them
+  //     out so they don't see the registration form again.
+  //  2. A fresh registration just completed → `user` flips from null to
+  //     populated and this effect routes them to the correct destination.
+  //
+  // Previously this was a hardcoded `router.push("/")`, which (a) ignored
+  // the onboarding gate for new accounts and (b) raced with the explicit
+  // `push("/onboarding")` in handleSubmit, so new users landed on the chat
+  // instead of the onboarding wizard. `resolvePostLoginDestination` applies
+  // the onboarding gate correctly: if the server reports
+  // `onboarding_completed=false` (the default for a brand-new user), it
+  // returns "/onboarding"; otherwise it honours a same-origin `returnTo`
+  // or falls back to the role-based home.
   useEffect(() => {
-    if (!isLoading && user) router.push("/");
-  }, [isLoading, user, router]);
+    if (isLoading || !user) return;
+    const returnTo = searchParams?.get("returnTo") ?? null;
+    const dest = resolvePostLoginDestination(
+      returnTo,
+      user.isAdmin,
+      onboardingCompleted,
+    );
+    router.replace(dest);
+  }, [isLoading, user, onboardingCompleted, router, searchParams]);
 
   const handleSSO = async (provider: "google" | "microsoft") => {
     setError(""); setSsoLoading(provider);
@@ -52,7 +77,11 @@ export default function RegisterPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault(); setError(""); setLoading(true);
     if (!passwordRegex.test(password)) { setError("La contraseña no cumple los requisitos"); setLoading(false); return; }
-    try { await register(email, password, name || undefined); router.push("/onboarding"); }
+    // Navigation is intentionally NOT handled here — the useEffect above
+    // reacts to `user` becoming populated and routes to the right place
+    // (onboarding vs chat vs returnTo). Pushing here raced with that
+    // effect and kicked new users into the chat, skipping onboarding.
+    try { await register(email, password, name || undefined); }
     catch (err) { setError(err instanceof Error ? err.message : "Error al registrar"); }
     finally { setLoading(false); }
   };

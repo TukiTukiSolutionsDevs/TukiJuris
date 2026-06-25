@@ -1,16 +1,5 @@
-import {
-  BookOpen,
-  Shield,
-  Briefcase,
-  Landmark,
-  Gavel,
-  Building2,
-  ScrollText,
-  FileCheck,
-  Globe,
-  Lock,
-  BadgeCheck,
-} from "lucide-react";
+// Onboarding metadata. LEGAL_AREAS is re-exported from the canonical chat/constants.ts
+// so this page automatically picks up new areas.
 
 export const TOTAL_STEPS = 5;
 
@@ -38,19 +27,7 @@ export const ROLES = [
   { id: "otro", label: "Otro" },
 ];
 
-export const LEGAL_AREAS = [
-  { id: "civil", name: "Civil", icon: BookOpen },
-  { id: "penal", name: "Penal", icon: Shield },
-  { id: "laboral", name: "Laboral", icon: Briefcase },
-  { id: "tributario", name: "Tributario", icon: Landmark },
-  { id: "constitucional", name: "Constitucional", icon: Gavel },
-  { id: "administrativo", name: "Administrativo", icon: Building2 },
-  { id: "corporativo", name: "Corporativo", icon: ScrollText },
-  { id: "registral", name: "Registral", icon: FileCheck },
-  { id: "comercio_exterior", name: "Comercio Exterior", icon: Globe },
-  { id: "compliance", name: "Compliance", icon: Lock },
-  { id: "competencia", name: "Competencia / PI", icon: BadgeCheck },
-];
+export { LEGAL_AREAS } from "@/app/chat/constants";
 
 export interface AIProvider {
   id: string;

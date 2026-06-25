@@ -131,6 +131,34 @@ export function refresh(): Promise<string | null> {
         credentials: "include",
       });
       if (!res.ok) {
+        // 429 = rate-limited refresh bucket (e.g. user F5-spammed the tab).
+        // This is TRANSIENT, not a revoked/expired session. Redirect the
+        // user to a dedicated interstitial that counts down and auto-
+        // recovers when the sliding window frees a slot. Before the fix
+        // the tab would either flash a blank layout (access token gone)
+        // or bounce between /auth/login and / forever (middleware still
+        // trusts `tk_session`). The interstitial is a PUBLIC path, so
+        // middleware will not re-bounce it.
+        if (res.status === 429) {
+          if (typeof window !== "undefined") {
+            const onInterstitial =
+              window.location.pathname === "/auth/rate-limited";
+            if (!onInterstitial) {
+              const retryAfter = Number.parseInt(
+                res.headers.get("Retry-After") ?? "",
+                10,
+              );
+              const seconds =
+                Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter : 60;
+              const returnTo = window.location.pathname + window.location.search;
+              const url = new URL("/auth/rate-limited", window.location.origin);
+              url.searchParams.set("retry", String(seconds));
+              url.searchParams.set("returnTo", returnTo);
+              window.location.href = url.toString();
+            }
+          }
+          return null;
+        }
         setAccessToken(null);
         _refreshFailureListeners.forEach((fn) => fn());
         return null;
