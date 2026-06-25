@@ -28,6 +28,7 @@ import { toast } from "sonner";
 import { AppLayout } from "@/components/AppLayout";
 import { InternalPageHeader } from "@/components/shell/InternalPageHeader";
 import { ShellUtilityActions } from "@/components/shell/ShellUtilityActions";
+import { QuestionForm, type PendingQuestion } from "@/components/ui/QuestionForm";
 import { renderMarkdown } from "@/lib/markdown";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { LEGAL_AREAS } from "@/app/chat/constants";
@@ -41,9 +42,34 @@ type CasePhase = "intake" | "investigation" | "analysis" | "complete";
 interface CaseState {
   case_phase: CasePhase;
   case_facts: { slot: string; value: string }[];
-  case_pending: string[];
+  // Backend now emits structured `PendingQuestion` objects, but legacy
+  // conversations (and the LLM JSON fallback path) can still carry plain
+  // strings — keep the union and normalize before rendering.
+  case_pending: (string | PendingQuestion)[];
   case_turn_count: number;
   case_area_hint: string;
+}
+
+function normalizePending(raw: CaseState["case_pending"] | undefined): PendingQuestion[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((item, i): PendingQuestion | null => {
+      if (typeof item === "string") {
+        const text = item.trim();
+        if (!text) return null;
+        return { slot: `q_${i}`, question: text, options: [] };
+      }
+      if (item && typeof item === "object" && typeof item.question === "string") {
+        return {
+          slot: String(item.slot ?? `q_${i}`),
+          question: item.question,
+          helper: item.helper,
+          options: Array.isArray(item.options) ? item.options : [],
+        };
+      }
+      return null;
+    })
+    .filter((q): q is PendingQuestion => q !== null);
 }
 
 interface ChatTurn {
@@ -257,10 +283,13 @@ function ContextBar({
     (acc, f) => acc + estimateTokens(`${f.slot}: ${f.value}`),
     0,
   );
-  const pendingTokens = (caseState?.case_pending ?? []).reduce(
-    (acc, q) => acc + estimateTokens(q),
-    0,
-  );
+  const pendingTokens = (caseState?.case_pending ?? []).reduce((acc, q) => {
+    const text =
+      typeof q === "string"
+        ? q
+        : `${q.question ?? ""} ${(q.options ?? []).join(" ")} ${q.helper ?? ""}`;
+    return acc + estimateTokens(text);
+  }, 0);
   const SYSTEM_PROMPT_RESERVE = 3000;
   const used = messagesTokens + factsTokens + pendingTokens + SYSTEM_PROMPT_RESERVE;
   const pct = Math.min(100, (used / limit) * 100);
@@ -727,6 +756,19 @@ export default function AnalizarPage() {
 
   const showNewCaseButton = caseState?.case_phase === "complete";
 
+  const structuredPending = useMemo(
+    () => normalizePending(caseState?.case_pending),
+    [caseState?.case_pending],
+  );
+  const lastTurnIsAssistant =
+    turns.length > 0 && turns[turns.length - 1]?.role === "assistant";
+  const showQuestionForm =
+    !loading &&
+    !isReadOnly &&
+    structuredPending.length > 0 &&
+    caseState?.case_phase === "investigation" &&
+    lastTurnIsAssistant;
+
   return (
     <AppLayout>
       <div className="flex min-h-full flex-col text-on-surface">
@@ -900,6 +942,19 @@ export default function AnalizarPage() {
                     </div>
                   </div>
                 )}
+
+                {showQuestionForm && (
+                  <div className="flex gap-2.5">
+                    <div className="hidden h-[30px] w-[30px] shrink-0 sm:block" />
+                    <div className="min-w-0 flex-1">
+                      <QuestionForm
+                        questions={structuredPending}
+                        onSubmit={(formatted) => sendMessage(formatted)}
+                        loading={loading}
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
 
           {/* Composer — visible always. When phase=complete, user can keep adding
@@ -1005,24 +1060,24 @@ export default function AnalizarPage() {
                   </div>
 
                   {/* Preguntas abiertas */}
-                  {caseState?.case_pending && caseState.case_pending.length > 0 && (
+                  {structuredPending.length > 0 && (
                     <div className="card-canon p-[17px]">
                       <div className="mb-3.5 flex items-center justify-between">
                         <span className="text-[9.5px] font-extrabold uppercase tracking-[0.16em] text-on-surface-subtle">
                           Preguntas abiertas
                         </span>
                         <span className="rounded-md bg-[rgba(179,164,240,0.1)] px-1.5 py-0.5 text-[10px] font-bold text-status-info">
-                          {caseState.case_pending.length}
+                          {structuredPending.length}
                         </span>
                       </div>
                       <ul className="flex flex-col gap-2.5">
-                        {caseState.case_pending.slice(0, 5).map((q, i) => (
+                        {structuredPending.slice(0, 5).map((q) => (
                           <li
-                            key={i}
+                            key={q.slot}
                             className="flex items-start gap-2.5 text-[12.5px] leading-[1.4] text-on-surface-variant"
                           >
                             <span className="mt-px h-3.5 w-3.5 shrink-0 rounded-full border-[1.5px] border-on-surface-faint" />
-                            <span>{q}</span>
+                            <span>{q.question}</span>
                           </li>
                         ))}
                       </ul>

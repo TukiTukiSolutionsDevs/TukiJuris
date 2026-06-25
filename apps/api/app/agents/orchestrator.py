@@ -98,6 +98,7 @@ from app.agents.intake_templates import (
     INVESTIGATE_MAX_TOKENS,
     MAX_INVESTIGATION_TURNS,
     get_template,
+    normalize_pending,
     user_signaled_analysis,
 )
 from app.config import settings
@@ -1082,29 +1083,26 @@ async def run_intake_turn(
     await _emit("step", {"node": "intake_template", "status": "done", "phase": "intake", "area": area})
     await _emit("step", {"node": "intake_llm", "status": "start", "phase": "intake", "area": area})
 
-    intake_prompt = f"""Eres el agente de INTAKE de TukiJuris — un abogado peruano que recibe a un cliente nuevo. Tu trabajo en este turno NO es responder la consulta, sino: (1) confirmar la rama del derecho que aplica, (2) recoger información puntual que vas a necesitar antes de analizar el caso.
+    # The structured questions live in the template; the LLM only writes the
+    # framing intro. The frontend renders the questions as a QuestionForm
+    # (cards + chips + free-text input) — so embedding them in the markdown
+    # body would just duplicate the UI.
+    intake_prompt = f"""Eres el agente de INTAKE de TukiJuris — un abogado peruano que recibe a un cliente nuevo. Tu trabajo en este turno es UBICAR el caso en la normativa peruana relevante, NO responder ni dar análisis aún.
 
 CONSULTA INICIAL DEL CLIENTE:
 {query}
 
-CONTEXTO NORMATIVO (úsalo como punto de partida):
+CONTEXTO NORMATIVO BASE (úsalo como punto de partida):
 {template['framing']}
 
-PREGUNTAS BASE PARA ESTA ÁREA (puedes adaptarlas, omitir las que el cliente ya respondió en su narrativa, y agregar máximo 1 pregunta extra si el caso lo amerita):
-{chr(10).join(f"- {q}" for q in template['questions'])}
-
-DOCUMENTOS ÚTILES (menciona al final que el cliente puede subir): {template['uploads_hint']}
-
-INSTRUCCIONES DE RESPUESTA:
-1. Empieza con un párrafo corto (3-5 líneas) que sitúe el caso en la normativa peruana específica del área "{area}". Cita 1-2 leyes/DL/decretos clave.
-2. Luego "Para armar el análisis necesito:" seguido de 4-6 preguntas numeradas, claras y concretas. Una pregunta = una idea.
-3. Cierra invitando a subir los documentos sugeridos.
-4. NO des un análisis ni una recomendación final aún. Eso viene después de que el cliente responda.
-5. Tono: profesional, cercano, empático. Como un abogado senior que toma notas.
-6. Idioma: español peruano.
-
-Al final, en un BLOQUE SEPARADO al final del mensaje, devuelve un JSON con la lista exacta de preguntas que hiciste (idéntica al texto que mostraste al cliente). Ese JSON va en una sola línea, sin markdown:
-{{"pending_questions": ["pregunta 1", "pregunta 2", ...]}}
+INSTRUCCIONES DE RESPUESTA — ESTRICTAS:
+1. Escribe 3-5 frases que (a) reconozcan brevemente la situación del cliente, (b) sitúen el caso en la normativa peruana específica del área "{area}", citando 1-2 leyes/DL/decretos clave.
+2. Cierra con UNA sola frase tipo: "Para armar el análisis necesito que respondas algunas preguntas; abajo te las dejo organizadas." (puedes parafrasearla).
+3. NO incluyas preguntas numeradas ni en bullets — las preguntas se le muestran al cliente como un formulario aparte, abajo del mensaje. Si las repites acá quedan duplicadas.
+4. NO des recomendaciones ni análisis legal sustantivo.
+5. Menciona brevemente que puede adjuntar: {template['uploads_hint']}.
+6. Tono: profesional, cercano, empático. Idioma: español peruano.
+7. Máximo 7 frases en total. Sé directo.
 """
 
     try:
@@ -1115,36 +1113,26 @@ Al final, en un BLOQUE SEPARADO al final del mensaje, devuelve un JSON con la li
             max_tokens=INTAKE_MAX_TOKENS,
             user_api_key=user_api_key,
         )
-        content = result.get("content") or ""
+        content = (result.get("content") or "").strip()
     except Exception as exc:
         logger.warning(f"Intake LLM call failed: {exc}")
-        # Fallback to a deterministic intake using the template directly
-        questions = "\n".join(f"{i+1}. {q}" for i, q in enumerate(template["questions"]))
+        content = ""
+
+    if not content:
+        # Deterministic fallback: just the framing + a closing line.
         content = (
             f"{template['framing']}\n\n"
-            f"**Para armar el análisis necesito:**\n{questions}\n\n"
-            f"Si tienes a la mano: {template['uploads_hint']}, súbelos."
+            f"Para armar el análisis necesito que respondas algunas preguntas; "
+            f"abajo te las dejo organizadas. Si tienes a la mano "
+            f"{template['uploads_hint']}, súbelo en el adjunto."
         )
 
-    # Parse the pending_questions JSON; if absent, fall back to the template list.
-    pending: list[str] = []
-    json_obj = _extract_first_json_obj(content)
-    if json_obj and isinstance(json_obj.get("pending_questions"), list):
-        pending = [str(q) for q in json_obj["pending_questions"] if q]
-    if not pending:
-        pending = list(template["questions"])
-
-    # Strip the trailing JSON block from the visible response — the client
-    # should only see the markdown narrative.
-    cleaned_response = re.sub(
-        r"\n*\{\s*\"pending_questions\".*?\}\s*$",
-        "",
-        content,
-        flags=re.DOTALL,
-    ).rstrip()
+    # Structured pending questions come straight from the template — the
+    # frontend renders them as chips + free-text input.
+    pending = list(template["questions"])
 
     return {
-        "response": cleaned_response,
+        "response": content,
         "case_state": {
             "case_phase": "investigation",
             "case_facts": [],
@@ -1184,10 +1172,18 @@ async def run_investigation_turn(
     the analysis graph in the SAME turn if the phase flipped.
     """
     area = case_state.get("case_area_hint") or _keyword_classify(query)
-    pending = list(case_state.get("case_pending") or [])
+    # Tolerate legacy list[str] in case_pending — wrap as structured.
+    pending = normalize_pending(case_state.get("case_pending") or [])
     facts = list(case_state.get("case_facts") or [])
     turn_count = int(case_state.get("case_turn_count") or 1)
     await _emit("step", {"node": "investigation_extract", "status": "start", "phase": "investigation", "area": area, "turn": turn_count + 1})
+
+    # Render structured pending as `[slot] question` so the LLM can reference
+    # each item by its canonical slot when reporting what's still open.
+    pending_rendered = (
+        "\n".join(f"- [{p['slot']}] {p['question']}" for p in pending)
+        if pending else "(ninguna pendiente)"
+    )
 
     investigation_prompt = f"""Eres el agente de INVESTIGACIÓN de TukiJuris — un abogado peruano construyendo el caso turno a turno con el cliente.
 
@@ -1197,38 +1193,33 @@ TURNO DE INVESTIGACIÓN ACTUAL: {turn_count + 1} (máximo {MAX_INVESTIGATION_TUR
 HECHOS YA RECOGIDOS (JSON):
 {json.dumps(facts, ensure_ascii=False)}
 
-PREGUNTAS PENDIENTES QUE HABÍAS HECHO:
-{chr(10).join(f"- {q}" for q in pending) if pending else "(ninguna pendiente)"}
+PREGUNTAS PENDIENTES (formato: [slot] pregunta — usa el slot para referirte a ellas):
+{pending_rendered}
 
 NUEVA RESPUESTA DEL CLIENTE:
 {query}
 
 TAREAS:
-1. Extrae los hechos NUEVOS que aporta esta respuesta. Cada hecho es un {{"slot": "<tema>", "value": "<dato>"}}.
-2. Marca qué preguntas de las pendientes quedaron respondidas y cuáles siguen abiertas.
+1. Extrae los hechos NUEVOS que aporta esta respuesta. Cada hecho es un {{"slot": "<slot_canónico>", "value": "<dato>"}}. Usa los slots de la lista pendiente cuando puedas mapear directamente; inventa slots nuevos solo para datos extra.
+2. Lista los `remaining_pending_slots` — slots de la sección pendiente que quedan SIN responder.
 3. Si crees que ya hay información SUFICIENTE para dar un análisis sólido (no exhaustivo, sólido), marca `case_ready=true`.
-4. Independientemente de case_ready, escribe un mensaje corto al cliente con:
-   - Un párrafo de ACUSE: qué información concreta interpretaste, qué encaje legal preliminar ves, y si su posición probatoria es fuerte o débil (cita 1-2 normas relevantes).
+4. Escribe un mensaje corto al cliente (máximo 4 frases):
+   - ACUSE breve: qué entendiste, qué encaje legal preliminar ves (cita 1-2 normas).
    - Si case_ready=true: cierra con "Voy a preparar tu análisis ahora." y NADA más.
-   - Si case_ready=false: 2-3 preguntas finales en bullets, las MÁS IMPORTANTES que faltan. Una pregunta por bullet, concretas.
-
-REGLAS DE BREVEDAD para mantener el JSON parseable:
-- "response": máximo 6 frases. Sé directo. No repitas datos ya recopilados.
-- "new_facts": valores cortos, frases nominales. Sin oraciones largas.
-- "remaining_pending": máximo 3 preguntas.
+   - Si case_ready=false: cierra con "Faltan unos datos más; respondé las preguntas restantes abajo." (las preguntas se muestran en un formulario aparte, NO las repitas acá).
 
 Devuelve un único objeto JSON puro. Sin markdown, sin texto adicional fuera del JSON:
 {{
-  "response": "<mensaje markdown corto>",
+  "response": "<mensaje markdown corto, sin preguntas numeradas>",
   "new_facts": [{{"slot": "string", "value": "string"}}, ...],
-  "remaining_pending": ["pregunta 1", "pregunta 2", ...],
+  "remaining_pending_slots": ["slot_a", "slot_b", ...],
   "case_ready": true|false
 }}
 """
 
     response_text = ""
     new_facts: list[dict] = []
-    remaining: list[str] = pending
+    remaining: list = list(pending)
     case_ready = False
 
     try:
@@ -1256,9 +1247,21 @@ Devuelve un único objeto JSON puro. Sin markdown, sin texto adicional fuera del
                     for x in nf
                     if isinstance(x, dict) and x.get("value")
                 ]
-            rp = parsed.get("remaining_pending") or []
-            if isinstance(rp, list):
-                remaining = [str(q) for q in rp if q]
+            # New shape: filter the structured pending by the slots the LLM
+            # says are still open. Fall back to the legacy `remaining_pending`
+            # key for one transition cycle.
+            rps = parsed.get("remaining_pending_slots")
+            if isinstance(rps, list) and rps:
+                open_slots = {str(s) for s in rps if s}
+                remaining = [p for p in pending if p.get("slot") in open_slots]
+            else:
+                legacy_rp = parsed.get("remaining_pending") or []
+                if isinstance(legacy_rp, list) and legacy_rp:
+                    # LLM returned free-text remaining; wrap each as structured
+                    # so the frontend can still render a textbox per item.
+                    remaining = normalize_pending([str(q) for q in legacy_rp])
+                else:
+                    remaining = []
             case_ready = bool(parsed.get("case_ready"))
         else:
             # If parsing failed, just echo the raw content and assume we still
@@ -1268,8 +1271,8 @@ Devuelve un único objeto JSON puro. Sin markdown, sin texto adicional fuera del
     except Exception as exc:
         logger.warning(f"Investigation LLM call failed: {exc}")
         response_text = (
-            "Gracias por la información. Necesito un par de detalles más antes de "
-            "darte el análisis. ¿Podrías precisar fechas y testigos?"
+            "Gracias por la información. Faltan unos datos más; "
+            "respondé las preguntas restantes abajo."
         )
         new_facts = [{"slot": "free_text", "value": query}]
 
