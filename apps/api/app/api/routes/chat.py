@@ -184,10 +184,24 @@ async def chat_query(
                             detail=f"Modelo '{body.model}' no disponible en la plataforma.",
                         )
         else:
-            # No model specified — use default free tier
-            free_resolved = await llm_service.resolve_free_tier()
-            if free_resolved:
-                resolved_model, user_api_key = free_resolved
+            # No model specified — use the plan's recommended default.
+            # Replaces the prior FREE_TIER_MODELS chain that ignored
+            # paid-plan preferences entirely.
+            from app.services.plan_service import PlanService
+            try:
+                default_model = PlanService.get_config(plan).default_model
+            except ValueError:
+                default_model = "groq/llama-3.3-70b-versatile"
+            platform_key = await llm_service._get_platform_key(default_model)
+            if platform_key:
+                resolved_model = default_model
+                user_api_key = platform_key
+            else:
+                # Plan's preferred default isn't keyed up on this platform —
+                # fall through to any free model that IS available.
+                free_resolved = await llm_service.resolve_free_tier()
+                if free_resolved:
+                    resolved_model, user_api_key = free_resolved
 
     try:
         result = await legal_orchestrator.process_query(
@@ -428,9 +442,20 @@ async def chat_stream_case(
                             detail=f"Modelo '{body.model}' no disponible en la plataforma.",
                         )
         else:
-            free_resolved = await llm_service.resolve_free_tier()
-            if free_resolved:
-                resolved_model, user_api_key = free_resolved
+            # No model specified — use the plan's recommended default.
+            from app.services.plan_service import PlanService
+            try:
+                default_model = PlanService.get_config(plan).default_model
+            except ValueError:
+                default_model = "groq/llama-3.3-70b-versatile"
+            platform_key = await llm_service._get_platform_key(default_model)
+            if platform_key:
+                resolved_model = default_model
+                user_api_key = platform_key
+            else:
+                free_resolved = await llm_service.resolve_free_tier()
+                if free_resolved:
+                    resolved_model, user_api_key = free_resolved
 
     queue: asyncio.Queue = asyncio.Queue()
 

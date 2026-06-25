@@ -32,6 +32,7 @@ import { QuestionForm, type PendingQuestion } from "@/components/ui/QuestionForm
 import { renderMarkdown } from "@/lib/markdown";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { LEGAL_AREAS } from "@/app/chat/constants";
+import { checkModelAccess, fetchPlanAccess } from "@/lib/api/planAccess";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -609,17 +610,43 @@ export default function AnalizarPage() {
   useEffect(() => {
     if (typeof window === "undefined") return;
     const params = new URLSearchParams(window.location.search);
-    // Precedence: ?model= in URL > /configuracion preference > backend default.
+    // Precedence: ?model= in URL > /configuracion preference (validated
+    // against plan access) > backend default for the user's plan.
     const m = params.get("model");
     if (m) {
       setModelOverride(m);
       setActiveModel(m);
     } else {
       const saved = window.localStorage.getItem("pref_default_model");
-      if (saved) {
-        setModelOverride(saved);
-        setActiveModel(saved);
-      }
+      // Fire-and-forget plan-access validation. If the saved preference
+      // is blocked by the user's plan (e.g. user downgraded after
+      // picking a Tier 3 model), snap to the plan's recommended default
+      // and surface a toast so the user knows what happened.
+      (async () => {
+        const access = await fetchPlanAccess(authFetch);
+        if (!saved) {
+          if (access?.default_model) {
+            setModelOverride(access.default_model);
+            setActiveModel(access.default_model);
+          }
+          return;
+        }
+        const verdict = checkModelAccess(saved, access);
+        if (verdict.allowed) {
+          setModelOverride(saved);
+          setActiveModel(saved);
+          return;
+        }
+        const fallback = access?.default_model ?? null;
+        if (fallback) {
+          setModelOverride(fallback);
+          setActiveModel(fallback);
+          window.localStorage.setItem("pref_default_model", fallback);
+          toast.info(
+            `${verdict.reason}. Cambié tu modelo predeterminado a ${fallback}.`,
+          );
+        }
+      })();
     }
     const convId = params.get("conversation");
     if (!convId) return;

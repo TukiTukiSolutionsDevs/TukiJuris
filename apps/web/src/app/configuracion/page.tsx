@@ -34,6 +34,11 @@ import { InternalPageHeader } from "@/components/shell/InternalPageHeader";
 import { ShellUtilityActions } from "@/components/shell/ShellUtilityActions";
 import { toast } from "sonner";
 import { MODEL_CATALOG, type ModelDef } from "@/lib/models";
+import {
+  checkModelAccess,
+  fetchPlanAccess,
+  type PlanAccessInfo,
+} from "@/lib/api/planAccess";
 import { PROVIDER_LABELS, labelForProvider } from "@/lib/llm/providerLabels";
 import { DevApiKeysSection } from "@/components/configuracion/DevApiKeysSection";
 import { SessionsList } from "@/components/configuracion/SessionsList";
@@ -431,6 +436,7 @@ export default function ConfiguracionPage() {
 
   // Preferences (stored in localStorage)
   const [defaultModel, setDefaultModel] = useState(MODEL_CATALOG[0].id);
+  const [planAccess, setPlanAccess] = useState<PlanAccessInfo | null>(null);
   const [defaultArea, setDefaultArea] = useState("");
   const [selectedProvider, setSelectedProvider] = useState<string>(MODEL_CATALOG[0]?.provider || "google");
 
@@ -517,10 +523,28 @@ export default function ConfiguracionPage() {
         }
       }
 
+      // Plan-access info drives the model picker's locked/available state.
+      // Loaded in parallel with the rest — the picker degrades to "show all
+      // unlocked" if this fails (backend will still gate on actual use).
+      const access = await fetchPlanAccess(authFetch);
+      if (access) setPlanAccess(access);
+
       if (typeof window !== "undefined") {
         const savedModel = localStorage.getItem("pref_default_model");
         const savedArea = localStorage.getItem("pref_default_area");
-        if (savedModel) setDefaultModel(savedModel);
+        if (savedModel) {
+          // Snap to the plan's recommended default if the saved preference
+          // is blocked by the user's current plan (e.g. after a downgrade).
+          const verdict = checkModelAccess(savedModel, access);
+          if (verdict.allowed) {
+            setDefaultModel(savedModel);
+          } else if (access?.default_model) {
+            setDefaultModel(access.default_model);
+            localStorage.setItem("pref_default_model", access.default_model);
+          }
+        } else if (access?.default_model) {
+          setDefaultModel(access.default_model);
+        }
         if (savedArea) setDefaultArea(savedArea);
       }
     } catch (err) {
@@ -1397,25 +1421,39 @@ export default function ConfiguracionPage() {
                             const isSelected = defaultModel === model.id;
                             const providerInfo = labelForProvider(visibleProvider);
                             const platformActive = !!platformProviderStatus[visibleProvider];
+                            const planVerdict = checkModelAccess(model.id, planAccess);
+                            const planBlocked = !planVerdict.allowed;
+                            const disabled = !platformActive || planBlocked;
+                            const lockReason = planBlocked
+                              ? planVerdict.reason
+                              : !platformActive
+                                ? "Proveedor sin clave"
+                                : null;
 
                           return (
                             <label
                               key={model.id}
-                              className={`group flex min-h-[10.5rem] cursor-pointer flex-col rounded-[1.25rem] border p-4 transition-all ${
+                              className={`group flex min-h-[10.5rem] flex-col rounded-[1.25rem] border p-4 transition-all ${
                                 isSelected
                                   ? "border-primary/30 bg-primary/10 shadow-[0_10px_30px_rgba(201,169,97,0.08)]"
                                   : "border-outline-variant bg-surface hover:border-primary/20 hover:bg-surface-container"
-                              } ${!platformActive ? "opacity-35 cursor-not-allowed" : ""}`}
+                              } ${disabled ? "cursor-not-allowed opacity-40" : "cursor-pointer"}`}
+                              title={lockReason ?? undefined}
                             >
                               <input
                                 type="radio"
                                 name="defaultModel"
                                 value={model.id}
                                 checked={isSelected}
-                                disabled={!platformActive}
+                                disabled={disabled}
                                 onChange={(e) => setDefaultModel(e.target.value)}
                                 className="sr-only"
                               />
+                              {lockReason && (
+                                <div className="mb-1.5 inline-flex w-fit items-center gap-1 rounded-md bg-on-surface/5 px-1.5 py-0.5 text-[9.5px] font-bold uppercase tracking-[0.1em] text-on-surface/55">
+                                  {lockReason}
+                                </div>
+                              )}
                               <div className="flex items-start justify-between gap-3">
                                 <div>
                                   <p className={`text-[10px] font-semibold uppercase tracking-[0.18em] ${providerInfo.color ?? "text-primary"}`}>{providerInfo.displayName}</p>

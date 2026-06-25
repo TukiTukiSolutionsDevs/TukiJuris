@@ -17,12 +17,16 @@ from __future__ import annotations
 from decimal import Decimal
 from typing import Optional
 
-from fastapi import APIRouter, Response
+from fastapi import APIRouter, Depends, Response
 
+from app.api.deps import get_current_user
 from app.config import settings
+from app.models.user import User
 from app.schemas.plans import PlanResponse, PlansListResponse
 from app.services.invoice_pricing import compute_invoice_amounts
+from app.services.llm_adapter import MODEL_TIERS
 from app.services.plan_service import PlanService
+from app.services.usage import usage_service
 
 router = APIRouter(prefix="/plans", tags=["plans"])
 
@@ -108,3 +112,52 @@ async def get_plans(response: Response) -> PlansListResponse:
         beta_mode=settings.beta_mode,
         currency_default="PEN",
     )
+
+
+@router.get(
+    "/me",
+    summary="Plan info for the current user",
+    description=(
+        "Authenticated endpoint that returns the caller's plan with the "
+        "specific information /configuracion and /analizar need to render "
+        "model-picker access correctly: recommended default model, tier-by-tier "
+        "daily limits, and BYOK availability. Does not return billing details."
+    ),
+)
+async def get_my_plan(
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    """Return plan metadata + per-tier daily caps for the authenticated user.
+
+    Shape:
+        {
+          "plan_id": "free|pro|studio",
+          "display_name": "Gratuito",
+          "default_model": "groq/llama-3.3-70b-versatile",
+          "tier_limits_day": {1: 8, 2: 2, 3: 0, 4: 0},
+          "byok_enabled": false,
+          "queries_day": 4,
+          "reasoning_queries_day": 1
+        }
+
+    `tier_limits_day` semantics:
+        -1 = unlimited within tier
+         0 = tier not available on this plan (clients should HIDE / disable)
+        N  = N queries/day cap (clients can show as badge)
+    """
+    plan_id = current_user.plan or "free"
+    cfg = PlanService.get_config(plan_id)
+    limits = await usage_service.get_plan_limits(plan_id)
+    return {
+        "plan_id": plan_id,
+        "display_name": cfg.display_name,
+        "default_model": cfg.default_model,
+        "tier_limits_day": limits["tier_limits_day"],
+        "byok_enabled": cfg.byok_enabled,
+        "queries_day": cfg.queries_day,
+        "reasoning_queries_day": cfg.reasoning_queries_day,
+        # Per-model tier mapping (model_id → 1..4). Bundled here so the
+        # frontend can compute "is this model available on my plan?"
+        # without a second roundtrip: access = tier_limits_day[tier] != 0.
+        "model_tiers": MODEL_TIERS,
+    }
