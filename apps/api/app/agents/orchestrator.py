@@ -779,30 +779,36 @@ async def enrich_with_secondary(state: OrchestratorState) -> dict[str, Any]:
 
     for area in state.get("secondary_areas", [])[:4]:  # Up to 4 secondary agents
         agent = get_agent(area)
-        if agent:
-            # KEY: Secondary agents see the primary response to COMPLEMENT it
-            enrichment_query = (
-                f"Otro especialista ({primary_agent_name}) ya analizó esta consulta. "
-                f"Tu rol es COMPLEMENTAR su análisis desde tu perspectiva como {agent.name}. "
-                f"NO repitas lo que ya dijo — enfocate en lo que falta o difiere.\n\n"
-                f"CONSULTA ORIGINAL: {state['query']}\n\n"
-                f"ANÁLISIS PREVIO DEL {primary_agent_name.upper()}:\n"
-                f"{primary_text[:2500]}\n\n"
-                f"Ahora da tu análisis complementario desde {agent.name}. "
-                f"Sé específico con normativa y artículos aplicables."
+        if not agent:
+            continue
+
+        # KEY: Secondary agents see the primary response to COMPLEMENT it
+        enrichment_query = (
+            f"Otro especialista ({primary_agent_name}) ya analizó esta consulta. "
+            f"Tu rol es COMPLEMENTAR su análisis desde tu perspectiva como {agent.name}. "
+            f"NO repitas lo que ya dijo — enfocate en lo que falta o difiere.\n\n"
+            f"CONSULTA ORIGINAL: {state['query']}\n\n"
+            f"ANÁLISIS PREVIO DEL {primary_agent_name.upper()}:\n"
+            f"{primary_text[:2500]}\n\n"
+            f"Ahora da tu análisis complementario desde {agent.name}. "
+            f"Sé específico con normativa y artículos aplicables."
+        )
+
+        # Retrieve RAG context for this secondary area
+        secondary_context = ""
+        try:
+            secondary_context = await rag_service.retrieve(
+                query=state["query"],
+                legal_area=area,
+                limit=4,
             )
+        except Exception as exc:
+            logger.warning(f"RAG retrieval failed for secondary area={area}: {exc}")
 
-            # Retrieve RAG context for this secondary area
-            secondary_context = ""
-            try:
-                secondary_context = await rag_service.retrieve(
-                    query=state["query"],
-                    legal_area=area,
-                    limit=4,
-                )
-            except Exception as exc:
-                logger.warning(f"RAG retrieval failed for secondary area={area}: {exc}")
-
+        # Each secondary agent call is wrapped so one failing (rate limit,
+        # provider 5xx, etc.) doesn't abort the whole LangGraph. We just
+        # log + skip, and the synthesis step works with whoever returned.
+        try:
             result = await agent.process(
                 query=enrichment_query,
                 context=secondary_context,
@@ -811,6 +817,18 @@ async def enrich_with_secondary(state: OrchestratorState) -> dict[str, Any]:
                 user_api_key=state.get("user_api_key"),
             )
             secondary_responses.append(result)
+        except Exception as exc:
+            logger.warning(
+                "Secondary agent failed (area=%s) — skipping. Reason: %s",
+                area, exc,
+            )
+            await _emit("step", {
+                "node": "enrich",
+                "status": "done",
+                "phase": "analysis",
+                "area": area,
+                "skipped": True,
+            })
 
     return {"secondary_responses": secondary_responses}
 

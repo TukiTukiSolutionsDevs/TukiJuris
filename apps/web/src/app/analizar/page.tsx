@@ -706,7 +706,16 @@ export default function AnalizarPage() {
         }
       }
 
-      if (errored || !donePayload) return;
+      if (errored) return;
+      if (!donePayload) {
+        // Stream closed without `done` AND without `error` — usually a
+        // provider rate-limit or 5xx that the backend didn't catch.
+        // Surface it so the user isn't left staring at an empty composer.
+        toast.error(
+          "El análisis se interrumpió antes de terminar. Probable rate limit del proveedor — intenta de nuevo en un momento.",
+        );
+        return;
+      }
 
       setCaseState(donePayload.case_state ?? null);
       if (donePayload.model_used) setActiveModel(donePayload.model_used);
