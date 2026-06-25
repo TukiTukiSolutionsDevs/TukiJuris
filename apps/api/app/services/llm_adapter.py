@@ -527,20 +527,35 @@ class LLMService:
     async def resolve_free_tier(self, requested_model: str | None = None) -> tuple[str, str] | None:
         """Resolve a model + API key for free tier usage.
 
-        Tries the requested model first (if it's a free tier model),
-        then falls back through FREE_TIER_MODELS in order.
+        Semantics:
+        - requested_model is None  → return the first FREE_TIER model with a
+          configured platform key (used when the user has no preference).
+        - requested_model is a free tier model → return it if its platform key
+          is configured; otherwise fall through to other free tier models.
+        - requested_model is NOT a free tier model (paid Tier 2/3 model) →
+          return None so the caller can use the platform-key path for the
+          requested model. WE NEVER silently swap the user's chosen paid
+          model for a free fallback — that surprised users on /analizar
+          when their /configuracion preference (e.g. openai/gpt-5.4-mini)
+          got hijacked to openai/gpt-5.5 mid-conversation.
 
         Async since `_get_platform_key` now reads from the DB.
 
         Returns:
-            (model_id, api_key) tuple, or None if no free tier key is available.
+            (model_id, api_key) tuple, or None if no free tier key is available
+            OR the requested model isn't a free tier model.
         """
-        # Build ordered candidate list: requested model first, then fallbacks
-        candidates = []
-        if requested_model:
-            free_ids = {m["id"] for m in FREE_TIER_MODELS}
-            if requested_model in free_ids:
-                candidates.append(requested_model)
+        free_ids = {m["id"] for m in FREE_TIER_MODELS}
+
+        if requested_model and requested_model not in free_ids:
+            # Caller asked for a non-free model — don't substitute. They will
+            # fall through to the platform-key path for their actual choice.
+            return None
+
+        # Build ordered candidate list: requested first (if free), then rest.
+        candidates: list[str] = []
+        if requested_model and requested_model in free_ids:
+            candidates.append(requested_model)
         candidates.extend(m["id"] for m in FREE_TIER_MODELS if m["id"] not in candidates)
 
         for model_id in candidates:
