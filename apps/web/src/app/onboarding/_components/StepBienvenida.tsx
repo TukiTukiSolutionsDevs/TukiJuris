@@ -8,7 +8,7 @@ export function StepBienvenida({ onNext }: { onNext: () => void }) {
       {/* Logo */}
       <div className="mb-6">
         <img
-          src="/brand/logo-full.png"
+          src="/brand/logo-tj-full.png"
           alt="TukiJuris"
           className="h-16 sm:h-20 mx-auto"
           onError={(e) => {

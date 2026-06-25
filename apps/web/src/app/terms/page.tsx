@@ -18,7 +18,7 @@ function LegalHeader() {
     >
       <div className="max-w-7xl mx-auto px-4 lg:px-8 h-16 flex items-center justify-between">
         <Link href="/landing" className="flex items-center">
-          <Image src="/brand/logo-full.png" alt="TukiJuris" width={120} height={40} className="h-10 w-auto" />
+          <Image src="/brand/logo-tj-full.png" alt="TukiJuris" width={120} height={40} className="h-10 w-auto" />
         </Link>
         <div className="flex items-center gap-3">
           <Link

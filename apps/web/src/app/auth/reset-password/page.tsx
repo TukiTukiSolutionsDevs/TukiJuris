@@ -66,7 +66,7 @@ function ResetPasswordForm() {
     return (
       <div className="w-full max-w-[420px]">
         <div className="text-center mb-10">
-          <Image src="/brand/logo-icon.png" alt="TukiJuris" width={56} height={56} className="w-14 mx-auto mb-4 object-contain" />
+          <Image src="/brand/logo-tj.png" alt="TukiJuris" width={56} height={56} className="w-14 mx-auto mb-4 object-contain" />
           <span className="font-headline text-xl font-bold text-primary">TukiJuris</span>
         </div>
         <div className="panel-raised rounded-xl p-8">
@@ -94,7 +94,7 @@ function ResetPasswordForm() {
     return (
       <div className="w-full max-w-[420px]">
         <div className="text-center mb-10">
-          <Image src="/brand/logo-icon.png" alt="TukiJuris" width={56} height={56} className="w-14 mx-auto mb-4 object-contain" />
+          <Image src="/brand/logo-tj.png" alt="TukiJuris" width={56} height={56} className="w-14 mx-auto mb-4 object-contain" />
           <span className="font-headline text-xl font-bold text-primary">TukiJuris</span>
         </div>
         <div className="panel-raised rounded-xl p-8">
@@ -126,7 +126,7 @@ function ResetPasswordForm() {
   return (
     <div className="w-full max-w-[420px]">
       <div className="text-center mb-10">
-        <Image src="/brand/logo-icon.png" alt="TukiJuris" width={56} height={56} className="w-14 mx-auto mb-4 object-contain" />
+        <Image src="/brand/logo-tj.png" alt="TukiJuris" width={56} height={56} className="w-14 mx-auto mb-4 object-contain" />
         <span className="font-headline text-xl font-bold text-primary">TukiJuris</span>
       </div>
 

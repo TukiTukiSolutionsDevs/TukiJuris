@@ -39,7 +39,7 @@ export function ChatEmptyState({ selectedArea, onSelectTemplate }: ChatEmptyStat
     <div className="c-empty">
       <div className="c-empty__mark">
         <Image
-          src="/brand/logo-icon.png"
+          src="/brand/logo-tj.png"
           alt=""
           width={60}
           height={60}

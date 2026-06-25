@@ -417,7 +417,7 @@ export default function GuiaPage() {
               <section>
                 <div className="mb-6">
                   <Image
-                    src="/brand/logo-full.png"
+                    src="/brand/logo-tj-full.png"
                     alt="TukiJuris"
                     width={160}
                     height={40}

@@ -33,7 +33,7 @@ function UserAvatar({ initial }: { initial: string }) {
 function AssistantAvatar() {
   return (
     <div className="c-avatar c-avatar--brand" aria-hidden="true">
-      <Image src="/brand/logo-icon.png" alt="" width={30} height={30} />
+      <Image src="/brand/logo-tj.png" alt="" width={30} height={30} />
     </div>
   );
 }

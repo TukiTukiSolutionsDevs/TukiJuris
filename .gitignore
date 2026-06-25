@@ -64,3 +64,6 @@ data/
 # Local-only material (pitch decks, design audit screenshots)
 _pitch/
 design-audit/
+
+# local logo/asset backups
+*.bak

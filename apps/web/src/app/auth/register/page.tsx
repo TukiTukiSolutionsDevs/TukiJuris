@@ -98,7 +98,7 @@ export default function RegisterPage() {
 
         <div className="relative z-10 pt-12 pl-14">
           <div className="inline-flex flex-col items-center px-4 py-3">
-            <Image src="/brand/tukan.png" alt="TukiJuris" width={220} height={220} className="w-36 h-auto object-contain" priority />
+            <Image src="/brand/logo-tj.png" alt="TukiJuris" width={220} height={220} className="w-36 h-auto object-contain" priority />
             <div className="mt-2 font-headline text-[2rem] leading-none tracking-[-0.05em] font-bold text-primary">TukiJuris</div>
             <div className="mt-1 text-[0.6rem] uppercase tracking-[0.42em] text-on-surface-variant/55">Abogados</div>
           </div>
@@ -130,7 +130,7 @@ export default function RegisterPage() {
 
       {/* ── MOBILE HEADER (compact) ── */}
       <div className="flex md:hidden items-center gap-3 pt-8 pb-4 px-6 bg-background">
-        <Image src="/brand/logo-icon.png" alt="TukiJuris" width={40} height={40} className="w-10 h-10 object-contain" priority />
+        <Image src="/brand/logo-tj.png" alt="TukiJuris" width={40} height={40} className="w-10 h-10 object-contain" priority />
         <div>
           <div className="font-headline text-xl leading-none font-bold text-primary">TukiJuris</div>
           <div className="text-[0.6rem] uppercase tracking-[0.3em] text-on-surface-variant/50">Crea tu cuenta gratis</div>

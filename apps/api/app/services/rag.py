@@ -218,8 +218,9 @@ class RAGService:
                 rows = await conn.fetch(
                     """
                     SELECT
-                        dc.id, dc.content, dc.legal_area, dc.article_number,
-                        dc.section_path, d.title AS document_title,
+                        dc.id, dc.document_id, dc.content, dc.legal_area,
+                        dc.article_number, dc.section_path,
+                        d.title AS document_title,
                         d.document_number,
                         ts_rank_cd(
                             to_tsvector('spanish', dc.content),
@@ -240,8 +241,9 @@ class RAGService:
                 rows = await conn.fetch(
                     """
                     SELECT
-                        dc.id, dc.content, dc.legal_area, dc.article_number,
-                        dc.section_path, d.title AS document_title,
+                        dc.id, dc.document_id, dc.content, dc.legal_area,
+                        dc.article_number, dc.section_path,
+                        d.title AS document_title,
                         d.document_number,
                         ts_rank_cd(
                             to_tsvector('spanish', dc.content),

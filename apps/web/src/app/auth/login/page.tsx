@@ -157,7 +157,7 @@ export default function LoginPage() {
         <div className="relative z-10 flex flex-col items-center text-center max-w-sm">
           {/* Mascot */}
           <Image
-            src="/brand/tukan.png"
+            src="/brand/logo-tj.png"
             alt="Mascota TukiJuris"
             width={220}
             height={220}
@@ -193,7 +193,7 @@ export default function LoginPage() {
       {/* ── MOBILE HEADER (compact) ── */}
       <div className="flex md:hidden items-center gap-3 pt-8 pb-4 px-6 bg-background">
         <Image
-          src="/brand/logo-icon.png"
+          src="/brand/logo-tj.png"
           alt="TukiJuris"
           width={40}
           height={40}

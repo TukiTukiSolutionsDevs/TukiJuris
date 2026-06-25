@@ -31,7 +31,7 @@ export function EmptyState({
     >
       {mascot ? (
         <Image
-          src="/brand/logo-full.png"
+          src="/brand/logo-tj-full.png"
           alt="TukiJuris"
           width={120}
           height={36}

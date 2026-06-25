@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import {
@@ -14,7 +15,6 @@ import {
   History,
   LogOut,
   Plus,
-  Scale,
   Search,
   Settings,
   Shield,
@@ -229,15 +229,14 @@ export function AppSidebar({
           className="flex items-center gap-2.5"
           onClick={isDrawer ? onNavigate : undefined}
         >
-          <div
-            className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-[9px] shadow-[0_2px_8px_rgba(201,168,76,0.25)]"
-            style={{
-              background:
-                "linear-gradient(140deg,#E0C36A,#C9A84C 55%,#A8893C)",
-            }}
-          >
-            <Scale className="h-[19px] w-[19px]" strokeWidth={2} style={{ color: "#1A1410" }} />
-          </div>
+          <Image
+            src="/brand/logo-tj.png"
+            alt="TukiJuris"
+            width={34}
+            height={34}
+            priority
+            className="h-[34px] w-[34px] shrink-0 rounded-[9px] object-contain"
+          />
           <div className="leading-[1.1]">
             <div className="font-['Newsreader'] text-[19px] font-semibold tracking-[-0.01em] text-on-surface-strong">
               TukiJuris

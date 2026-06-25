@@ -318,7 +318,7 @@ export default function NotificacionesPage() {
           {!loading && !error && isAllEmpty && (
             <div className="flex flex-col items-center justify-center py-20 gap-4">
               <Image
-                src="/brand/logo-full.png"
+                src="/brand/logo-tj-full.png"
                 alt="TukiJuris"
                 width={160}
                 height={48}

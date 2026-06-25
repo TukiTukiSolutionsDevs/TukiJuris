@@ -966,7 +966,7 @@ export default function HistorialPage() {
             ) : filtered.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-20 text-center">
                 <Image
-                  src="/brand/logo-full.png"
+                  src="/brand/logo-tj-full.png"
                   className="w-24 mx-auto mb-4 opacity-20"
                   alt="Logo"
                   width={96}

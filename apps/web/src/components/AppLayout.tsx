@@ -21,7 +21,7 @@ export function AppLayout({ children, sidebarContent, contentClassName, rightRai
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
   const { theme } = useTheme();
-  const logoSrc = theme === "dark" ? "/brand/logo-full.png" : "/brand/logo-negro.png";
+  const logoSrc = theme === "dark" ? "/brand/logo-tj-full.png" : "/brand/logo-negro.png";
 
   const { user, isLoading } = useAuth();
 

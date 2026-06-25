@@ -45,7 +45,7 @@ export function PublicHeader() {
             className="flex items-center gap-3 rounded-2xl px-1 py-1 transition-transform duration-200 hover:scale-[1.01]"
           >
             <Image
-              src="/brand/logo-icon.png"
+              src="/brand/logo-tj.png"
               alt="TukiJuris"
               className="h-10 w-10 sm:h-12 sm:w-12 object-contain drop-shadow-[0_4px_12px_rgba(0,0,0,0.10)]"
               width={48}

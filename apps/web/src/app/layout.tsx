@@ -12,9 +12,9 @@ export const metadata: Metadata = {
     "Plataforma jurídica inteligente especializada en derecho peruano. Consulta normativa, jurisprudencia y orientación legal con agentes de IA especializados.",
   metadataBase: new URL("https://tukijuris.com.pe"),
   icons: {
-    icon: "/brand/logo-full.png",
-    shortcut: "/brand/logo-full.png",
-    apple: "/brand/logo-full.png",
+    icon: "/brand/logo-tj-full.png",
+    shortcut: "/brand/logo-tj-full.png",
+    apple: "/brand/logo-tj-full.png",
   },
   openGraph: {
     title: "TukiJuris — Asistente Legal IA para Derecho Peruano",
@@ -24,13 +24,13 @@ export const metadata: Metadata = {
     siteName: "TukiJuris",
     locale: "es_PE",
     type: "website",
-    images: [{ url: "/brand/logo-full.png", width: 512, height: 512, alt: "TukiJuris" }],
+    images: [{ url: "/brand/logo-tj-full.png", width: 512, height: 512, alt: "TukiJuris" }],
   },
   twitter: {
     card: "summary_large_image",
     title: "TukiJuris — Asistente Legal IA",
     description: "Plataforma jurídica inteligente para derecho peruano",
-    images: ["/brand/logo-full.png"],
+    images: ["/brand/logo-tj-full.png"],
   },
   robots: {
     index: true,

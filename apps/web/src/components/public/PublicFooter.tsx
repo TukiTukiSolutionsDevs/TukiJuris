@@ -20,7 +20,7 @@ export function PublicFooter() {
           <div className="flex flex-col gap-3">
             <div className="flex items-center gap-2.5">
               <Image
-                src="/brand/logo-icon.png"
+                src="/brand/logo-tj.png"
                 alt="TukiJuris"
                 className="h-10 w-10 object-contain"
                 width={40}

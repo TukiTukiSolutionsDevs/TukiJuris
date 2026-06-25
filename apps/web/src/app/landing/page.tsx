@@ -299,7 +299,7 @@ export default function LandingPage() {
 
               {/* Mascot */}
               <Image
-                src="/brand/tukan.png"
+                src="/brand/logo-tj.png"
                 alt="TukiJuris — Asistente Legal IA"
                 className="relative w-56 sm:w-72 lg:w-[380px] h-auto drop-shadow-[0_20px_50px_rgba(0,0,0,0.20)] animate-float-slow"
                 width={380}

@@ -27,6 +27,8 @@ class DocumentSummary(BaseModel):
 
 
 class SearchResult(BaseModel):
+    chunk_id: str
+    document_id: str
     article_number: str | None
     content: str
     legal_area: str
@@ -85,6 +87,8 @@ async def search_documents(
 
     return [
         SearchResult(
+            chunk_id=str(r["id"]),
+            document_id=str(r["document_id"]),
             article_number=r.get("article_number"),
             content=r["content"],
             legal_area=r["legal_area"],
@@ -143,7 +147,11 @@ async def get_document_chunks(
             "document_type": doc.document_type,
             "document_number": doc.document_number,
             "legal_area": doc.legal_area,
+            "hierarchy": doc.hierarchy,
             "source": doc.source,
+            "source_url": doc.source_url,
+            "publication_date": doc.publication_date.isoformat() if doc.publication_date else None,
+            "is_active": doc.is_active,
         },
         "chunks": [
             {

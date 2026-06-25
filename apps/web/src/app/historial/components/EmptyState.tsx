@@ -21,7 +21,7 @@ export function EmptyState({ kind, onClearFilters }: EmptyStateProps) {
       <div className="hst-empty">
         <div className="hst-empty__mark">
           <Image
-            src="/brand/logo-icon.png"
+            src="/brand/logo-tj.png"
             alt=""
             width={52}
             height={52}
