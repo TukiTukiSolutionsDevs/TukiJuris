@@ -10,6 +10,7 @@ This is the brain of Agente Derecho. It:
 6. Returns the final integrated response
 """
 
+import asyncio
 import contextvars
 import json
 import logging
@@ -771,18 +772,30 @@ async def enrich_with_secondary(state: OrchestratorState) -> dict[str, Any]:
     2. The PRIMARY agent's response (so they can COMPLEMENT, not repeat)
     3. RAG context for their specific area
     """
-    await _emit("step", {"node": "enrich", "status": "start", "phase": "analysis", "secondary_areas": state.get("secondary_areas", [])})
-    secondary_responses = []
+    # Cap at 2 secondaries. On free-tier / codex-proxy, each agent.process
+    # blocks ~30-60s with max_tokens=4096; running 4 in series turned each
+    # analysis turn into 2-3 minutes. 2 is the sweet spot between quality
+    # and latency, especially since the synthesis step still gets a strong
+    # primary + 2 perspectives.
+    SECONDARY_LIMIT = 2
+    target_areas = state.get("secondary_areas", [])[:SECONDARY_LIMIT]
+    await _emit("step", {
+        "node": "enrich",
+        "status": "start",
+        "phase": "analysis",
+        "secondary_areas": target_areas,
+    })
     primary = state.get("primary_response", {})
     primary_text = primary.get("response", "") if isinstance(primary, dict) else str(primary)
     primary_agent_name = state.get("primary_agent_name", "especialista previo")
 
-    for area in state.get("secondary_areas", [])[:4]:  # Up to 4 secondary agents
+    async def _run_one(area: str) -> dict | None:
+        """Run a single secondary agent end-to-end. Returns None on failure
+        so the gather can keep the rest of the responses."""
         agent = get_agent(area)
         if not agent:
-            continue
+            return None
 
-        # KEY: Secondary agents see the primary response to COMPLEMENT it
         enrichment_query = (
             f"Otro especialista ({primary_agent_name}) ya analizó esta consulta. "
             f"Tu rol es COMPLEMENTAR su análisis desde tu perspectiva como {agent.name}. "
@@ -794,7 +807,6 @@ async def enrich_with_secondary(state: OrchestratorState) -> dict[str, Any]:
             f"Sé específico con normativa y artículos aplicables."
         )
 
-        # Retrieve RAG context for this secondary area
         secondary_context = ""
         try:
             secondary_context = await rag_service.retrieve(
@@ -805,18 +817,14 @@ async def enrich_with_secondary(state: OrchestratorState) -> dict[str, Any]:
         except Exception as exc:
             logger.warning(f"RAG retrieval failed for secondary area={area}: {exc}")
 
-        # Each secondary agent call is wrapped so one failing (rate limit,
-        # provider 5xx, etc.) doesn't abort the whole LangGraph. We just
-        # log + skip, and the synthesis step works with whoever returned.
         try:
-            result = await agent.process(
+            return await agent.process(
                 query=enrichment_query,
                 context=secondary_context,
                 model=state.get("model"),
                 conversation_history=state.get("conversation_history", []),
                 user_api_key=state.get("user_api_key"),
             )
-            secondary_responses.append(result)
         except Exception as exc:
             logger.warning(
                 "Secondary agent failed (area=%s) — skipping. Reason: %s",
@@ -829,7 +837,15 @@ async def enrich_with_secondary(state: OrchestratorState) -> dict[str, Any]:
                 "area": area,
                 "skipped": True,
             })
+            return None
 
+    # Run all secondaries in parallel. asyncio.gather waits for the slowest
+    # so total elapsed time = max(per-agent), not sum().
+    results = await asyncio.gather(
+        *[_run_one(area) for area in target_areas],
+        return_exceptions=False,
+    )
+    secondary_responses = [r for r in results if r is not None]
     return {"secondary_responses": secondary_responses}
 
 
