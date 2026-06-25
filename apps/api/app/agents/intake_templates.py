@@ -22,6 +22,7 @@ class PendingQuestion(TypedDict, total=False):
     question: str           # texto que se muestra al cliente
     helper: str             # subtítulo opcional con contexto
     options: list[str]      # chips de respuesta rápida (lista vacía = solo input libre)
+    multi: bool             # True → permite seleccionar varias opciones a la vez
 
 
 class IntakeTemplate(TypedDict):
@@ -100,6 +101,7 @@ INTAKE_TEMPLATES: dict[str, IntakeTemplate] = {
                     "Testigos directos",
                     "No tengo evidencia escrita",
                 ],
+                "multi": True,
             },
             {
                 "slot": "reclamo_previo",
@@ -163,6 +165,7 @@ INTAKE_TEMPLATES: dict[str, IntakeTemplate] = {
                     "Negocio o empresa",
                     "No hay bienes en común",
                 ],
+                "multi": True,
             },
             {
                 "slot": "via_preferida",
@@ -227,6 +230,7 @@ INTAKE_TEMPLATES: dict[str, IntakeTemplate] = {
                     "Difamación / calumnia",
                     "No estoy seguro",
                 ],
+                "multi": True,
             },
             {
                 "slot": "medidas_cautelares",
@@ -238,6 +242,7 @@ INTAKE_TEMPLATES: dict[str, IntakeTemplate] = {
                     "Prisión preventiva",
                     "No hay medidas",
                 ],
+                "multi": True,
             },
             {
                 "slot": "pruebas",
@@ -250,6 +255,7 @@ INTAKE_TEMPLATES: dict[str, IntakeTemplate] = {
                     "Capturas de mensajes",
                     "No tengo evidencia aún",
                 ],
+                "multi": True,
             },
             {
                 "slot": "defensa",
@@ -316,6 +322,7 @@ INTAKE_TEMPLATES: dict[str, IntakeTemplate] = {
                     "Correos o mensajes",
                     "No tengo nada formal",
                 ],
+                "multi": True,
             },
             {
                 "slot": "contraparte",
@@ -463,6 +470,7 @@ INTAKE_TEMPLATES: dict[str, IntakeTemplate] = {
                     "Métodos comerciales abusivos",
                     "Otro",
                 ],
+                "multi": True,
             },
             {
                 "slot": "comprobante",
@@ -474,6 +482,7 @@ INTAKE_TEMPLATES: dict[str, IntakeTemplate] = {
                     "Sí, captura o email",
                     "No tengo comprobante",
                 ],
+                "multi": True,
             },
             {
                 "slot": "libro_reclamaciones",
@@ -528,6 +537,7 @@ INTAKE_TEMPLATES: dict[str, IntakeTemplate] = {
                     "Datos financieros",
                     "Otros datos sensibles",
                 ],
+                "multi": True,
             },
             {
                 "slot": "consentimiento",
@@ -550,6 +560,7 @@ INTAKE_TEMPLATES: dict[str, IntakeTemplate] = {
                     "Discriminación",
                     "Otro",
                 ],
+                "multi": True,
             },
             {
                 "slot": "derechos_arco",
@@ -667,6 +678,7 @@ INTAKE_TEMPLATES: dict[str, IntakeTemplate] = {
                     "Ruido",
                     "Residuos sólidos",
                 ],
+                "multi": True,
             },
             {
                 "slot": "causante",
@@ -699,6 +711,7 @@ INTAKE_TEMPLATES: dict[str, IntakeTemplate] = {
                     "Ambos",
                     "No",
                 ],
+                "multi": True,
             },
             {
                 "slot": "denuncia_previa",
@@ -710,6 +723,7 @@ INTAKE_TEMPLATES: dict[str, IntakeTemplate] = {
                     "Gobierno regional",
                     "No hay denuncia previa",
                 ],
+                "multi": True,
             },
             {
                 "slot": "evidencia",
@@ -721,6 +735,7 @@ INTAKE_TEMPLATES: dict[str, IntakeTemplate] = {
                     "Denuncias previas archivadas",
                     "No tengo evidencia aún",
                 ],
+                "multi": True,
             },
         ],
         "uploads_hint": "fotos del impacto, análisis de calidad de agua/aire, denuncia previa, EIA público",
@@ -744,6 +759,7 @@ INTAKE_TEMPLATES: dict[str, IntakeTemplate] = {
                     "Salud / educación / pensión",
                     "Otro",
                 ],
+                "multi": True,
             },
             {
                 "slot": "acto_lesivo",
@@ -785,6 +801,7 @@ INTAKE_TEMPLATES: dict[str, IntakeTemplate] = {
                     "Testimonios",
                     "No tengo aún",
                 ],
+                "multi": True,
             },
         ],
         "uploads_hint": "resolución o acto cuestionado, cartas, sentencias, pruebas del daño",
@@ -852,6 +869,7 @@ INTAKE_TEMPLATES: dict[str, IntakeTemplate] = {
                     "Resoluciones",
                     "No tengo aún",
                 ],
+                "multi": True,
             },
         ],
         "uploads_hint": "notificación, resoluciones, expediente administrativo, TUPA aplicable",
@@ -909,6 +927,7 @@ INTAKE_TEMPLATES: dict[str, IntakeTemplate] = {
                     "Convenios de accionistas",
                     "No tengo acceso a todo",
                 ],
+                "multi": True,
             },
             {
                 "slot": "urgencia",
@@ -976,6 +995,7 @@ INTAKE_TEMPLATES: dict[str, IntakeTemplate] = {
                     "Título archivado",
                     "No tengo todo",
                 ],
+                "multi": True,
             },
             {
                 "slot": "plazo",
@@ -1042,6 +1062,7 @@ INTAKE_TEMPLATES: dict[str, IntakeTemplate] = {
                     "Análisis económico",
                     "No tengo aún",
                 ],
+                "multi": True,
             },
             {
                 "slot": "estado_proceso",
@@ -1164,6 +1185,7 @@ INTAKE_TEMPLATES: dict[str, IntakeTemplate] = {
                     "Sí, otro",
                     "No",
                 ],
+                "multi": True,
             },
             {
                 "slot": "monto",
@@ -1185,6 +1207,7 @@ INTAKE_TEMPLATES: dict[str, IntakeTemplate] = {
                     "Certificado de origen",
                     "No tengo todo",
                 ],
+                "multi": True,
             },
         ],
         "uploads_hint": "DAM, factura, BL, certificado de origen, notificaciones SUNAT-Aduanas",
@@ -1359,6 +1382,7 @@ INTAKE_TEMPLATES: dict[str, IntakeTemplate] = {
                     "Partidas registrales",
                     "Falta documentación",
                 ],
+                "multi": True,
             },
             {
                 "slot": "urgencia",
@@ -1508,6 +1532,7 @@ INTAKE_TEMPLATES: dict[str, IntakeTemplate] = {
                     "Acuerdo de confidencialidad",
                     "No tengo aún",
                 ],
+                "multi": True,
             },
         ],
         "uploads_hint": "constancia INDECOPI, manual de marca, evidencia de uso, contratos de licencia",
@@ -1554,6 +1579,7 @@ INTAKE_TEMPLATES: dict[str, IntakeTemplate] = {
                     "Cláusula abusiva",
                     "Otro",
                 ],
+                "multi": True,
             },
             {
                 "slot": "monto",
@@ -1639,6 +1665,7 @@ INTAKE_TEMPLATES: dict[str, IntakeTemplate] = {
                     "Comunicaciones SMV",
                     "No tengo aún",
                 ],
+                "multi": True,
             },
         ],
         "uploads_hint": "prospecto, hechos de importancia, estados financieros, comunicaciones SMV",
@@ -1833,6 +1860,7 @@ INTAKE_TEMPLATES: dict[str, IntakeTemplate] = {
                     "Actas comunales",
                     "No tengo todo",
                 ],
+                "multi": True,
             },
         ],
         "uploads_hint": "contrato de concesión, EIA, resoluciones OSINERGMIN / PERUPETRO",
@@ -1899,6 +1927,7 @@ INTAKE_TEMPLATES: dict[str, IntakeTemplate] = {
                     "Comunicaciones del operador",
                     "No tengo aún",
                 ],
+                "multi": True,
             },
         ],
         "uploads_hint": "contrato del servicio, recibos, comunicaciones del operador, resoluciones OSIPTEL",
@@ -2010,6 +2039,7 @@ INTAKE_TEMPLATES: dict[str, IntakeTemplate] = {
                     "Fallecimiento",
                     "Aún en evaluación",
                 ],
+                "multi": True,
             },
             {
                 "slot": "documentacion",
@@ -2021,6 +2051,7 @@ INTAKE_TEMPLATES: dict[str, IntakeTemplate] = {
                     "Peritajes",
                     "No tengo aún (la pidieron y no la dan)",
                 ],
+                "multi": True,
             },
             {
                 "slot": "estado_reclamo",
@@ -2069,6 +2100,7 @@ GENERIC_TEMPLATE: IntakeTemplate = {
                 "Fotos / videos",
                 "No tengo documentación aún",
             ],
+            "multi": True,
         },
         {
             "slot": "accion_previa",
@@ -2126,6 +2158,7 @@ def normalize_pending(raw: list) -> list[PendingQuestion]:
                     "question": str(item["question"]),
                     "helper": str(item["helper"]) if item.get("helper") else "",
                     "options": [str(o) for o in (item.get("options") or [])],
+                    "multi": bool(item.get("multi", False)),
                 }
             )
         elif isinstance(item, str) and item.strip():
@@ -2135,6 +2168,7 @@ def normalize_pending(raw: list) -> list[PendingQuestion]:
                     "question": item.strip(),
                     "helper": "",
                     "options": [],
+                    "multi": False,
                 }
             )
     return out

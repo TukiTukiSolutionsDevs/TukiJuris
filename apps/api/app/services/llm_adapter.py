@@ -248,13 +248,21 @@ def get_model_tier(model_id: str) -> int:
 
 # ─── Free tier models — available without BYOK keys ──────────────────────
 # These are provided by the platform at zero cost to the user.
-# Order matters: first model is the primary, rest are fallbacks.
+# Order matters: first model with a configured platform key wins as the
+# default. gpt-5.5 sits first because it consistently produces the
+# best legal analysis quality on case-flow turns; Groq llama models are
+# kept as fallbacks (faster but markedly worse legal reasoning — they
+# hallucinated tributary tangents on labor cases in testing) and gemini
+# sits at the bottom because we don't have a stable platform key yet.
 FREE_TIER_MODELS = [
+    # OpenAI via local codex-proxy (dev/self-hosted setups). Only appears in
+    # the chat picker if the platform has an OpenAI key configured — get_free
+    # tier_models() filters by _get_platform_key.
     {
-        "id": "gemini/gemini-2.5-flash",
-        "provider": "google",
-        "name": "Gemini 2.5 Flash",
-        "description": "Modelo gratuito incluido. Rápido y capaz.",
+        "id": "openai/gpt-5.5",
+        "provider": "openai",
+        "name": "GPT-5.5 — vía proxy",
+        "description": "Servido por el codex-proxy local. ~4s/call. Modelo recomendado para análisis de caso.",
         "tier": "free",
         "cost_per_1k_tokens": 0.0,
         "is_platform_provided": True,
@@ -263,7 +271,7 @@ FREE_TIER_MODELS = [
         "id": "groq/llama-3.3-70b-versatile",
         "provider": "groq",
         "name": "Llama 3.3 70B — Groq",
-        "description": "Modelo gratuito incluido. 280 t/s, versátil.",
+        "description": "Fallback gratuito. 280 t/s pero menor calidad jurídica que GPT.",
         "tier": "free",
         "cost_per_1k_tokens": 0.0,
         "is_platform_provided": True,
@@ -272,19 +280,16 @@ FREE_TIER_MODELS = [
         "id": "groq/llama-3.1-8b-instant",
         "provider": "groq",
         "name": "Llama 3.1 8B — Groq",
-        "description": "Modelo gratuito incluido. Ultra rápido.",
+        "description": "Fallback gratuito ultra rápido. Solo para casos triviales.",
         "tier": "free",
         "cost_per_1k_tokens": 0.0,
         "is_platform_provided": True,
     },
-    # OpenAI via local codex-proxy (dev/self-hosted setups). Only appears in
-    # the chat picker if the platform has an OpenAI key configured — get_free
-    # tier_models() filters by _get_platform_key.
     {
-        "id": "openai/gpt-5.5",
-        "provider": "openai",
-        "name": "GPT-5.5 — vía proxy",
-        "description": "Servido por el codex-proxy local. ~4s/call. Ideal para análisis de caso.",
+        "id": "gemini/gemini-2.5-flash",
+        "provider": "google",
+        "name": "Gemini 2.5 Flash",
+        "description": "Fallback gratuito de Google. Aún sin platform key estable.",
         "tier": "free",
         "cost_per_1k_tokens": 0.0,
         "is_platform_provided": True,

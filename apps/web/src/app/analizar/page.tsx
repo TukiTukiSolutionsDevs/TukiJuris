@@ -65,6 +65,7 @@ function normalizePending(raw: CaseState["case_pending"] | undefined): PendingQu
           question: item.question,
           helper: item.helper,
           options: Array.isArray(item.options) ? item.options : [],
+          multi: Boolean(item.multi),
         };
       }
       return null;
@@ -563,8 +564,18 @@ export default function AnalizarPage() {
   useEffect(() => {
     if (typeof window === "undefined") return;
     const params = new URLSearchParams(window.location.search);
+    // Precedence: ?model= in URL > /configuracion preference > backend default.
     const m = params.get("model");
-    if (m) setModelOverride(m);
+    if (m) {
+      setModelOverride(m);
+      setActiveModel(m);
+    } else {
+      const saved = window.localStorage.getItem("pref_default_model");
+      if (saved) {
+        setModelOverride(saved);
+        setActiveModel(saved);
+      }
+    }
     const convId = params.get("conversation");
     if (!convId) return;
 
