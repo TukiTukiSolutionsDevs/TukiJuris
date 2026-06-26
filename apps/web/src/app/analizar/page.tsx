@@ -623,7 +623,9 @@ export default function AnalizarPage() {
       // picking a Tier 3 model), snap to the plan's recommended default
       // and surface a toast so the user knows what happened.
       (async () => {
-        const access = await fetchPlanAccess(authFetch);
+        const access = await fetchPlanAccess(
+          authFetch as Parameters<typeof fetchPlanAccess>[0],
+        );
         if (!saved) {
           if (access?.default_model) {
             setModelOverride(access.default_model);
@@ -734,13 +736,14 @@ export default function AnalizarPage() {
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let buffer = "";
-      let donePayload: {
+      type DonePayload = {
         message: string;
         agent_used: string;
         legal_area: string;
         model_used?: string;
         case_state?: CaseState | null;
-      } | null = null;
+      };
+      let donePayload: DonePayload | null = null;
       let errored = false;
 
       while (true) {
@@ -795,7 +798,7 @@ export default function AnalizarPage() {
                   : prev?.per_agent_ms ?? [],
             }));
           } else if (eventType === "done") {
-            donePayload = data as typeof donePayload;
+            donePayload = data as unknown as DonePayload;
           } else if (eventType === "error") {
             errored = true;
             const msg = (data.message as string) || "Error en el orquestador";

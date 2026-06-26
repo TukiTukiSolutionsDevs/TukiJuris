@@ -526,7 +526,9 @@ export default function ConfiguracionPage() {
       // Plan-access info drives the model picker's locked/available state.
       // Loaded in parallel with the rest — the picker degrades to "show all
       // unlocked" if this fails (backend will still gate on actual use).
-      const access = await fetchPlanAccess(authFetch);
+      const access = await fetchPlanAccess(
+        authFetch as Parameters<typeof fetchPlanAccess>[0],
+      );
       if (access) setPlanAccess(access);
 
       if (typeof window !== "undefined") {

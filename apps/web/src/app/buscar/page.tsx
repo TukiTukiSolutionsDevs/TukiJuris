@@ -423,9 +423,13 @@ function DocumentDrawer({
   const [activeChunkId, setActiveChunkId] = useState<string | null>(initialChunkId);
   const containerRef = useRef<HTMLDivElement>(null);
 
+  // Canonical "fetch on id change" pattern: clear loading/error state before
+  // kicking off the request; no external store to subscribe to.
   useEffect(() => {
     let alive = true;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoading(true);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setError(null);
     fetch(`/api/documents/${documentId}/chunks`)
       .then(async (res) => {

@@ -102,7 +102,7 @@ describe("resolvePostLoginDestination — onboarding flag combinations", () => {
 
   // Combo 6: no returnTo, user onboarded
   it("C6: no returnTo, non-admin, onboarded → ROUTE_AFTER_LOGIN_USER", () => {
-    expect(resolvePostLoginDestination(null, false, true)).toBe("/chat");
+    expect(resolvePostLoginDestination(null, false, true)).toBe("/analizar");
   });
 
   // Combo 7: no returnTo, admin not onboarded
@@ -116,8 +116,8 @@ describe("resolvePostLoginDestination — onboarding flag combinations", () => {
   });
 
   // Idempotency edge (AC15): returnTo="/onboarding" but user already onboarded → skip loop
-  it("idempotency: returnTo=/onboarding, onboarded=true, non-admin → falls through to /chat", () => {
-    expect(resolvePostLoginDestination("/onboarding", false, true)).toBe("/chat");
+  it("idempotency: returnTo=/onboarding, onboarded=true, non-admin → falls through to /analizar", () => {
+    expect(resolvePostLoginDestination("/onboarding", false, true)).toBe("/analizar");
   });
 
   it("idempotency: returnTo=/onboarding, onboarded=true, admin → falls through to /admin", () => {
@@ -152,16 +152,16 @@ describe("resolvePostLoginDestination", () => {
       expect(resolvePostLoginDestination(null, true, true)).toBe("/admin");
     });
 
-    it("returns /chat for regular user with null returnTo", () => {
-      expect(resolvePostLoginDestination(null, false, true)).toBe("/chat");
+    it("returns /analizar for regular user with null returnTo", () => {
+      expect(resolvePostLoginDestination(null, false, true)).toBe("/analizar");
     });
 
     it("returns /admin for admin with undefined returnTo", () => {
       expect(resolvePostLoginDestination(undefined, true, true)).toBe("/admin");
     });
 
-    it("returns /chat for regular user with undefined returnTo", () => {
-      expect(resolvePostLoginDestination(undefined, false, true)).toBe("/chat");
+    it("returns /analizar for regular user with undefined returnTo", () => {
+      expect(resolvePostLoginDestination(undefined, false, true)).toBe("/analizar");
     });
 
     it("ignores external returnTo and falls back to role default (admin)", () => {
@@ -169,15 +169,15 @@ describe("resolvePostLoginDestination", () => {
     });
 
     it("ignores external returnTo and falls back to role default (user)", () => {
-      expect(resolvePostLoginDestination("https://evil.com", false, true)).toBe("/chat");
+      expect(resolvePostLoginDestination("https://evil.com", false, true)).toBe("/analizar");
     });
 
     it("ignores protocol-relative returnTo and falls back to role default", () => {
-      expect(resolvePostLoginDestination("//evil.com/steal", false, true)).toBe("/chat");
+      expect(resolvePostLoginDestination("//evil.com/steal", false, true)).toBe("/analizar");
     });
 
     it("ignores /auth/login returnTo (loop) and falls back to role default", () => {
-      expect(resolvePostLoginDestination("/auth/login", false, true)).toBe("/chat");
+      expect(resolvePostLoginDestination("/auth/login", false, true)).toBe("/analizar");
     });
   });
 });

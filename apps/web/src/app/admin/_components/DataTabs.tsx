@@ -420,7 +420,11 @@ export function RolesTab() {
     [activeRoleId]
   );
 
+  // Auto-select the first role once the list loads. This is derived from
+  // async data (no external store), so the rule's recommended alternatives
+  // don't apply.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (roles && roles.length && !activeRoleId) setActiveRoleId(roles[0].id);
   }, [roles, activeRoleId]);
 

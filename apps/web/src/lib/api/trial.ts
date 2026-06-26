@@ -73,12 +73,13 @@ export async function cancelTrial(authFetch: AuthFetch, id: string): Promise<Tri
 }
 
 export interface AddCardBody {
-  provider: string;
+  provider: "culqi" | "mp";
   token_id: string;
   customer_info: {
     email: string;
     first_name: string;
     last_name: string;
+    phone_number?: string;
   };
 }
 

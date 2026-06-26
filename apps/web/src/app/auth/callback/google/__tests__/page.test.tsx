@@ -5,7 +5,7 @@
  *  - Missing `code` param → calls toast.error + redirects to /login?error=oauth_failed
  *  - Backend failure → calls toast.error + redirects to /login?error=oauth_failed
  *  - Network error → calls toast.error + redirects to /login?error=oauth_failed
- *  - Successful exchange, non-admin → redirects to /chat
+ *  - Successful exchange, non-admin → redirects to /analizar
  *  - Successful exchange, admin → redirects to /admin
  *  - `returnto` from response body respected (backend-authoritative)
  *  - Defense-in-depth: absolute URL in `returnto` → falls back to role default
@@ -166,7 +166,7 @@ describe("GoogleCallbackPage — successful callback", () => {
     );
   });
 
-  it("redirects non-admin to /chat when no returnto in response", async () => {
+  it("redirects non-admin to /analizar when no returnto in response", async () => {
     setupParams({ code: "auth-code", state: "state" });
     server.use(
       http.post(GOOGLE_CALLBACK_URL, () =>
@@ -175,7 +175,7 @@ describe("GoogleCallbackPage — successful callback", () => {
     );
     render(<GoogleCallbackPage />);
     await waitFor(() => {
-      expect(pushMock).toHaveBeenCalledWith("/chat");
+      expect(pushMock).toHaveBeenCalledWith("/analizar");
     });
   });
 
@@ -214,7 +214,7 @@ describe("GoogleCallbackPage — successful callback", () => {
     );
     render(<GoogleCallbackPage />);
     await waitFor(() => {
-      expect(pushMock).toHaveBeenCalledWith("/chat");
+      expect(pushMock).toHaveBeenCalledWith("/analizar");
       expect(pushMock).not.toHaveBeenCalledWith(
         expect.stringContaining("evil.com"),
       );
@@ -259,7 +259,7 @@ describe("GoogleCallbackPage — onboarding precedence", () => {
     render(<GoogleCallbackPage />);
     // /me fails → non-blocking → falls through to role redirect
     await waitFor(() => {
-      expect(pushMock).toHaveBeenCalledWith("/chat");
+      expect(pushMock).toHaveBeenCalledWith("/analizar");
     });
   });
 });

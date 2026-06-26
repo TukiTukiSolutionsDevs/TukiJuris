@@ -21,10 +21,26 @@
 
 const CULQI_SCRIPT_SRC = "https://js.culqi.com/checkout-js";
 
+interface CulqiGlobal {
+  publicKey?: string;
+  settings: (options: { title: string; currency: string }) => void;
+  createToken: (
+    card: CardData,
+    callback: (response: {
+      object: string;
+      id?: string;
+      card_brand?: string;
+      last_four?: string;
+      bin?: string;
+      user_message?: string;
+      merchant_message?: string;
+    }) => void,
+  ) => void;
+}
+
 declare global {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   interface Window {
-    Culqi?: any;
+    Culqi?: CulqiGlobal;
   }
 }
 
@@ -101,16 +117,17 @@ export async function tokenizeCard(card: CardData): Promise<CulqiToken> {
       "Pagos no disponibles aún. Culqi se habilita 15 días después del despliegue.",
     );
   }
-  if (!window.Culqi) {
+  const culqi = window.Culqi;
+  if (!culqi) {
     throw new Error("No se pudo cargar Culqi.js");
   }
 
   // The real implementation uses Culqi.createToken via callbacks; wrap in a Promise.
   return new Promise((resolve, reject) => {
     try {
-      window.Culqi.publicKey = publicKey;
-      window.Culqi.settings({ title: "TukiJuris", currency: "PEN" });
-      window.Culqi.createToken(card, (response: { object: string; id?: string; card_brand?: string; last_four?: string; bin?: string; user_message?: string; merchant_message?: string }) => {
+      culqi.publicKey = publicKey;
+      culqi.settings({ title: "TukiJuris", currency: "PEN" });
+      culqi.createToken(card, (response) => {
         if (response?.object === "token" && response.id) {
           resolve({
             id: response.id,

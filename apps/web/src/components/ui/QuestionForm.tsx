@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { ArrowRight, Check, Loader2, Plus, X } from "lucide-react";
 
 export type PendingQuestion = {
@@ -61,13 +61,17 @@ export function QuestionForm({
   const customRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   // Reset state when the question list itself changes (new intake turn).
+  // Computed-during-render reset per React docs ("you might not need an
+  // effect"), tracked by a paired key state.
   const questionsKey = useMemo(
     () => questions.map((q) => q.slot).join("|"),
     [questions],
   );
-  useEffect(() => {
+  const [prevQuestionsKey, setPrevQuestionsKey] = useState(questionsKey);
+  if (prevQuestionsKey !== questionsKey) {
+    setPrevQuestionsKey(questionsKey);
     setAnswers({});
-  }, [questionsKey]);
+  }
 
   const hasAnswer = (a: AnswerState | undefined) =>
     !!a && (a.selected.length > 0 || a.custom.trim().length > 0);

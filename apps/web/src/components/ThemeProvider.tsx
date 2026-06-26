@@ -51,9 +51,13 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setThemeState] = useState<Theme>("dark"); // SSR default
   const [mounted, setMounted] = useState(false);
 
-  // Hydrate from client
+  // Hydrate from client. The "no setState in effect" rule is correct in
+  // general, but this is the canonical pattern for SSR-safe theme hydration:
+  // the initial render must use the SSR default to avoid a hydration
+  // mismatch, then the client reads localStorage and reconciles.
   useEffect(() => {
     const resolved = getInitialTheme();
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setThemeState(resolved);
     applyTheme(resolved);
     setMounted(true);

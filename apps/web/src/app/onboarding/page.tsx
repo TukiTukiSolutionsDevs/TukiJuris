@@ -19,12 +19,14 @@ export default function OnboardingPage() {
   const [animating, setAnimating] = useState(false);
   const [state, setState] = useState<OnboardingState>(INITIAL_STATE);
 
-  // Load saved state from localStorage on mount
+  // Load saved state from localStorage on mount. SSR-safe one-shot hydration
+  // read — no external-store subscription model applies here.
   useEffect(() => {
     try {
       const saved = localStorage.getItem("tukijuris_onboarding");
       if (saved) {
         const parsed = JSON.parse(saved) as Partial<OnboardingState>;
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setState((prev) => ({ ...prev, ...parsed }));
       }
     } catch {

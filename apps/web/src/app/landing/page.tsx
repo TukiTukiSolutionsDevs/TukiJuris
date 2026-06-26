@@ -150,8 +150,8 @@ const HOW_IT_WORKS = [
 
 export default function LandingPage() {
   const [stats, setStats] = useState({ chunks: 1806, documents: 1520, areas: 29 });
-  const chunksCounter = useCounter(stats.chunks);
-  const areasCounter = useCounter(stats.areas, 1200);
+  const { count: chunksCount, ref: chunksRef } = useCounter(stats.chunks);
+  const { count: areasCount, ref: areasRef } = useCounter(stats.areas, 1200);
 
   useEffect(() => {
     fetch(`${API_URL}/api/health/knowledge`)
@@ -244,15 +244,15 @@ export default function LandingPage() {
             {/* Animated stats */}
             <div className="animate-fade-in-up delay-400 flex flex-wrap gap-6 sm:gap-8 pt-4">
               <div className="flex flex-col">
-                <span ref={chunksCounter.ref} className="font-headline text-2xl sm:text-3xl font-bold text-primary tabular-nums">
-                  {chunksCounter.count.toLocaleString()}+
+                <span ref={chunksRef} className="font-headline text-2xl sm:text-3xl font-bold text-primary tabular-nums">
+                  {chunksCount.toLocaleString()}+
                 </span>
                 <span className="text-xs text-on-surface/50 uppercase tracking-widest">fragmentos legales</span>
               </div>
               <div className="w-px self-stretch bg-ghost-border" />
               <div className="flex flex-col">
-                <span ref={areasCounter.ref} className="font-headline text-2xl sm:text-3xl font-bold text-primary tabular-nums">
-                  {areasCounter.count}
+                <span ref={areasRef} className="font-headline text-2xl sm:text-3xl font-bold text-primary tabular-nums">
+                  {areasCount}
                 </span>
                 <span className="text-xs text-on-surface/50 uppercase tracking-widest">áreas del derecho</span>
               </div>

@@ -162,7 +162,7 @@ export function LimitesTab() {
           </table>
         </div>
         <p className="text-[10px] text-on-surface/40 mt-2">
-          "—" = tier no disponible para ese plan · "∞" = ilimitado
+          &ldquo;—&rdquo; = tier no disponible para ese plan · &ldquo;∞&rdquo; = ilimitado
         </p>
       </section>
 

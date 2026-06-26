@@ -9,9 +9,24 @@ import { AddCardModal } from "../AddCardModal";
 // ---------------------------------------------------------------------------
 
 const mockAuthFetch = vi.fn();
+type MockUser = {
+  id: string;
+  email: string;
+  isAdmin: boolean;
+  plan: null;
+  entitlements: string[];
+};
+const DEFAULT_USER: MockUser = {
+  id: "user-1",
+  email: "test@tukijuris.pe",
+  isAdmin: false,
+  plan: null,
+  entitlements: [],
+};
+let mockUser: MockUser | null = DEFAULT_USER;
 
 vi.mock("@/lib/auth/AuthContext", () => ({
-  useAuth: () => ({ authFetch: mockAuthFetch }),
+  useAuth: () => ({ authFetch: mockAuthFetch, user: mockUser }),
 }));
 
 vi.mock("@/lib/api/trial", () => ({
@@ -35,6 +50,7 @@ const TRIAL_RESULT = {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mockUser = DEFAULT_USER;
 });
 
 // ---------------------------------------------------------------------------
@@ -49,30 +65,46 @@ describe("AddCardModal", () => {
     expect(screen.getByText("Agregar tarjeta")).toBeInTheDocument();
   });
 
-  it("submit button is disabled when input is empty", () => {
+  it("submit button is disabled when required fields are empty", () => {
     render(<AddCardModal trialId="trial-1" onClose={vi.fn()} />);
     expect(screen.getByTestId("submit-card-btn")).toBeDisabled();
   });
 
-  it("submit button enables after typing token", async () => {
+  it("submit button enables only after token + first/last name are filled", async () => {
     const user = userEvent.setup();
     render(<AddCardModal trialId="trial-1" onClose={vi.fn()} />);
 
     await user.type(screen.getByTestId("card-token-input"), "tkn_test123");
+    expect(screen.getByTestId("submit-card-btn")).toBeDisabled();
+
+    await user.type(screen.getByTestId("first-name-input"), "Juan");
+    expect(screen.getByTestId("submit-card-btn")).toBeDisabled();
+
+    await user.type(screen.getByTestId("last-name-input"), "Pérez");
     expect(screen.getByTestId("submit-card-btn")).not.toBeDisabled();
   });
 
-  it("calls addCardToTrial with correct args on submit", async () => {
+  it("calls addCardToTrial with backend-shaped body on submit", async () => {
     mockAddCard.mockResolvedValue(TRIAL_RESULT);
     const onClose = vi.fn();
     const user = userEvent.setup();
     render(<AddCardModal trialId="trial-1" onClose={onClose} />);
 
     await user.type(screen.getByTestId("card-token-input"), "tkn_test123");
+    await user.type(screen.getByTestId("first-name-input"), "Juan");
+    await user.type(screen.getByTestId("last-name-input"), "Pérez");
     await user.click(screen.getByTestId("submit-card-btn"));
 
     await waitFor(() => {
-      expect(mockAddCard).toHaveBeenCalledWith(mockAuthFetch, "trial-1", "tkn_test123");
+      expect(mockAddCard).toHaveBeenCalledWith(mockAuthFetch, {
+        provider: "culqi",
+        token_id: "tkn_test123",
+        customer_info: {
+          email: DEFAULT_USER.email,
+          first_name: "Juan",
+          last_name: "Pérez",
+        },
+      });
     });
   });
 
@@ -83,6 +115,8 @@ describe("AddCardModal", () => {
     render(<AddCardModal trialId="trial-1" onClose={onClose} />);
 
     await user.type(screen.getByTestId("card-token-input"), "tkn_test123");
+    await user.type(screen.getByTestId("first-name-input"), "Juan");
+    await user.type(screen.getByTestId("last-name-input"), "Pérez");
     await user.click(screen.getByTestId("submit-card-btn"));
 
     await waitFor(() => {
@@ -95,7 +129,9 @@ describe("AddCardModal", () => {
     const user = userEvent.setup();
     render(<AddCardModal trialId="trial-1" onClose={vi.fn()} />);
 
-    await user.type(screen.getByTestId("card-token-input"), "tkn_bad");
+    await user.type(screen.getByTestId("card-token-input"), "tkn_bad1");
+    await user.type(screen.getByTestId("first-name-input"), "Juan");
+    await user.type(screen.getByTestId("last-name-input"), "Pérez");
     await user.click(screen.getByTestId("submit-card-btn"));
 
     await waitFor(() => {
@@ -120,5 +156,40 @@ describe("AddCardModal", () => {
 
     await user.click(screen.getByText("Cancelar"));
     expect(onClose).toHaveBeenCalledWith();
+  });
+
+  it("lets the user type an email when the session has none", async () => {
+    mockUser = { ...DEFAULT_USER, email: "" };
+    mockAddCard.mockResolvedValue(TRIAL_RESULT);
+    const onClose = vi.fn();
+    const user = userEvent.setup();
+    render(<AddCardModal trialId="trial-1" onClose={onClose} />);
+
+    const emailInput = screen.getByTestId("card-email-input") as HTMLInputElement;
+    expect(emailInput.value).toBe("");
+
+    await user.type(screen.getByTestId("card-token-input"), "tkn_test123");
+    await user.type(screen.getByTestId("first-name-input"), "Juan");
+    await user.type(screen.getByTestId("last-name-input"), "Pérez");
+
+    // Still blocked because email is missing.
+    expect(screen.getByTestId("submit-card-btn")).toBeDisabled();
+
+    await user.type(emailInput, "fallback@correo.pe");
+    expect(screen.getByTestId("submit-card-btn")).not.toBeDisabled();
+
+    await user.click(screen.getByTestId("submit-card-btn"));
+
+    await waitFor(() => {
+      expect(mockAddCard).toHaveBeenCalledWith(mockAuthFetch, {
+        provider: "culqi",
+        token_id: "tkn_test123",
+        customer_info: {
+          email: "fallback@correo.pe",
+          first_name: "Juan",
+          last_name: "Pérez",
+        },
+      });
+    });
   });
 });

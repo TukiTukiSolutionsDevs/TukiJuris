@@ -22,6 +22,10 @@ export function CookieBanner() {
   useEffect(() => {
     try {
       const acked = window.localStorage.getItem(STORAGE_KEY);
+      // SSR-safe mount-time read from localStorage — the lint rule's "no setState
+      // in effect" guidance assumes external-store subscription, but a one-shot
+      // hydration read like this has no subscription model to migrate to.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       if (!acked) setVisible(true);
     } catch {
       setVisible(true);

@@ -2,8 +2,8 @@
  * Unit tests for OnboardingPage.
  *
  * Covers:
- *  - finish() awaits completeOnboarding() then redirects to /chat
- *  - skipAll() awaits completeOnboarding() then redirects to /chat
+ *  - finish() awaits completeOnboarding() then redirects to /
+ *  - skipAll() awaits completeOnboarding() then redirects to /
  *  - completeOnboarding() is NOT called until finish/skip is triggered
  */
 
@@ -137,7 +137,7 @@ beforeEach(() => {
 // ---------------------------------------------------------------------------
 
 describe("OnboardingPage — skipAll()", () => {
-  it("calls completeOnboarding() then redirects to /chat", async () => {
+  it("calls completeOnboarding() then redirects to /", async () => {
     const user = userEvent.setup();
     render(<OnboardingPage />);
 
@@ -147,8 +147,7 @@ describe("OnboardingPage — skipAll()", () => {
     await waitFor(() => {
       expect(mockCompleteOnboarding).toHaveBeenCalledTimes(1);
     });
-    expect(mockPush).toHaveBeenCalledWith("/chat");
-    expect(mockPush).not.toHaveBeenCalledWith("/");
+    expect(mockPush).toHaveBeenCalledWith("/");
   });
 
   it("does NOT redirect when completeOnboarding rejects (no silent swallow)", async () => {
@@ -177,7 +176,7 @@ describe("OnboardingPage — skipAll()", () => {
 // ---------------------------------------------------------------------------
 
 describe("OnboardingPage — finish()", () => {
-  it("calls completeOnboarding() then redirects to /chat after completing all steps", async () => {
+  it("calls completeOnboarding() then redirects to / after completing all steps", async () => {
     const user = userEvent.setup();
     render(<OnboardingPage />);
 
@@ -191,8 +190,7 @@ describe("OnboardingPage — finish()", () => {
     await waitFor(() => {
       expect(mockCompleteOnboarding).toHaveBeenCalledTimes(1);
     });
-    expect(mockPush).toHaveBeenCalledWith("/chat");
-    expect(mockPush).not.toHaveBeenCalledWith("/");
+    expect(mockPush).toHaveBeenCalledWith("/");
   });
 
   it("persists onboarding prefs to localStorage before calling completeOnboarding", async () => {

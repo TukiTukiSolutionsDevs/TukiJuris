@@ -382,7 +382,12 @@ export default function StatusPage() {
     setRefreshing(false);
   }, []);
 
+  // checkStatus is a useCallback that internally calls setState — this is
+  // the canonical "load on mount + refresh every minute" pattern. The rule
+  // is correct in general but doesn't have a clean alternative for a
+  // periodic poll like this.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     checkStatus();
     const interval = setInterval(() => checkStatus(true), 60_000);
     return () => clearInterval(interval);

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import {
   Bookmark,
   Bot,
@@ -176,13 +177,13 @@ export default function MarcadoresPage() {
               <p className="text-on-surface/40 text-sm max-w-sm">
                 Guarda las respuestas mas utiles haciendo clic en el icono de marcador en cualquier mensaje del asistente.
               </p>
-              <a
+              <Link
                 href="/"
                 className="mt-6 inline-flex items-center gap-2 bg-gradient-to-br from-primary to-primary-container text-on-primary text-sm font-bold px-5 py-2.5 rounded-lg transition-opacity"
               >
                 <Scale className="w-4 h-4" />
                 Ir al chat
-              </a>
+              </Link>
             </div>
           )}
 
